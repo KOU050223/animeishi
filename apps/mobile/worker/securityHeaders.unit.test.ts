@@ -68,6 +68,20 @@ describe("buildContentSecurityPolicy", () => {
     );
   });
 
+  it("PostHog の送信先は POSTHOG_HOST があるときだけ許可する", () => {
+    const withPostHog = buildContentSecurityPolicy({
+      API_ORIGIN: "https://api.example.com",
+      POSTHOG_HOST: "https://eu.i.posthog.com/",
+    });
+    expect(directive(withPostHog, "connect-src")).toContain(
+      "https://eu.i.posthog.com",
+    );
+    expect(directive(withPostHog, "connect-src")).toContain(
+      "https://eu-assets.i.posthog.com",
+    );
+    expect(csp).not.toContain("posthog");
+  });
+
   it("任意ホストの作品画像を表示できるよう img-src は https: を許可する", () => {
     expect(directive(csp, "img-src")).toContain("https:");
   });

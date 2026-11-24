@@ -5,6 +5,7 @@ import { createElement } from "react";
 import { renderHook, act, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Sentry from "@sentry/react-native";
+import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 
 // Web 実装を直接 import して検証する（バンドラの .web 解決に依存せず単体で確認）。
@@ -52,7 +53,7 @@ describe("useAnnictConnect (web)", () => {
     process.env.EXPO_PUBLIC_ANNICT_CLIENT_ID = "test_client_id";
     delete process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
     mockDisconnectPost.mockReset().mockResolvedValue({ ok: true });
-    jest.mocked(Sentry.logger.info).mockClear();
+    jest.mocked(captureAnalyticsEvent).mockClear();
     jest.mocked(Sentry.flush).mockClear();
     window.sessionStorage.clear();
     hrefValue = "";
@@ -176,10 +177,9 @@ describe("useAnnictConnect (web)", () => {
     ).toBe("anime_list");
     // 遷移成功は OAuth の結果ではないため送らない（連携完了は未確定）。
     const oauthResults = jest
-      .mocked(Sentry.logger.info)
+      .mocked(captureAnalyticsEvent)
       .mock.calls.filter(
-        ([, attrs]) =>
-          (attrs as Record<string, string>)["annict.step"] === "oauth_result",
+        ([, attrs]) => attrs["annict.step"] === "oauth_result",
       );
     expect(oauthResults).toHaveLength(0);
   });
@@ -204,7 +204,7 @@ describe("useAnnictConnect (web)", () => {
     expect(res).toEqual({ status: "error", reason: "storage_unavailable" });
     expect(hrefValue).toBe("");
     await waitFor(() =>
-      expect(Sentry.logger.info).toHaveBeenCalledWith(
+      expect(captureAnalyticsEvent).toHaveBeenCalledWith(
         ANNICT_FUNNEL_EVENT,
         expect.objectContaining({
           "annict.step": "oauth_result",

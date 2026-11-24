@@ -376,7 +376,7 @@ sanitize は API と同じく `event.request.headers` に sanitizeHeaders を
 | 画面遷移時間（ルート単位の cold_ttr / warm_ttr / tti） | EAS Observe |
 | JS エラー（未処理・ErrorBoundary 捕捉） | Sentry |
 | ネイティブクラッシュ | Sentry |
-| UI イベント・ファネル計測 | Sentry Logs（上記の各節） |
+| プロダクト計測（UI イベント・ファネル・リテンション）・機能フラグ | PostHog（下の「プロダクト計測」節） |
 
 二重収集を防ぐため、`Observe.configure` に `errorHandlingEnabled: false`
 を渡し、Observe 側の JS 未処理エラー記録を切っている。`ObserveErrorBoundary`
@@ -427,12 +427,87 @@ Free でも確認できるが、**Navigation events dashboard（ルート単位�
 Starter 以上が必要になる可能性が高い。利用者が増えてイベント数が
 無料枠を超えたら ingest を止めるか `sampleRate` を下げる。
 
+## プロダクト計測（PostHog、issue #214 / #758）
+
+主要操作・起動・オンボーディング・名刺交換の成立を PostHog に送り、
+交換完了率・D1/D7 リテンション・オンボーディング完了率を出せるようにする。
+#214 では新規 SaaS を入れず Sentry Logs で始めたが、#744 で v1.0 前に PostHog へ移した。
+
+- リテンションや交換完了率は、リリース時点から記録しないと初期利用者の分を後から取れない
+- PostHog の公式 MCP サーバー経由で運営 AI に分析を任せられる（手順は `docs/runbook/posthog.md`）
+- リモートの機能フラグを、リリース後の障害時の停止スイッチに使える
+
+エラー監視は Sentry に残す（PostHog の例外収集は使わない）。Sentry Logs への
+送信はやめた（`enableLogs` も外した）。旧 Sentry ダッシュボードとの互換は持たない。
+
+```text
+送信ロジック: apps/mobile/lib/events.ts          # trackEvent(name, attributes)
+PostHog クライアント: apps/mobile/lib/analytics/  # 遅延読み込み・identify/reset・機能フラグ
+コンテキスト: apps/mobile/lib/useEventTrackingContext.ts
+              # 現在画面・userId を module 状態へ同期（app/_layout.tsx で呼ぶ）
+起動・復帰: apps/mobile/lib/useAppOpenTracking.ts # app_open
+サーバー記録: apps/api/src/lib/posthog.ts         # sign_up_complete / exchange_complete
+イベント名・属性キー: packages/observability/src/events.ts
+擬似ユーザーキー: packages/observability/src/userKey.ts
+レート制限: packages/observability/src/rateLimit.ts
+```
+
+### 設定とキー未設定時の挙動
+
+| 場所 | 変数 | 未設定のとき |
+|------|------|--------------|
+| mobile（EAS env / GitHub Variables） | `EXPO_PUBLIC_POSTHOG_KEY` | SDK を読み込まず、計測はすべて no-op。機能フラグは undefined（止めない） |
+| mobile | `EXPO_PUBLIC_POSTHOG_HOST` | `https://us.i.posthog.com` |
+| API（Workers Secret） | `POSTHOG_KEY` | サーバー記録を送らない |
+| API | `POSTHOG_HOST` | `https://us.i.posthog.com` |
+| Web Worker（`--var`） | `POSTHOG_HOST` | CSP の connect-src に PostHog を足さない（キーがあるビルドだけ deploy-web / preview-web が渡す） |
+
+SDK（`posthog-react-native`）は動的 import で読み込み、Web の初回 JS に入れない
+（Sentry と同じ。`lib/analytics/posthogLoader.ts`）。ネイティブの追加依存は無く、
+永続化は既存の AsyncStorage を使う。
+
+SDK の設定（`lib/analytics/client.ts`）:
+
+- `captureAppLifecycleEvents: false`（起動・復帰は自前の `app_open`）
+- `enableSessionReplay: false`・`disableSurveys: true`・`errorTracking.autocapture: false`
+- `disableGeoip: true`（IP から所在地を引かせない）。プロジェクト側でも
+  「Discard client IP data」を ON にする（runbook）
+- autocapture は `PostHogProvider` を使わないので動かない
+- 全イベントに `environment`（production / preview / development）を register する
+
+### 利用者の識別
+
+distinct_id は Clerk userId のソルト付き SHA-256 先頭 16 文字（user key）。生の userId は
+送らない。ソルトは #64 の Annict ファネルから据え置き、mobile と API で
+`@animeishi/observability` の `userKey.ts` を共有する（API のサーバー記録と
+mobile のイベントが同じ利用者に紐づく）。
+
+- サインイン（userId が確定）したら `identify(user key)`。サインイン前の匿名イベントは
+  PostHog が同じ利用者にまとめる
+- サインアウト（userId が値 → null）で `reset()`。読み込み中（undefined）では何もしない
+
+### イベント
+
+| イベント | 送る場所 | 発火点 |
+|----------|----------|--------|
+| `app_open` | mobile | 起動時と、バックグラウンドからの復帰時（`useAppOpenTracking`。Web はタブの再表示）。リテンションの基準 |
+| `sign_up_complete` | API | `requireAuth` が users 行を作成した時（`ensureUserExists` が true）。認証経路・プラットフォームに関わらず 1 度だけ |
+| `meishi_create` | mobile | 名刺が 0 枚の状態から 1 枚目を保存した時（`useMeishiDocument.saveDocument` と初回ガイドの `onboarding.tsx`）。保存のたびの `meishi_save` とは別 |
+| `exchange_complete` | API | `POST /me/friends`（対面 QR・オフライン交換の成立。交換記録もここで積まれる）が成功した時。読み取り側・提示側の両者の distinct_id で 1 件ずつ送る（両者とも `qr_exchange_start` を送るため）。`token: qr \| offline` |
+| `annict_connect_complete` | mobile | `annict_connect_funnel` の `oauth_result` が success の時（`surface` 付き） |
+| `danime_import_complete` | mobile | d アニメ取り込みの登録が終わり結果画面に進んだ時（`succeeded` / `failed` 件数付き） |
+
+交換の完了率は `qr_exchange_start`（QR 画面への進入）→ `exchange_complete` の
+Funnel で出す。手動の「会った」記録（`POST /me/exchange-records`）は交換の成立ではないため
+数えない。
+
+API の送信は `c.executionCtx.waitUntil` に積み、応答を待たせない。Worker からの送信なので
+`$geoip_disable: true` を付ける。
+
 ## ファネル計測（Annict 連携コンバージョン、issue #64）
 
 未連携ユーザーへの連携誘導がどれだけ連携完了に繋がるかを計測する。
-新規 SaaS は入れず、Sentry Logs（`enableLogs` + `Sentry.logger`）を使う。
-Logs は Issue を作らないため大量発生してもアラートのノイズにならず、
-Explore で属性フィルタ・集計ができる。
+送信経路は上のプロダクト計測（`trackEvent`）と同じで、PostHog に送る。
 
 ```text
 イベント: annict_connect_funnel（1 本。step 属性で段階を分ける）
@@ -477,63 +552,31 @@ Explore で属性フィルタ・集計ができる。
     `oauth_result` は送られる（`surface` 無し・`reason=state_mismatch` 等）。
     ファネル集計では `surface` 有りで絞るか reason で除外して読む。
 
-Web の注意点: Sentry Logs はバッファに溜まって一定間隔で送信される。
-authorize へのページ遷移でバッファごと捨てられると `cta_tap` 等が
-消失するため、`connect()` は遷移直前に `flushAnnictFunnel()` で進行中の
-計測送信がバッファに乗るのを待ち、`Sentry.flush()`（時間上限付き）で
-送信完了を待ってから `location.href` を更新している。
+Web の注意点: SDK はイベントをキューに溜めて一定間隔で送信する。
+authorize へのページ遷移でキューごと捨てられると `cta_tap` 等が
+消失するため、`connect()` は遷移直前に `flushAnnictFunnel()`（進行中の送信を待って
+PostHog を flush）と `flushSentry()` を時間上限付きで待ってから `location.href` を更新している。
 
 ### 集計方法
 
-Sentry の Logs / Explore で `message = annict_connect_funnel` に絞り、
-`annict.step` で件数比較（表示→タップ→成功の各率）、
-`annict.reason`・`annict.surface` で離脱ポイントを見る。
+PostHog の Funnel で `annict_connect_funnel` を `annict.step` で段階に分けるか、
+Trends で `annict.step` / `annict.reason` / `annict.surface` の内訳を見る。
 `environment = production` で絞ること（開発環境の StrictMode による
-effect 二重実行で `prompt_view` が倍計上されうるため）。
-user_key で同一ユーザーのユニークコンバージョンも概算できる。
+effect 二重実行で `prompt_view` が倍計上されうるため）。連携の完了だけを見るときは
+`annict_connect_complete` を使う。
 
-### ダッシュボード（再現手順）
+## UI イベント（主要ボタンの利用状況、issue #214）
 
-ファネル用の Sentry ダッシュボード「Annict 連携ファネル」は
-`scripts/sentry/setup-annict-funnel-dashboard.sh` で作成する（logs データセット、
-KPI 3 枚・ステップ別推移・OAuth 結果内訳・導線別表・失敗理由表）。
-
-```bash
-sentry auth login   # ダッシュボード作成・編集権限（org:write 相当）のあるアカウント/トークンで
-bash scripts/sentry/setup-annict-funnel-dashboard.sh [org] [project]
-```
-
-スクリプトは冪等で、ダッシュボードが既にあれば作成をスキップし、同名ウィジェットが
-既にあるものは追加しない。途中で失敗してもそのまま再実行すればよい。
-ただし既存ウィジェットの定義（クエリ・表示形式）は更新しないため、変更したい場合は
-Sentry 上で該当ウィジェットを削除してから再実行する。
-
-## UI イベント計測（主要ボタンの利用状況、issue #214）
-
-Annict ファネル計測（issue #64）の仕組みを汎用化し、名刺交換・Tier 表・
-AI 分析・視聴ステータス・お気に入りなど主要ボタンの押下を Sentry Logs で
-計測する。「何回・いつ・どの画面で」押されたかを把握するのが目的。
-新規 SaaS（プロダクト分析基盤）は入れず、既存の `Sentry.logger` を使う。
-
-```text
-送信ロジック: apps/mobile/lib/events.ts          # trackEvent(name, attributes)
-コンテキスト: apps/mobile/lib/useEventTrackingContext.ts
-              # 現在画面・userId を module 状態へ同期（app/_layout.tsx で呼ぶ）
-イベント名・属性キー: packages/observability/src/events.ts
-レート制限: packages/observability/src/rateLimit.ts
-```
+名刺交換・Tier 表・AI 分析・視聴ステータス・お気に入りなど主要ボタンの押下。
+「何回・いつ・どの画面で」押されたかを把握するのが目的。
 
 ### イベント命名
 
 - イベント名は `<対象>_<動作>` の snake_case（例: `meishi_save`,
-  `tier_share`, `watch_status_change`）。Sentry Logs の message と
-  `event.name` 属性の両方に入る（logs では message での group-by が
-  効かないため、集計軸として `event.name` を別途属性にも持たせる）。
-- 名称は `TRACKED_EVENTS`（`packages/observability/src/events.ts`）に
-  列挙して管理する。新しい計測を足すときはここに追加する。
-- `annict_connect_funnel` は既存ダッシュボードとの互換のため
-  命名・属性を変更しないまま同じ送信経路（`trackEvent`）へ乗せている
-  （`autoAttributes: false` で自動属性を付けず、既存の属性セットを維持）。
+  `tier_share`, `watch_status_change`）。PostHog のイベント名になる。
+- 名称は `TRACKED_EVENTS`（API が送るものは `SERVER_TRACKED_EVENTS`。
+  `packages/observability/src/events.ts`）に列挙して管理する。
+- `annict_connect_funnel` は #64 の属性セットを保つため `autoAttributes: false` で送る。
 
 ### 属性
 
@@ -541,11 +584,10 @@ AI 分析・視聴ステータス・お気に入りなど主要ボタンの押�
 
 | 属性 | 値 |
 |------|-----|
-| `event.name` | イベント名（集計の group-by 軸） |
 | `platform` | `ios` / `android` / `web` |
 | `app_version` | `Constants.expoConfig.version`（未解決なら `dev`） |
 | `screen` | 現在のルート（`useSegments` ベース。`/(tabs)` 等の group を除き `/` で連結。空なら `index`）。動的セグメントはルートパターンの `[uid]` 表記のままなので実値は載らない |
-| `user_key` | Clerk userId のソルト付き SHA-256 先頭16文字。ソルトは Annict ファネルと同じで突き合わせ可能（PII は送らない） |
+| `user_key` | Clerk userId のソルト付き SHA-256 先頭16文字（PII は送らない）。PostHog の distinct_id と同じ値 |
 
 イベント固有（`TRACK_EVENT_KEYS` にキーを集約）:
 
@@ -587,7 +629,7 @@ AI 分析・視聴ステータス・お気に入りなど主要ボタンの押�
 | `guest_cta_tap` | 公開プロフィールの登録 CTA のタップ（`source: profile`）。共有ページ（API の HTML）の CTA は JS を持たないため、遷移先の新規登録画面が `?from=<source>` を見て送る（`screen: sign-up`） |
 | `guest_cta_return` | 登録（とオンボーディング）を終えて、CTA を押した公開プロフィールへ戻した時（`source: profile`） |
 
-共有ページの CTA の表示は Sentry ではなく API の Workers Logs に
+共有ページの CTA の表示は PostHog ではなく API の Workers Logs に
 `{"event":"guest_cta_view","source":"share_*"}` として残す（HTML を返した
 時点を表示とみなす。OGP クローラの取得も含む）。
 
@@ -599,9 +641,8 @@ AI 分析・視聴ステータス・お気に入りなど主要ボタンの押�
 
 `EventRateLimiter`（`packages/observability/src/rateLimit.ts`）で
 同一イベント名あたり **60 秒に 10 回**までに制限する
-（既定値 `EVENT_RATE_LIMIT`）。連打・ループ・異常系で無料枠
-（Developer プラン 5 GB/月、超過請求なしの上限設定）を使い切るのを防ぐ
-ためのクライアント側の安全弁であり、上限到達分は静かに捨てる。
+（既定値 `EVENT_RATE_LIMIT`）。連打・ループ・異常系で PostHog の無料枠を
+使い切るのを防ぐためのクライアント側の安全弁であり、上限到達分は静かに捨てる。
 制限自体をイベント化しない（そのイベントも枠を消費するため）。
 
 `annict_connect_funnel` も同じリミッターを通るが、全ステップが同一
@@ -612,8 +653,9 @@ AI 分析・視聴ステータス・お気に入りなど主要ボタンの押�
 
 ### 新しい計測を追加する手順
 
-1. `TRACKED_EVENTS` に `<対象>_<動作>` の snake_case でイベント名を追加する
-2. 発火点で `trackEvent("<name>", { ...属性 })` を呼ぶ
+1. `TRACKED_EVENTS`（API から送るなら `SERVER_TRACKED_EVENTS`）に
+   `<対象>_<動作>` の snake_case でイベント名を追加する
+2. 発火点で `trackEvent("<name>", { ...属性 })`（API は `captureServerEvent`）を呼ぶ
    （fire-and-forget。await 不要。属性は enum 的な固定値のみ、
    PII・URL・ユーザー入力・ID は送らない）。
    - 画面進入直後のイベントはルートレイアウトの `screen` 同期が間に
@@ -621,26 +663,21 @@ AI 分析・視聴ステータス・お気に入りなど主要ボタンの押�
    - 同一イベント名で段階を分ける計測（ファネル等）は
      `{ rateLimitKey: "<name>:<step>" }` でステップ別枠にする
 3. 必要なら `TRACK_EVENT_KEYS` に属性キーを追加する
-4. `scripts/sentry/setup-ui-events-dashboard.sh` に該当ウィジェットを足す
-   （既存ダッシュボードには自動反映されないため、Sentry 側で手動追加
-   するか該当ウィジェットを削除してスクリプト再実行）
+4. 新しい種類のデータを送るなら `app/privacy.tsx` と `docs/store-listing.md` の申告を見直す
 
-### ダッシュボード（再現手順）
+## 機能フラグ（PostHog、issue #758）
 
-UI イベント用の Sentry ダッシュボード「UI イベント計測」は
-`scripts/sentry/setup-ui-events-dashboard.sh` で作成する（logs データセット。
-イベント総数・日別推移（イベント別/画面別）・ボタン別回数・
-画面 × イベント表・共有方式/ステータス遷移/お気に入り/AI 分析の内訳表）。
+リリース後の障害時に、アプリの更新を待たずに機能を止める停止スイッチとして使う。
+審査時だけ機能を隠す用途には使わない（App Store 審査 2.3.1 違反になる）。
 
-```bash
-sentry auth login   # ダッシュボード作成・編集権限（org:write 相当）のあるアカウント/トークンで
-bash scripts/sentry/setup-ui-events-dashboard.sh [org] [project]
-```
+- `useRemoteFeatureFlag(key)`（`lib/analytics`）でフラグを購読する。取得前・取得失敗・
+  キー未設定では undefined
+- 停止スイッチは `=== true` のときだけ止め、取得できないときは止めない側に倒す
+- `danime_import_kill_switch`: true で d アニメ取り込みを止める。ビルド時フラグ
+  `featureFlags.danimeImport` との AND（`lib/featureFlags/useDanimeImportEnabled.ts`）。
+  導線を消し、取り込み画面を直接開いても視聴履歴へ戻す
 
-冪等性とウィジェット更新の扱いは Annict 用スクリプトと同じ。
-クエリのベースは `environment:production has:event.name`
-（`event.name` 属性を持つ UI 計測イベントだけに絞るため、
-`annict_connect_funnel` 等の他用途ログは混ざらない）。
+操作手順は `docs/runbook/posthog.md`。
 
 ## 残課題（スコープ外）
 

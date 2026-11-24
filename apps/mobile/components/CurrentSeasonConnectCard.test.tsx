@@ -5,7 +5,7 @@ import {
   fireEvent,
   waitFor,
 } from "@testing-library/react-native";
-import * as Sentry from "@sentry/react-native";
+import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 import { CurrentSeasonConnectCard } from "@/components/CurrentSeasonConnectCard";
 import type { AnnictConnectResult } from "@/lib/annict";
@@ -20,10 +20,12 @@ jest.mock("@/lib/annict/useAnnictConnect", () => ({
 }));
 
 const loggedFunnelCalls = () =>
-  jest.mocked(Sentry.logger.info).mock.calls.map(([message, attributes]) => ({
-    message,
-    attributes: attributes as Record<string, string>,
-  }));
+  jest
+    .mocked(captureAnalyticsEvent)
+    .mock.calls.map(([message, attributes]) => ({
+      message,
+      attributes,
+    }));
 
 beforeEach(async () => {
   jest.clearAllMocks();

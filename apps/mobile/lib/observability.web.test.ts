@@ -7,7 +7,6 @@ import {
   captureException,
   flushSentry,
   initObservability,
-  logInfo,
   resetObservabilityForTest,
   wrapWithSentry,
 } from "@/lib/observability.web";
@@ -61,7 +60,6 @@ beforeEach(() => {
   jest.mocked(Sentry.captureException).mockClear();
   jest.mocked(Sentry.flush).mockClear();
   jest.mocked(Sentry.flush).mockResolvedValue(true);
-  jest.mocked(Sentry.logger.info).mockClear();
   addEventListenerSpy = jest.spyOn(window, "addEventListener");
   removeEventListenerSpy = jest.spyOn(window, "removeEventListener");
 });
@@ -100,13 +98,11 @@ describe("initObservability (web)", () => {
     delete process.env.EXPO_PUBLIC_SENTRY_DSN;
     initObservability();
     captureException(new Error("early"));
-    logInfo("early_event", { a: "b" });
     await flushLazyInit();
 
     expect(Sentry.init).not.toHaveBeenCalled();
     expect(await flushSentry()).toBe(false);
     expect(Sentry.captureException).not.toHaveBeenCalled();
-    expect(Sentry.logger.info).not.toHaveBeenCalled();
     expect(Sentry.flush).not.toHaveBeenCalled();
     // 送り先のないバッファやグローバルハンドラは残さない
     expect(addEventListenerSpy).not.toHaveBeenCalled();
@@ -114,20 +110,15 @@ describe("initObservability (web)", () => {
 });
 
 describe("初期化前のイベントバッファ", () => {
-  test("初期化前の captureException / logInfo は SDK ロード後に順に流す", async () => {
+  test("初期化前の captureException は SDK ロード後に流す", async () => {
     initObservability();
     const early = new Error("early");
     captureException(early);
-    logInfo("early_event", { a: "b" });
     expect(Sentry.captureException).not.toHaveBeenCalled();
-    expect(Sentry.logger.info).not.toHaveBeenCalled();
 
     await flushLazyInit();
     expect(Sentry.captureException).toHaveBeenCalledTimes(1);
     expect(Sentry.captureException).toHaveBeenCalledWith(early);
-    expect(Sentry.logger.info).toHaveBeenCalledWith("early_event", {
-      a: "b",
-    });
   });
 
   test("window の error / unhandledrejection も初期化前はバッファして送る", async () => {
@@ -186,11 +177,7 @@ describe("初期化前のイベントバッファ", () => {
 
     const error = new Error("after init");
     captureException(error);
-    logInfo("after_event", { x: "y" });
     expect(Sentry.captureException).toHaveBeenCalledWith(error);
-    expect(Sentry.logger.info).toHaveBeenCalledWith("after_event", {
-      x: "y",
-    });
   });
 
   test("初期化後の window error は自前ハンドラから再送しない", async () => {
@@ -213,12 +200,13 @@ describe("初期化前のイベントバッファ", () => {
 describe("flushSentry (web)", () => {
   test("SDK 未ロードでも読み込みを開始し、バッファ分を流してから flush する", async () => {
     initObservability();
-    logInfo("queued", {});
+    const queued = new Error("queued");
+    captureException(queued);
 
     const result = await flushSentry();
     expect(result).toBe(true);
     expect(Sentry.init).toHaveBeenCalledTimes(1);
-    expect(Sentry.logger.info).toHaveBeenCalledWith("queued", {});
+    expect(Sentry.captureException).toHaveBeenCalledWith(queued);
     expect(Sentry.flush).toHaveBeenCalledTimes(1);
   });
 

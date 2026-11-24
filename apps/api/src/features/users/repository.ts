@@ -451,15 +451,17 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
      * @param resolveDisplayName 新規作成時の表示名を解決する関数（省略可）。
      *   Clerk から username 等を取得して渡す。失敗・未指定時は userId を表示名にフォールバックする。
      *   既存ユーザーには呼ばれないため、Clerk API 呼び出しは初回作成時のみに抑えられる。
+     * @returns users 行をこの呼び出しで作成したら true（サインアップ完了の計測
+     *   sign_up_complete に使う。issue #758）。
      */
     async ensureUserExists(
       resolveDisplayName?: () => Promise<string | null | undefined>,
-    ): Promise<void> {
+    ): Promise<boolean> {
       const existing = await db.query.users.findFirst({
         where: eq(users.id, currentUserId),
         columns: { id: true },
       });
-      if (existing) return;
+      if (existing) return false;
 
       let displayName: string | null | undefined;
       try {
@@ -476,7 +478,7 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
       // 削除済みユーザーの残存 JWT で users 行が再作成されないよう、
       // INSERT は tombstone が無い場合だけ行う（issue #144）。
       // upsertMyProfile と同じく単一 statement で原子的に判定する。
-      await db.run(sql`
+      const inserted = await db.run(sql`
         INSERT INTO ${users} (id, username, is_public, created_at, updated_at)
         SELECT
           ${currentUserId}, ${displayName?.trim() || currentUserId}, 1,
@@ -487,6 +489,7 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
         )
         ON CONFLICT(id) DO NOTHING
       `);
+      return inserted.meta.changes === 1;
     },
 
     // ---- Reports / Blocks ----

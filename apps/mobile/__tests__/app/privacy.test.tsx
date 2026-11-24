@@ -64,7 +64,10 @@ describe("PrivacyScreen", () => {
     expect(screen.getByText(/Clerk（認証）/)).toBeTruthy();
     expect(screen.getByText(/Annict（視聴記録連携）/)).toBeTruthy();
     expect(screen.getByText(/AniList・Jikan/)).toBeTruthy();
-    expect(screen.getByText(/Sentry（エラー監視・利用状況計測）/)).toBeTruthy();
+    expect(screen.getByText(/Sentry（エラー監視）/)).toBeTruthy();
+    expect(
+      screen.getByText(/PostHog（利用状況計測・機能の配信制御）/),
+    ).toBeTruthy();
     expect(screen.getByText(/Cloudflare（ホスティング）/)).toBeTruthy();
     expect(screen.getByText(/ソルト付きハッシュの短縮キー/)).toBeTruthy();
     expect(

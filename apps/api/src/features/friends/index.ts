@@ -32,6 +32,8 @@ import type { FriendUpdateType } from "./schema";
 import { createDb } from "@/db/client";
 import { workImageUrl } from "@/lib/catalog/workImage";
 import { createOpenApiApp } from "@/lib/openapi";
+import { captureServerEvent } from "@/lib/posthog";
+import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 
 function getBindings(
   c: Context,
@@ -104,10 +106,16 @@ const friends = app
     // offlineToken はオフライン交換用の長寿命トークン（issue #663）で、
     // qt とは別の用途名で署名されるため相互流用は検証で弾かれる。
     const secret = getBindings(c).CLERK_SECRET_KEY;
-    const tokenOk =
-      (await verifyQrExchangeToken(secret, friendId, qrToken)) ||
-      (await verifyOfflineExchangeToken(secret, friendId, offlineToken));
-    if (!tokenOk) {
+    const exchangeToken = (await verifyQrExchangeToken(
+      secret,
+      friendId,
+      qrToken,
+    ))
+      ? "qr"
+      : (await verifyOfflineExchangeToken(secret, friendId, offlineToken))
+        ? "offline"
+        : null;
+    if (!exchangeToken) {
       return c.json(
         {
           error:
@@ -140,6 +148,16 @@ const friends = app
 
     try {
       const result = await repo.addFriend(friendId, metAt);
+      // 交換の成立（issue #758）。qr_exchange_start との比で完了率を出すため、
+      // クライアントの送信漏れに左右されないようサーバーで記録する。
+      // 成立のたびに交換記録（exchange-records）が積まれるのもここ。
+      // QR を見せた側も qr_exchange_start を送るので、両者の完了として記録する
+      // （読み取り側だけだと提示側が離脱扱いになる）。
+      for (const userId of [c.var.clerkUserId, friendId]) {
+        captureServerEvent(c, "exchange_complete", userId, {
+          [TRACK_EVENT_KEYS.token]: exchangeToken,
+        });
+      }
       return c.json(result, 201);
     } catch (e) {
       if (e instanceof FriendNotFoundError) {

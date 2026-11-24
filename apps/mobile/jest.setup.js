@@ -85,6 +85,20 @@ Object.defineProperty(navigator, "languages", {
   configurable: true,
 });
 
+// プロダクト計測（PostHog、issue #758）の送信クライアント。テストでは
+// 送信内容を captureAnalyticsEvent の呼び出しで検証する。
+// クライアント自体のテスト（lib/analytics/client.test.ts）は jest.unmock で外す。
+jest.mock("@/lib/analytics/client", () => ({
+  DEFAULT_POSTHOG_HOST: "https://us.i.posthog.com",
+  isAnalyticsEnabled: jest.fn(() => false),
+  captureAnalyticsEvent: jest.fn(async () => {}),
+  identifyAnalyticsUser: jest.fn(async () => {}),
+  resetAnalyticsUser: jest.fn(async () => {}),
+  flushAnalytics: jest.fn(async () => {}),
+  subscribeFeatureFlag: jest.fn(() => () => {}),
+  resetAnalyticsClientForTest: jest.fn(),
+}));
+
 // 実際の翻訳でアサートできるよう、テスト全体で i18n を初期化しておく。
 require("@/lib/i18n");
 

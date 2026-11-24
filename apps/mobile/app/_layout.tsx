@@ -33,6 +33,7 @@ import { onboardingPending } from "@/lib/onboarding";
 import { useThemeColors } from "@/lib/theme";
 import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
+import { useAppOpenTracking } from "@/lib/useAppOpenTracking";
 import { useGuestCtaReturn } from "@/lib/guestCta";
 import { useExchangeQueueSync } from "@/lib/useExchangeQueueSync";
 import { guestLandingPath } from "@/lib/guestLandingRoute";
@@ -63,6 +64,8 @@ function AuthGuard() {
   const headerOptions = useStackHeaderOptions();
   // UI イベント計測に現在画面・サインイン中ユーザーを同期する（issue #214）。
   useEventTrackingContext();
+  // 起動・復帰を app_open として送る（issue #758。リテンションの基準）。
+  useAppOpenTracking();
   // 公開プロフィールの登録 CTA から来た人を、登録後に元のプロフィールへ戻す
   // （issue #562）。
   useGuestCtaReturn();
