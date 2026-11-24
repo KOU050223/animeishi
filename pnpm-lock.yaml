@@ -114,6 +114,9 @@ importers:
       gql.tada:
         specifier: 1.11.5
         version: 1.11.5(@typescript/typescript6@6.0.2)(graphql@16.8.1)
+      smol-toml:
+        specifier: 1.9.1
+        version: 1.9.1
       typescript:
         specifier: 'catalog:'
         version: '@typescript/typescript6@6.0.2'
