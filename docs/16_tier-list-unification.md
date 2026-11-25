@@ -27,9 +27,11 @@ issue の「決定（2026-11-24）」コメントに従って実装した。
   custom は複数持てるので制約しない
 - kind とスコープ・items の対象の不一致は CHECK で拒否する
   （season は annict_work_id 不可、character は annict_work_id 必須、
-  custom は両方 null、character の items は annict_character_id 必須）
+  custom は両方 null、items は作品・キャラのどちらか一方だけ）。
+  親の kind と items の対象種別の一致（character 表は items が
+  キャラ必須）は表をまたぐので API 側の検証で保証する
 - いいねは `tier_list_likes`（user_id + tier_list_id）、通報は reports の
-  `target_tier_list_id` 1 列に統合。旧の kind 列・3 テーブルは移行後に
+  `reported_tier_list_id` 1 列に統合。旧の kind 列・3 テーブルは移行後に
   DROP する
 - 公開フィードは kind をまたいだ union ではなく 1 テーブルから取る。
   カードの種別表示・workTitle など表示用の情報は応答に残す
@@ -46,15 +48,18 @@ issue の「決定（2026-11-24）」コメントに従って実装した。
 
 ### 移行
 
-- `PRAGMA defer_foreign_keys=ON` で FK 検査を遅延させ、新テーブルへ
-  `INSERT ... SELECT`（character/custom の id は旧テーブルの最大 id
-  をオフセットに加算して連番に詰め直し）、子テーブル（items・
-  いいね・通報）は新しい親 id へ写してから旧テーブルを DROP する
-- drizzle-kit generate の出力は `__new_*` → RENAME の再作成で、
-  旧テーブルの FK が新テーブルを指せずデータを消す構成だった。
-  RENAME 時に子テーブルの REFERENCES が追従書き換えされる
-  SQLite の性質を使い、子テーブル側の FK を先に新テーブルへ向けて
-  から親を差し替える形に手で組み替えた（0047）
+- 新テーブルを `__new_*` で作り、旧 3 系統から `INSERT ... SELECT` で
+  転記してから旧テーブルを DROP・`__new` を RENAME する
+  （character/custom の id は旧テーブルの最大 id をオフセットに
+  加算して連番に詰め直し）
+- 子テーブル（items・いいね・通報）の FK は先に `__new_tier_lists`
+  を指させておく。FK が有効なとき親の RENAME では子の REFERENCES が
+  新しい名前へ書き換わるため、この順序なら移行中のどの時点でも
+  FK が整合し、PRAGMA をトランザクション内で切り替える必要がない
+  （トランザクション内では `PRAGMA foreign_keys` は効かないため）
+- 旧いいね・通報の対象参照には FK が無く、対象表が消えた後の
+  孤立行が残りうる。孤立したいいねは転記せず、孤立した通報は
+  対象 NULL のまま履歴として残す（LEFT JOIN で照合）
 
 ### API
 

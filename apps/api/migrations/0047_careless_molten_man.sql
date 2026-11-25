@@ -1,5 +1,12 @@
 -- issue #724: tier 表 3 系統（tier_lists / character_tier_lists /
 -- custom_tier_lists）を kind 列つきの tier_lists に統合する。
+
+-- 親の RENAME で子テーブルの REFERENCES が新しい名前に書き換わるのは
+-- foreign_keys が ON のときだけ。トランザクション内では no-op になるが、
+-- wrangler 適用時は FK ON で走る（ローカルで 0047 適用後に
+-- PRAGMA foreign_key_check がクリーンなことを確認済み）。
+PRAGMA foreign_keys=ON;
+--> statement-breakpoint
 -- データ移行を伴うため、新テーブルを __new で作り、旧 3 系統から
 -- 転記してから旧テーブルを DROP・__new を RENAME する。
 --
@@ -67,13 +74,18 @@ CREATE TABLE `__new_tier_list_likes` (
 	FOREIGN KEY (`tier_list_id`) REFERENCES `__new_tier_lists`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-INSERT INTO `__new_tier_list_likes`("id", "user_id", "tier_list_id", "created_at") SELECT "id", "user_id",
-	CASE "list_kind"
-		WHEN 'season' THEN "list_id"
-		WHEN 'character' THEN "list_id" + (SELECT COALESCE(MAX("id"), 0) FROM `tier_lists`)
-		ELSE "list_id" + (SELECT COALESCE(MAX("id"), 0) FROM `tier_lists`) + (SELECT COALESCE(MAX("id"), 0) FROM `character_tier_lists`)
+-- 旧 tier_list_likes は対象表に FK を持たず、表が消えた後の孤立した
+-- いいねが残りうる。対象が見つからない行は意味を持たないため転記しない。
+INSERT INTO `__new_tier_list_likes`("id", "user_id", "tier_list_id", "created_at") SELECT l."id", l."user_id",
+	CASE l."list_kind"
+		WHEN 'season' THEN l."list_id"
+		WHEN 'character' THEN l."list_id" + (SELECT COALESCE(MAX("id"), 0) FROM `tier_lists`)
+		ELSE l."list_id" + (SELECT COALESCE(MAX("id"), 0) FROM `tier_lists`) + (SELECT COALESCE(MAX("id"), 0) FROM `character_tier_lists`)
 	END,
-	"created_at" FROM `tier_list_likes` WHERE "list_kind" IN ('season', 'character', 'custom');--> statement-breakpoint
+	l."created_at" FROM `tier_list_likes` l
+	WHERE EXISTS (SELECT 1 FROM `tier_lists` s WHERE l."list_kind" = 'season' AND s."id" = l."list_id")
+		OR EXISTS (SELECT 1 FROM `character_tier_lists` c WHERE l."list_kind" = 'character' AND c."id" = l."list_id")
+		OR EXISTS (SELECT 1 FROM `custom_tier_lists` u WHERE l."list_kind" = 'custom' AND u."id" = l."list_id");--> statement-breakpoint
 CREATE TABLE `__new_reports` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`reporter_id` text NOT NULL,
@@ -92,14 +104,17 @@ CREATE TABLE `__new_reports` (
 	CONSTRAINT "reports_status_check" CHECK("status" IN ('open', 'resolved', 'dismissed'))
 );
 --> statement-breakpoint
-INSERT INTO `__new_reports`("id", "reporter_id", "reported_user_id", "reason", "reported_work_list_id", "reported_tier_list_id", "status", "resolution_note", "resolved_at", "created_at") SELECT "id", "reporter_id", "reported_user_id", "reason", "reported_work_list_id",
-	CASE "reported_tier_list_kind"
-		WHEN 'season' THEN "reported_tier_list_id"
-		WHEN 'character' THEN "reported_tier_list_id" + (SELECT COALESCE(MAX("id"), 0) FROM `tier_lists`)
-		WHEN 'custom' THEN "reported_tier_list_id" + (SELECT COALESCE(MAX("id"), 0) FROM `tier_lists`) + (SELECT COALESCE(MAX("id"), 0) FROM `character_tier_lists`)
-		ELSE NULL
-	END,
-	"status", "resolution_note", "resolved_at", "created_at" FROM `reports`;--> statement-breakpoint
+-- 旧 reports の tier 表参照は FK を持たず、対象が消えても通報が残る設計
+-- だった。対象が残っていなければ LEFT JOIN が揃わず NULL を転記し、
+-- 通報そのものは履歴として残す。
+INSERT INTO `__new_reports`("id", "reporter_id", "reported_user_id", "reason", "reported_work_list_id", "reported_tier_list_id", "status", "resolution_note", "resolved_at", "created_at") SELECT r."id", r."reporter_id", r."reported_user_id", r."reason", r."reported_work_list_id",
+	COALESCE(s."id",
+		c."id" + (SELECT COALESCE(MAX("id"), 0) FROM `tier_lists`),
+		u."id" + (SELECT COALESCE(MAX("id"), 0) FROM `tier_lists`) + (SELECT COALESCE(MAX("id"), 0) FROM `character_tier_lists`)),
+	r."status", r."resolution_note", r."resolved_at", r."created_at" FROM `reports` r
+	LEFT JOIN `tier_lists` s ON r."reported_tier_list_kind" = 'season' AND s."id" = r."reported_tier_list_id"
+	LEFT JOIN `character_tier_lists` c ON r."reported_tier_list_kind" = 'character' AND c."id" = r."reported_tier_list_id"
+	LEFT JOIN `custom_tier_lists` u ON r."reported_tier_list_kind" = 'custom' AND u."id" = r."reported_tier_list_id";--> statement-breakpoint
 DROP TABLE `tier_list_likes`;--> statement-breakpoint
 DROP TABLE `tier_list_items`;--> statement-breakpoint
 DROP TABLE `reports`;--> statement-breakpoint

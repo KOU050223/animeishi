@@ -476,8 +476,15 @@ export default function TierListScreen() {
   // 保存入力を組み立てる。ボード層の汎用 itemId を kind ごとの
   // フィールド名（annictWorkId / annictCharacterId）に写す。
   // id があれば PUT /:id、無ければ kind + スコープ値で POST。
+  // listId をそのままフォールバックに使うと、シーズン切替後に
+  // 前スコープの表へ PUT してしまう。season / character の既存表は
+  // スコープクエリの saved だけが正しい id の出どころで、listId を
+  // 使うのは POST で id が確定する custom だけに限る。
   const buildSaveInput = (cur: typeof saveSourceRef.current) => ({
-    id: cur.saved?.id ?? cur.listId ?? undefined,
+    id:
+      cur.saved?.id ??
+      (kind === "custom" ? cur.listId : undefined) ??
+      undefined,
     kind,
     season: kind === "season" ? season : undefined,
     annictWorkId: kind === "character" ? workIdParam : undefined,
