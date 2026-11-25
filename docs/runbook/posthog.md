@@ -27,10 +27,10 @@ PostHog のプロジェクトを用意するとき、運営 AI（muse）に分�
 
 ```bash
 cd apps/mobile
-eas env:create --name EXPO_PUBLIC_POSTHOG_KEY --value phc_xxx \
+eas env:set --name EXPO_PUBLIC_POSTHOG_KEY --value phc_xxx \
   --environment production --environment preview --visibility plaintext
 # EU Cloud のときだけ
-eas env:create --name EXPO_PUBLIC_POSTHOG_HOST --value https://eu.i.posthog.com \
+eas env:set --name EXPO_PUBLIC_POSTHOG_HOST --value https://eu.i.posthog.com \
   --environment production --environment preview --visibility plaintext
 ```
 

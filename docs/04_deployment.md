@@ -296,7 +296,7 @@ source map とデバッグシンボルを Sentry へアップロードする。�
 
 ```bash
 cd apps/mobile
-pnpm exec eas env:create --scope project --name SENTRY_AUTH_TOKEN \
+pnpm exec eas env:set --scope project --name SENTRY_AUTH_TOKEN \
   --value "<sentry-org-auth-token>" --visibility sensitive
 ```
 
