@@ -90,7 +90,7 @@ export default defineConfig({
       // type-aware ルールが生成済みの rpcSchema.d.ts を読むため、typegen の後に実行する。
       // lint:fix はファイルを書き換えるのでキャッシュしない。
       lint: {
-        command: "vp lint . --deny-warnings",
+        command: "vp lint . --deny-warnings --ignore-path ../../.oxfmtignore",
         dependsOn: ["@animeishi/api-contract#typegen"],
         cache: {
           input: [
@@ -100,6 +100,7 @@ export default defineConfig({
             "!node_modules",
             "!node_modules/**",
             { pattern: "pnpm-lock.yaml", base: "workspace" },
+            { pattern: ".oxfmtignore", base: "workspace" },
             {
               pattern: "packages/api-contract/generated/rpcSchema.d.ts",
               base: "workspace",
@@ -120,7 +121,8 @@ export default defineConfig({
         },
       },
       "lint:fix": {
-        command: "vp lint . --fix --deny-warnings",
+        command:
+          "vp lint . --fix --deny-warnings --ignore-path ../../.oxfmtignore",
         dependsOn: ["@animeishi/api-contract#typegen"],
         cache: false,
       },

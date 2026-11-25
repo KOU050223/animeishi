@@ -235,7 +235,13 @@ export default defineConfig({
       // ワークスペースごとの設定と誤検出の抑制は knip.json に集約している。
       knip: "knip",
       test: "vp run --cache -r test",
-      dev: { command: "vp run -r --parallel dev", cache: false },
+      // dev は終了しない常駐タスクなので、recursive の並列起動には --parallel が必要。
+      // --parallel は dependsOn を無効にするため、先に api-contract の typegen だけを
+      // 実行してから dev を並列起動する。
+      dev: {
+        command: ["vp run @animeishi/api-contract#typegen", "vp run -r --parallel dev"],
+        cache: false,
+      },
     },
   },
   // pre-commit（.vite-hooks/pre-commit の `vp staged`）でステージ済みファイルだけを
