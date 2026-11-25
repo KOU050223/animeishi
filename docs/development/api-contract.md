@@ -30,9 +30,11 @@ union 型の並び順が実行ごとに変わることがあり、同じソー�
 
 `vp install` では prepare から typegen を実行する。新しい worktree を作った
 直後でも、エディタが `@animeishi/api-contract/rpc` を解決できる。ブランチの
-切り替え後は post-checkout、merge 後は post-merge の Git フックが typegen を
-実行する。依存をインストールしていない worktree では何もせず、typegen が
-失敗しても警告だけを出して Git 操作は成功する。
+切り替え後は post-checkout、merge 後は post-merge、rebase 後は post-rewrite の
+Git フックが typegen を実行する。依存をインストールしていない worktree では
+何もせず、typegen が失敗しても警告だけを出して Git 操作は成功する。競合を
+解消して `git merge --continue` で終えた merge では post-merge が走らないため、
+API が変わったときは上の typegen コマンドを手で実行する。
 
 Claude Code 等のエージェントが API を編集した直後など、Git 操作を挟まずに
 エディタの型を更新したいときは、上の typegen コマンドを手で実行する。mobile の

@@ -190,11 +190,10 @@ tsc が他の拡張子を読む構成
 - pre-push: `vp run typecheck` と `vp run test`
 - post-checkout: ブランチ切り替え時だけ `@animeishi/api-contract#typegen`
 - post-merge: `@animeishi/api-contract#typegen`
+- post-rewrite: rebase 後だけ `@animeishi/api-contract#typegen`
 
-post-checkout / post-merge の typegen はエディタが読む
-`packages/api-contract/generated/rpcSchema.d.ts` を更新するためのもので、
-依存未インストールの worktree では何もしない。失敗しても Git 操作は成功する
-（詳細は `docs/development/api-contract.md`）。
+post-checkout / post-merge / post-rewrite の詳細は
+`docs/development/api-contract.md` を参照する。
 
 > `core.hooksPath` は main チェックアウトと全 worktree で共有される `.git/config` に書かれる。
 > フックのディスパッチャ（`.vite-hooks/_`、gitignore 済み）は worktree ごとに `vp install`
