@@ -100,6 +100,13 @@ export const colors = {
     tierCardFallback: "#e2e8f0",
     /** カード下部のタイトル帯（白 / slate-900）。 */
     tierCardLabel: "#ffffff",
+    /** スケルトン画面の骨（slate-200 / slate-700）。 */
+    skeleton: "#e2e8f0",
+    /**
+     * スケルトンの副行など一段薄い骨（slate-100 / slate-800）。
+     * surface 面の上では使わない（dark で surface と同色になり見えなくなる）。
+     */
+    skeletonMuted: "#f1f5f9",
   },
   dark: {
     background: "#0f172a",
@@ -133,6 +140,8 @@ export const colors = {
     tierCard: "#334155",
     tierCardFallback: "#475569",
     tierCardLabel: "#0f172a",
+    skeleton: "#334155",
+    skeletonMuted: "#1e293b",
   },
 } as const;
 

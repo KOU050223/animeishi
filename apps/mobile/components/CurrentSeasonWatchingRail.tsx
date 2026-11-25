@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import {
-  ActivityIndicator,
-  FlatList,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { FlatList, Text, TouchableOpacity, View } from "react-native";
 import { CurrentSeasonConnectCard } from "@/components/CurrentSeasonConnectCard";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { currentSeason } from "@/components/anime-list/animeListUtils";
@@ -16,7 +10,7 @@ import { useAnnictConnection } from "@/lib/annict";
 import { filterWatchingBySeason } from "@/lib/currentSeasonWatching";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import type { TranslationKey } from "@/lib/i18n/keys";
-import { useThemeColors } from "@/lib/theme";
+import { Skeleton, SkeletonGroup } from "@/components/ui/Skeleton";
 import { useWatchHistory } from "@/lib/useWatchHistory";
 
 // シーズンキー → 季節名の i18n キー。SEASONS（アニメ一覧用）は日本語ラベルを
@@ -31,7 +25,6 @@ const SEASON_I18N_KEYS: Record<SeasonKey, TranslationKey> = {
 export function CurrentSeasonWatchingRail() {
   const { t } = useTranslation();
   const router = useRouter();
-  const colors = useThemeColors();
   const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
   const { data, isLoading, isError, refetch } = useWatchHistory();
   // 初回フォーカスは useQuery の初回取得と重複するため再取得を飛ばす
@@ -77,7 +70,7 @@ export function CurrentSeasonWatchingRail() {
         {t("{{season}}アニメのうち「視聴中」", { season: seasonLabel })}
       </Text>
       {isConnectionLoading ? (
-        <ActivityIndicator color={colors.primaryText} />
+        <WatchingRailSkeleton />
       ) : !isConnected ? (
         // 閉じるボタンを付けない: 連携すれば自然に消えるため（#424 の決定）
         <CurrentSeasonConnectCard
@@ -86,7 +79,7 @@ export function CurrentSeasonWatchingRail() {
           surface="home_current_season"
         />
       ) : isLoading ? (
-        <ActivityIndicator color={colors.primaryText} />
+        <WatchingRailSkeleton />
       ) : isError ? (
         <View className="flex-row items-center gap-3">
           <Text className="text-sm text-muted">
@@ -157,5 +150,25 @@ export function CurrentSeasonWatchingRail() {
         />
       )}
     </View>
+  );
+}
+
+// 読み込み中は横並びサムネイル（WorkThumbnail 96x136 + タイトル 2 行）と
+// 同じ並びの骨を敷く。枚数は幅に収まる先頭の 3 枚分。
+function WatchingRailSkeleton() {
+  const { t } = useTranslation();
+  return (
+    <SkeletonGroup
+      accessibilityLabel={t("読み込み中")}
+      className="flex-row gap-3"
+      testID="current-season-skeleton"
+    >
+      {[0, 1, 2].map((i) => (
+        <View key={i} className="w-24">
+          <Skeleton className="h-[136px] w-24 rounded-lg" />
+          <Skeleton className="mt-1 h-3 w-16 rounded" muted />
+        </View>
+      ))}
+    </SkeletonGroup>
   );
 }
