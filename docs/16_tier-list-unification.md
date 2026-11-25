@@ -31,8 +31,11 @@ issue の「決定（2026-11-24）」コメントに従って実装した。
   親の kind と items の対象種別の一致（character 表は items が
   キャラ必須）は表をまたぐので API 側の検証で保証する
 - いいねは `tier_list_likes`（user_id + tier_list_id）、通報は reports の
-  `reported_tier_list_id` 1 列に統合。旧の kind 列・3 テーブルは移行後に
-  DROP する
+  `reported_tier_list_id` 1 列に統合。`reported_tier_list_id` は
+  `ON DELETE SET NULL` とし、旧の kind 列は `reported_tier_list_kind`
+  として残す。表が削除されて参照が NULL になった行を「ユーザー通報」
+  （全参照 NULL）と区別するために必要で、どの系統の表への通報だったかの
+  表示にも使う。旧 3 テーブルは移行後に DROP する
 - 公開フィードは kind をまたいだ union ではなく 1 テーブルから取る。
   カードの種別表示・workTitle など表示用の情報は応答に残す
 

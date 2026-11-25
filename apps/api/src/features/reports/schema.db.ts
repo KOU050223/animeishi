@@ -37,13 +37,16 @@ export const reports = sqliteTable(
       { onDelete: "set null" },
     ),
     // 通報対象が tier 表のとき、その id（issue #418）。このとき
-    // reported_user_id にはリストの所有者が入る。#724 で 3 系統の tier 表が
-    // tier_lists に統合されたため FK を張り、表の削除で通報行も cascade で
-    // 消える（所有者の被通報数は reported_user_id で辿れる）。
+    // reported_user_id にはリストの所有者が入る。表が削除されても
+    // 通報は残す（set null。未対応の通報を消さないため）。
+    // 削除で NULL になった行はユーザー通報の重複条件（両参照 NULL）
+    // と区別がつかなくなるため、reported_tier_list_kind に対象の
+    // kind を残して「tier 表への通報だった」ことを追跡できる形にする。
     reportedTierListId: integer("reported_tier_list_id").references(
       () => tierLists.id,
-      { onDelete: "cascade" },
+      { onDelete: "set null" },
     ),
+    reportedTierListKind: text("reported_tier_list_kind"),
     // モデレーション対応状況。更新は scripts/reports.sh（wrangler d1 execute）
     // から行い、API 経路では触らない（認可設計が未決のため）。
     status: text("status", { enum: REPORT_STATUSES }).notNull().default("open"),

@@ -19,9 +19,11 @@ import {
   annictWorks,
   annictCharacters,
 } from "@/db/schema";
+import type { TierListKind } from "@/db/schema";
 import type { TierRow } from "../share/service";
 import { parseTiersJson } from "../share/service";
 import { fetchTierListItems } from "../tier-lists/repository";
+import { isForeignKeyViolation } from "../users/repository";
 
 export type PublicTierListsSort = "likes" | "new";
 
@@ -104,20 +106,27 @@ function likedByMeExpr(currentUserId: string) {
 
 /**
  * cursor は公開作品リストと同じ形式。
- * - sort="new": 前ページ最後尾のリスト id（id 降順で辿る）
+ * - sort="new": "<作成 unix 秒>_<id>"（createdAt 降順 → id 降順。
+ *   0047 で character / custom の id が採番し直され、id と作成日時の
+ *   順序が一致しなくなったため id だけでは辿れない）
  * - sort="likes": "<いいね数>_<id>"（いいね数降順 → id 降順）
  */
-export type ParsedCursor = { id: number; likeCount?: number };
+export type ParsedCursor = { id: number; first?: number };
 
 export function parsePublicTierListCursor(
   sort: PublicTierListsSort,
   cursor: string,
 ): ParsedCursor | undefined {
   if (sort === "new") {
-    return /^\d+$/.test(cursor) ? { id: Number(cursor) } : undefined;
+    const m = /^(\d+)(?:_(\d+))?$/.exec(cursor);
+    if (!m) return undefined;
+    // `_` なしは旧形式（id のみ）として互換扱いする。
+    return m[2] === undefined
+      ? { id: Number(m[1]) }
+      : { first: Number(m[1]), id: Number(m[2]) };
   }
   const m = /^(\d+)_(\d+)$/.exec(cursor);
-  return m ? { likeCount: Number(m[1]), id: Number(m[2]) } : undefined;
+  return m ? { first: Number(m[1]), id: Number(m[2]) } : undefined;
 }
 
 /** 一覧カードのサムネイル。先頭 tier の先頭アイテムから最大 3 個。 */
@@ -133,12 +142,16 @@ export function publicTierListsRepository(
   currentUserId: string,
 ) {
   /** 公開範囲チェック付きの単一行取得（いいね・通報の対象解決に使う）。 */
-  async function findPublicRow(
-    id: number,
-  ): Promise<{ id: number; userId: string; title: string } | null> {
+  async function findPublicRow(id: number): Promise<{
+    id: number;
+    kind: TierListKind;
+    userId: string;
+    title: string;
+  } | null> {
     const rows = await db
       .select({
         id: tierLists.id,
+        kind: tierLists.kind,
         userId: tierLists.userId,
         title: tierLists.title,
       })
@@ -202,13 +215,24 @@ export function publicTierListsRepository(
           ? undefined
           : input.sort === "likes"
             ? or(
-                lt(likeCountExpr, input.cursor.likeCount ?? 0),
+                lt(likeCountExpr, input.cursor.first ?? 0),
                 and(
-                  eq(likeCountExpr, input.cursor.likeCount ?? 0),
+                  eq(likeCountExpr, input.cursor.first ?? 0),
                   lt(tierLists.id, input.cursor.id),
                 ),
               )
-            : lt(tierLists.id, input.cursor.id);
+            : input.cursor.first === undefined
+              ? lt(tierLists.id, input.cursor.id)
+              : or(
+                  lt(tierLists.createdAt, new Date(input.cursor.first * 1000)),
+                  and(
+                    eq(
+                      tierLists.createdAt,
+                      new Date(input.cursor.first * 1000),
+                    ),
+                    lt(tierLists.id, input.cursor.id),
+                  ),
+                );
 
       const rows = await db
         .select({
@@ -253,7 +277,7 @@ export function publicTierListsRepository(
         .orderBy(
           ...(input.sort === "likes"
             ? [desc(likeCountExpr), desc(tierLists.id)]
-            : [desc(tierLists.id)]),
+            : [desc(tierLists.createdAt), desc(tierLists.id)]),
         )
         .limit(input.limit + 1);
 
@@ -290,14 +314,21 @@ export function publicTierListsRepository(
       const row = await findPublicRow(id);
       if (!row) return null;
       if (row.userId === currentUserId) throw new OwnTierListError();
-      await db
-        .insert(tierListLikes)
-        .values({
-          userId: currentUserId,
-          tierListId: id,
-          createdAt: new Date(),
-        })
-        .onConflictDoNothing();
+      try {
+        await db
+          .insert(tierListLikes)
+          .values({
+            userId: currentUserId,
+            tierListId: id,
+            createdAt: new Date(),
+          })
+          .onConflictDoNothing();
+      } catch (e) {
+        // 対象取得後に表が削除されると tier_list_id の FK が拒否する。
+        // 取得時点で対象がなかったときと同じく 404 に変換する。
+        if (isForeignKeyViolation(e)) return null;
+        throw e;
+      }
       return { likeCount: await this.countTierListLikes(id) };
     },
 

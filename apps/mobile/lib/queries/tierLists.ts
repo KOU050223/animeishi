@@ -9,7 +9,7 @@ export type PublicTierListsResponse = InferResponseType<
 export type PublicTierListItem = PublicTierListsResponse["items"][number];
 export type PublicTierListsSort = "likes" | "new";
 
-export type MyTierListsResponse = InferResponseType<
+type MyTierListsResponse = InferResponseType<
   (typeof apiClient.me)["tier-lists"]["$get"],
   200
 >;

@@ -38,7 +38,7 @@ import {
   tierListLikes,
   userLikes,
 } from "@/db/schema";
-import type { User, NewUser, Report } from "@/db/schema";
+import type { User, NewUser, Report, TierListKind } from "@/db/schema";
 import { deleteExchangeRecordsBetween } from "../exchange-records/repository";
 import { deleteFriendThanksBetween } from "../friend-thanks/repository";
 
@@ -69,6 +69,26 @@ export class ReportRateLimitError extends Error {
     );
     this.name = "ReportRateLimitError";
   }
+}
+
+/**
+ * 通報対象の取得後に対象が削除され、参照 FK が INSERT を拒否したときに
+ * 投げる。レート制限（429）とは別系なので呼び出し側は 404 に変換する。
+ */
+export class ReportTargetGoneError extends Error {
+  constructor() {
+    super("通報対象が見つかりません");
+    this.name = "ReportTargetGoneError";
+  }
+}
+
+/** D1 / SQLite の FK 違反エラー判定。cause に包まれている場合もあるため両方見る。 */
+export function isForeignKeyViolation(e: unknown): boolean {
+  const texts = [
+    e instanceof Error ? e.message : "",
+    e instanceof Error && e.cause instanceof Error ? e.cause.message : "",
+  ];
+  return texts.some((t) => t.includes("FOREIGN KEY constraint failed"));
 }
 
 /**
@@ -120,7 +140,7 @@ const REPORT_HOURLY_LIMIT = 10;
 type ReportTarget =
   | { kind: "user" }
   | { kind: "work_list"; id: number }
-  | { kind: "tier_list"; id: number };
+  | { kind: "tier_list"; id: number; tierListKind: TierListKind };
 
 export type { ReportTarget };
 
@@ -195,6 +215,10 @@ function reportDedupCondition(
         eq(reports.reportedUserId, targetUserId),
         isNull(reports.reportedWorkListId),
         isNull(reports.reportedTierListId),
+        // tier 表通報は対象削除で reported_tier_list_id が NULL に戻る
+        // （set null）。kind 列は残るため、ここで NULL を条件に含めないと
+        // 削除済み表への通報をユーザー通報と誤判定する。
+        isNull(reports.reportedTierListKind),
       );
   }
 }
@@ -570,18 +594,24 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
           ? sql`reported_work_list_id = ${target.id}`
           : target.kind === "tier_list"
             ? sql`reported_tier_list_id = ${target.id}`
-            : sql`reported_user_id = ${targetUserId} AND reported_work_list_id IS NULL AND reported_tier_list_id IS NULL`;
+            : sql`reported_user_id = ${targetUserId} AND reported_work_list_id IS NULL AND reported_tier_list_id IS NULL AND reported_tier_list_kind IS NULL`;
 
-      const inserted = await db.run(sql`
+      // 対象の取得後に削除されると参照 FK が INSERT を拒否する。
+      // レート制限ではないので、呼び出し側で 404 に変換できるよう専用の
+      // エラーに倒す（message は環境差があるため部分一致で判定）。
+      let inserted;
+      try {
+        inserted = await db.run(sql`
         INSERT INTO ${reports} (
           reporter_id, reported_user_id, reported_work_list_id,
-          reported_tier_list_id,
+          reported_tier_list_id, reported_tier_list_kind,
           reason, created_at
         )
         SELECT
           ${currentUserId}, ${targetUserId},
           ${target.kind === "work_list" ? target.id : null},
           ${target.kind === "tier_list" ? target.id : null},
+          ${target.kind === "tier_list" ? target.tierListKind : null},
           ${reason}, ${nowSec}
         WHERE NOT EXISTS (
           SELECT 1 FROM ${reports}
@@ -595,6 +625,10 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
             AND created_at > ${hourlySinceSec}
         ) < ${REPORT_HOURLY_LIMIT}
       `);
+      } catch (e) {
+        if (isForeignKeyViolation(e)) throw new ReportTargetGoneError();
+        throw e;
+      }
 
       if (inserted.meta.changes === 0) {
         throw await buildReportRateLimitError(
@@ -611,6 +645,8 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
         reportedUserId: targetUserId,
         reportedWorkListId: target.kind === "work_list" ? target.id : null,
         reportedTierListId: target.kind === "tier_list" ? target.id : null,
+        reportedTierListKind:
+          target.kind === "tier_list" ? target.tierListKind : null,
         reason,
         status: "open",
         resolutionNote: null,
@@ -934,12 +970,6 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
      */
     async deleteMyAccount(): Promise<void> {
       const now = new Date();
-      const myTierListIds = (
-        await db
-          .select({ id: tierLists.id })
-          .from(tierLists)
-          .where(eq(tierLists.userId, currentUserId))
-      ).map((row) => row.id);
       const queries: BatchItem<"sqlite">[] = [
         // friends と同様に「いいねした側／された側」の両方向を対象にする
         db
@@ -1041,13 +1071,19 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
           ),
         db.delete(feedbacks).where(eq(feedbacks.userId, currentUserId)),
       ];
-      if (myTierListIds.length > 0) {
-        queries.push(
-          db
-            .delete(tierListItems)
-            .where(inArray(tierListItems.tierListId, myTierListIds)),
-        );
-      }
+      queries.push(
+        db
+          .delete(tierListItems)
+          .where(
+            inArray(
+              tierListItems.tierListId,
+              db
+                .select({ id: tierLists.id })
+                .from(tierLists)
+                .where(eq(tierLists.userId, currentUserId)),
+            ),
+          ),
+      );
       queries.push(
         db.delete(tierLists).where(eq(tierLists.userId, currentUserId)),
         db.delete(users).where(eq(users.id, currentUserId)),

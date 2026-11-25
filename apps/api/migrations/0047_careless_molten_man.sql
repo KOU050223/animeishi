@@ -93,6 +93,7 @@ CREATE TABLE `__new_reports` (
 	`reason` text NOT NULL,
 	`reported_work_list_id` integer,
 	`reported_tier_list_id` integer,
+	`reported_tier_list_kind` text,
 	`status` text DEFAULT 'open' NOT NULL,
 	`resolution_note` text,
 	`resolved_at` integer,
@@ -100,17 +101,18 @@ CREATE TABLE `__new_reports` (
 	FOREIGN KEY (`reporter_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`reported_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`reported_work_list_id`) REFERENCES `work_lists`(`id`) ON UPDATE no action ON DELETE set null,
-	FOREIGN KEY (`reported_tier_list_id`) REFERENCES `__new_tier_lists`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`reported_tier_list_id`) REFERENCES `__new_tier_lists`(`id`) ON UPDATE no action ON DELETE set null,
 	CONSTRAINT "reports_status_check" CHECK("status" IN ('open', 'resolved', 'dismissed'))
 );
 --> statement-breakpoint
 -- 旧 reports の tier 表参照は FK を持たず、対象が消えても通報が残る設計
 -- だった。対象が残っていなければ LEFT JOIN が揃わず NULL を転記し、
 -- 通報そのものは履歴として残す。
-INSERT INTO `__new_reports`("id", "reporter_id", "reported_user_id", "reason", "reported_work_list_id", "reported_tier_list_id", "status", "resolution_note", "resolved_at", "created_at") SELECT r."id", r."reporter_id", r."reported_user_id", r."reason", r."reported_work_list_id",
+INSERT INTO `__new_reports`("id", "reporter_id", "reported_user_id", "reason", "reported_work_list_id", "reported_tier_list_id", "reported_tier_list_kind", "status", "resolution_note", "resolved_at", "created_at") SELECT r."id", r."reporter_id", r."reported_user_id", r."reason", r."reported_work_list_id",
 	COALESCE(s."id",
 		c."id" + (SELECT COALESCE(MAX("id"), 0) FROM `tier_lists`),
 		u."id" + (SELECT COALESCE(MAX("id"), 0) FROM `tier_lists`) + (SELECT COALESCE(MAX("id"), 0) FROM `character_tier_lists`)),
+	r."reported_tier_list_kind",
 	r."status", r."resolution_note", r."resolved_at", r."created_at" FROM `reports` r
 	LEFT JOIN `tier_lists` s ON r."reported_tier_list_kind" = 'season' AND s."id" = r."reported_tier_list_id"
 	LEFT JOIN `character_tier_lists` c ON r."reported_tier_list_kind" = 'character' AND c."id" = r."reported_tier_list_id"

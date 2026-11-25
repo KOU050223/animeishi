@@ -9,6 +9,7 @@ import {
 } from "@/db/schema";
 import type { TierList, TierListKind } from "@/db/schema";
 import type { AnnictWorkMeta } from "../works/repository";
+import { isForeignKeyViolation } from "../users/repository";
 
 /** tier 表に配置された作品 1 件（作品メタを含む）。season / custom 用。 */
 export type TierListItemWithWork = {
@@ -169,14 +170,11 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
     return undefined;
   }
 
-  /** items を全削除 → 全挿入で置き換える。 */
-  async function replaceItems(
+  /** items を全削除 → 全挿入で置き換えるクエリ群を返す。 */
+  function itemsReplaceQueries(
     tierListId: number,
     items: TierListItemInput[],
-  ): Promise<void> {
-    // items の全削除→全挿入は db.batch() でアトミックに実行する。
-    // 逐次実行だと insert 途中の失敗で items が消えたまま残り、
-    // 同一ユーザーの並行 PUT で delete/insert が交互に走って配置が混ざる。
+  ): BatchItem<"sqlite">[] {
     const queries: BatchItem<"sqlite">[] = [
       db.delete(tierListItems).where(eq(tierListItems.tierListId, tierListId)),
     ];
@@ -195,7 +193,23 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
         ),
       );
     }
-    await db.batch(queries as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
+    return queries;
+  }
+
+  /** items を全削除 → 全挿入で置き換える。 */
+  async function replaceItems(
+    tierListId: number,
+    items: TierListItemInput[],
+  ): Promise<void> {
+    // items の全削除→全挿入は db.batch() でアトミックに実行する。
+    // 逐次実行だと insert 途中の失敗で items が消えたまま残り、
+    // 同一ユーザーの並行 PUT で delete/insert が交互に走って配置が混ざる。
+    await db.batch(
+      itemsReplaceQueries(tierListId, items) as [
+        BatchItem<"sqlite">,
+        ...BatchItem<"sqlite">[],
+      ],
+    );
   }
 
   return {
@@ -318,20 +332,32 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
       });
       if (!existing) return undefined;
 
-      await db
-        .update(tierLists)
-        .set({
-          title: input.title,
-          tiersJson: input.tiersJson,
-          ...(input.description !== undefined && {
-            description: input.description,
-          }),
-          ...(input.isPublic !== undefined && { isPublic: input.isPublic }),
-          updatedAt: new Date(),
-        })
-        .where(eq(tierLists.id, id));
-
-      await replaceItems(id, input.items);
+      // 表の更新と items 差し替えを 1 つの batch に載せて all-or-nothing に
+      // する。逐次だと途中失敗で「表だけ新しく items は古い」状態が残る。
+      // 所有確認と batch の間に表が消えた場合は items の INSERT が FK で
+      // 失敗して batch 全体がロールバックするので、404 相当として扱う。
+      try {
+        await db.batch([
+          db
+            .update(tierLists)
+            .set({
+              title: input.title,
+              tiersJson: input.tiersJson,
+              ...(input.description !== undefined && {
+                description: input.description,
+              }),
+              ...(input.isPublic !== undefined && {
+                isPublic: input.isPublic,
+              }),
+              updatedAt: new Date(),
+            })
+            .where(eq(tierLists.id, id)),
+          ...itemsReplaceQueries(id, input.items),
+        ] as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
+      } catch (e) {
+        if (isForeignKeyViolation(e)) return undefined;
+        throw e;
+      }
       return this.getMyTierList(id);
     },
 

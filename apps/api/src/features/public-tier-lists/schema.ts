@@ -1,6 +1,7 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import {
   bearerAuth,
+  codedErrorResponseSchema,
   errorResponseSchema,
   successResponseSchema,
 } from "@/lib/openapi";
@@ -12,11 +13,11 @@ import {
 } from "../tier-lists/schema";
 
 // ひろば「みつける」の公開 tier 表一覧のクエリ（issue #418、#724 で 1 テーブル化）。
-// cursor は公開作品リストと同じ形式（sort=new はリスト id、likes は
+// cursor は公開作品リストと同じ形式（sort=new は "<作成unix秒>_<id>"、likes は
 // "<いいね数>_<id>"）。実際の形式はページングの実装詳細なので opaque な文字列。
 const publicTierListsQuerySchema = z.object({
   sort: z.enum(["likes", "new"]).optional(),
-  // new は "<id>"、likes は "<likeCount>_<id>"（公開作品リストと同じ形式）。
+  // new は "<createdAt>_<id>"、likes は "<likeCount>_<id>"（公開作品リストと同じ形式）。
   cursor: z
     .string()
     .regex(/^\d+(_\d+)?$/, "cursor の形式が正しくありません")
@@ -149,6 +150,7 @@ export const likeTierListRoute = createRoute({
     400: jsonError("自分の tier 表へのいいね"),
     401: jsonError("未認証"),
     404: jsonError("公開範囲外・未作成の tier 表"),
+    429: jsonError("レート制限"),
   },
 });
 
@@ -175,6 +177,7 @@ export const unlikeTierListRoute = createRoute({
     400: jsonError("入力エラー"),
     401: jsonError("未認証"),
     404: jsonError("公開範囲外・未作成の tier 表"),
+    429: jsonError("レート制限"),
   },
 });
 
@@ -200,6 +203,9 @@ export const reportTierListRoute = createRoute({
     400: jsonError("自分の tier 表への通報・入力エラー"),
     401: jsonError("未認証"),
     404: jsonError("公開範囲外・未作成の tier 表"),
-    429: jsonError("通報のレート制限超過"),
+    429: {
+      content: { "application/json": { schema: codedErrorResponseSchema } },
+      description: "通報の回数制限（Retry-After ヘッダ付き）",
+    },
   },
 });

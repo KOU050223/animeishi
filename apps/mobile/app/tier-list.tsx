@@ -379,7 +379,9 @@ export default function TierListScreen() {
   };
 
   const handleChangeTitle = (next: string) => {
-    if (isSharing || save.isPending) return;
+    // 読み込み中・取得失敗時の編集は受け付けない（handleChangeDescription と
+    // 同じく、isDirty が立つと hydrate が止まり空の盤面を保存できてしまう）。
+    if (isSharing || save.isPending || isSavedLoading || isSavedError) return;
     setTitle(next);
     setIsDirty(true);
   };

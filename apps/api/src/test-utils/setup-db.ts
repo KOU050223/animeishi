@@ -341,6 +341,7 @@ const DDL_STATEMENTS = [
     reason TEXT NOT NULL,
     reported_work_list_id INTEGER,
     reported_tier_list_id INTEGER,
+    reported_tier_list_kind TEXT,
     status TEXT DEFAULT 'open' NOT NULL,
     resolution_note TEXT,
     resolved_at INTEGER,
@@ -349,7 +350,7 @@ const DDL_STATEMENTS = [
     FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (reported_user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (reported_work_list_id) REFERENCES work_lists(id) ON DELETE SET NULL,
-    FOREIGN KEY (reported_tier_list_id) REFERENCES tier_lists(id) ON DELETE CASCADE
+    FOREIGN KEY (reported_tier_list_id) REFERENCES tier_lists(id) ON DELETE SET NULL
   )`,
   `CREATE INDEX IF NOT EXISTS reports_reporter_idx ON reports (reporter_id)`,
   `CREATE INDEX IF NOT EXISTS reports_reported_user_idx ON reports (reported_user_id)`,

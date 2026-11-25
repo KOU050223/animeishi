@@ -15,7 +15,11 @@ import {
   OwnTierListError,
 } from "./repository";
 import type { PublicTierListRow } from "./repository";
-import { usersRepository, ReportRateLimitError } from "../users/repository";
+import {
+  usersRepository,
+  ReportRateLimitError,
+  ReportTargetGoneError,
+} from "../users/repository";
 import { createDb } from "@/db/client";
 import { workImageUrl } from "@/lib/catalog/workImage";
 import { notifyUserReport } from "@/observability";
@@ -84,7 +88,7 @@ const publicTierListsRoute = app
       hasMore && lastItem
         ? sort === "likes"
           ? `${lastItem.likeCount}_${lastItem.id}`
-          : String(lastItem.id)
+          : `${Math.floor(lastItem.createdAt.getTime() / 1000)}_${lastItem.id}`
         : null;
     return c.json(
       {
@@ -207,8 +211,12 @@ const publicTierListsRoute = app
       await usersRepo.createReport(list.userId, reason, {
         kind: "tier_list",
         id,
+        tierListKind: list.kind,
       });
     } catch (e) {
+      if (e instanceof ReportTargetGoneError) {
+        return c.json({ error: "Tier list not found" }, 404);
+      }
       if (e instanceof ReportRateLimitError) {
         c.header("Retry-After", String(e.retryAfterSeconds));
         return c.json({ error: e.message, code: e.kind }, 429);

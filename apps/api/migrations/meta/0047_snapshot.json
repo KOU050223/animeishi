@@ -2658,6 +2658,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "reported_tier_list_kind": {
+          "name": "reported_tier_list_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "status": {
           "name": "status",
           "type": "text",
@@ -2775,7 +2782,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },

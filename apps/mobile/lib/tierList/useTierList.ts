@@ -62,7 +62,7 @@ export type SaveTierListInput = {
  * ドラッグのたびではなくドロップ確定時にだけ呼ぶこと。ジェスチャ中の呼び出しは
  * UI スレッドをまたぐ上、並べ替え途中の不完全な状態を保存してしまう。
  */
-export function useSaveTierList(scope: TierListScope | null) {
+export function useSaveTierList(_scope: TierListScope | null) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -101,17 +101,35 @@ export function useSaveTierList(scope: TierListScope | null) {
           );
       return res.json() as Promise<SavedTierListResponse>;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, input) => {
       // invalidate で再取得させると、レスポンス到着までの間に進んだ編集を
       // 画面側の hydrate が上書きしてしまう。レスポンスは GET と同じ形
       // なので、そのままキャッシュに反映する。
-      if (scope) {
-        queryClient.setQueryData(tierListQueries.saved.key(scope), data);
+      // 反映先スコープはフック引数ではなく保存開始時の input から組み立てる。
+      // 保存中にシーズン切替などで scope が変わると、閉じたスコープの
+      // キャッシュへ別スコープの内容を書き込んでしまうため。
+      const savedScope: TierListScope | null =
+        input.kind === "season"
+          ? input.season != null || data.season != null
+            ? { kind: "season", season: (input.season ?? data.season)! }
+            : null
+          : input.kind === "character"
+            ? input.annictWorkId != null || data.annictWorkId != null
+              ? {
+                  kind: "character",
+                  annictWorkId: (input.annictWorkId ?? data.annictWorkId)!,
+                }
+              : null
+            : { kind: "custom", id: data.id };
+      if (savedScope) {
+        queryClient.setQueryData(tierListQueries.saved.key(savedScope), data);
       }
-      queryClient.setQueryData(
-        tierListQueries.saved.key({ kind: "custom", id: data.id }),
-        data,
-      );
+      if (savedScope?.kind !== "custom") {
+        queryClient.setQueryData(
+          tierListQueries.saved.key({ kind: "custom", id: data.id }),
+          data,
+        );
+      }
       // 新規作成・タイトル変更で一覧が古くなるため破棄する。
       void queryClient.invalidateQueries({
         queryKey: tierListQueries.list.all,

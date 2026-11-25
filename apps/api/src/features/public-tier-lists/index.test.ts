@@ -483,8 +483,8 @@ describe("公開 Tier 表 API", () => {
       const app = buildApp();
       expect((await getPublic(app, "?sort=popular")).status).toBe(400);
       expect((await getPublic(app, "?cursor=abc")).status).toBe(400);
-      // sort=new に 2 連 cursor は合わないので 400
-      expect((await getPublic(app, "?sort=new&cursor=1_2")).status).toBe(400);
+      // sort=new の cursor は "<createdAt>_<id>"（3 連以上は合わない）ので 400
+      expect((await getPublic(app, "?sort=new&cursor=1_2_3")).status).toBe(400);
     });
   });
 
