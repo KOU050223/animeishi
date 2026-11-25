@@ -18,7 +18,7 @@ export function useWorkCharacters(annictWorkId: number | null) {
   const { canBrowseWorks, isLoading: isAccessLoading } = useWorkCatalogAccess();
 
   const query = useQuery({
-    ...tierListQueries.character.workCharacters.query({ annictWorkId }),
+    ...tierListQueries.workCharacters.query({ annictWorkId }),
     enabled: !!isSignedIn && canBrowseWorks && annictWorkId != null,
   });
 

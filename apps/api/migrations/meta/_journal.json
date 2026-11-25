@@ -330,6 +330,13 @@
       "when": 1795431985000,
       "tag": "0046_annict_works_pending_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1795560842072,
+      "tag": "0047_careless_molten_man",
+      "breakpoints": true
     }
   ]
 }

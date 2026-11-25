@@ -17,7 +17,7 @@ import type {
 } from "@/lib/queries/workLists";
 
 // 作品リスト（issue #349）の取得・保存フック。
-// useCustomTierList（issue #348）と同じ構造で、クエリキーの名前空間を
+// useTierList（issue #348、#724）と同じ構造で、クエリキーの名前空間を
 // 別にして tier 表のキャッシュと混ざらないようにする。
 const workListQueryKey = workListQueries.saved.key;
 const workListsQueryKey = workListQueries.list.all;

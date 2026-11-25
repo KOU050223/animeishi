@@ -146,7 +146,7 @@ export function pruneAssignment(
  *
  * 返す ID は汎用の itemId。作品なら annictWorkId、キャラクターなら
  * annictCharacterId へのフィールド名の写像は呼び出し側で行う
- * （PUT /me/tier-lists と PUT /me/character-tier-lists で受け取る
+ * （PUT /me/tier-lists/:id で受け取る
  * フィールド名が違うため）。
  */
 export function toSaveItems(

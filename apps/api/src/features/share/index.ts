@@ -4,8 +4,6 @@ import { zValidator } from "@hono/zod-validator";
 import { createDb } from "@/db/client";
 import type { Env } from "@/db/client";
 import {
-  getSharedCharacterTierList,
-  getSharedCustomTierList,
   getSharedTierList,
   getSharedWatchHistory,
   getSharedWorkList,
@@ -27,6 +25,10 @@ import {
   workListNotFoundHtml,
 } from "./service";
 import { workImageUrl } from "@/lib/catalog/workImage";
+import type {
+  TierListItemWithCharacter,
+  TierListItemWithWork,
+} from "../tier-lists/repository";
 import type { GuestCtaSource } from "@animeishi/observability";
 
 // 共有ページの登録 CTA の表示を Workers Logs に残す（issue #217 / #562）。
@@ -70,134 +72,83 @@ const share = new Hono<ShareBindings>()
         return c.json({ error: "Shared tier list not found" }, 404);
       }
 
+      const workItems = list.items.filter(
+        (item): item is TierListItemWithWork => item.kind === "work",
+      );
+      const characterItems = list.items.filter(
+        (item): item is TierListItemWithCharacter => item.kind === "character",
+      );
+
       if (wantsHtml) {
-        logGuestCtaView("share_tier_list");
+        const canonicalUrl = buildCanonicalShareUrl(
+          c.env.PUBLIC_WEB_URL,
+          c.req.url,
+        );
         // 共有解除で無効化されるコンテンツなのでキャッシュさせない。
         // public キャッシュを許すと、解除後も CDN/ブラウザが古いページを
         // 返し続ける可能性がある。
-        return c.html(
-          buildSharedTierListHtml(
-            list,
-            c.req.url,
-            buildCanonicalShareUrl(c.env.PUBLIC_WEB_URL, c.req.url),
-          ),
-          200,
-          {
-            "Cache-Control": "no-store",
-          },
-        );
+        let html: string;
+        if (list.kind === "character") {
+          logGuestCtaView("share_character_tier_list");
+          html = buildSharedCharacterTierListHtml(
+            {
+              annictWorkId: list.annictWorkId ?? 0,
+              workTitle: list.workTitle ?? "",
+              title: list.title,
+              description: list.description,
+              tiersJson: list.tiersJson,
+              ownerUsername: list.ownerUsername,
+              items: characterItems,
+            },
+            canonicalUrl,
+          );
+        } else {
+          const page = {
+            title: list.title,
+            description: list.description,
+            tiersJson: list.tiersJson,
+            ownerUsername: list.ownerUsername,
+            items: workItems,
+          };
+          if (list.kind === "season") {
+            logGuestCtaView("share_tier_list");
+            html = buildSharedTierListHtml(
+              { ...page, season: list.season ?? "" },
+              c.req.url,
+              canonicalUrl,
+            );
+          } else {
+            logGuestCtaView("share_custom_tier_list");
+            html = buildSharedCustomTierListHtml(page, c.req.url, canonicalUrl);
+          }
+        }
+        return c.html(html, 200, { "Cache-Control": "no-store" });
       }
 
       return c.json(
         {
+          kind: list.kind,
           title: list.title,
           description: list.description,
           season: list.season,
-          tiers: parseTiersJson(list.tiersJson),
-          owner: { username: list.ownerUsername },
-          // 作品画像プロキシの URL（GET /images/works/:id）を載せる。
-          items: list.items.map((item) => ({
-            ...item,
-            hostedImageUrl: workImageUrl(c.req.url, item.annictWorkId),
-          })),
-        },
-        200,
-      );
-    },
-  )
-  // キャラクター tier 表の共有リンク（issue #169）。作品版と同じく
-  // ブラウザには OGP 付き HTML、JSON クライアントには構造化データを返す。
-  .get(
-    "/character-tier-lists/:token",
-    zValidator("param", shareTokenParamSchema),
-    async (c) => {
-      const { token } = c.req.valid("param");
-      const db = createDb(c.env.DB);
-      const list = await getSharedCharacterTierList(db, token);
-      const wantsHtml = (c.req.header("Accept") ?? "").includes("text/html");
-
-      if (!list) {
-        if (wantsHtml) return c.html(notFoundHtml(), 404);
-        return c.json({ error: "Shared tier list not found" }, 404);
-      }
-
-      if (wantsHtml) {
-        logGuestCtaView("share_character_tier_list");
-        return c.html(
-          buildSharedCharacterTierListHtml(
-            list,
-            buildCanonicalShareUrl(c.env.PUBLIC_WEB_URL, c.req.url),
-          ),
-          200,
-          {
-            "Cache-Control": "no-store",
-          },
-        );
-      }
-
-      return c.json(
-        {
-          title: list.title,
-          description: list.description,
           annictWorkId: list.annictWorkId,
           workTitle: list.workTitle,
           tiers: parseTiersJson(list.tiersJson),
           owner: { username: list.ownerUsername },
-          items: list.items,
-        },
-        200,
-      );
-    },
-  )
-  // 自由作成 tier 表の共有リンク（issue #348）。シーズン版と同じく
-  // ブラウザには OGP 付き HTML、JSON クライアントには構造化データを返す。
-  // スコープキー（season）を持たないので JSON には season を含めない。
-  .get(
-    "/custom-tier-lists/:token",
-    zValidator("param", shareTokenParamSchema),
-    async (c) => {
-      const { token } = c.req.valid("param");
-      const db = createDb(c.env.DB);
-      const list = await getSharedCustomTierList(db, token);
-      const wantsHtml = (c.req.header("Accept") ?? "").includes("text/html");
-
-      if (!list) {
-        if (wantsHtml) return c.html(notFoundHtml(), 404);
-        return c.json({ error: "Shared tier list not found" }, 404);
-      }
-
-      if (wantsHtml) {
-        logGuestCtaView("share_custom_tier_list");
-        return c.html(
-          buildSharedCustomTierListHtml(
-            list,
-            c.req.url,
-            buildCanonicalShareUrl(c.env.PUBLIC_WEB_URL, c.req.url),
+          // 作品画像プロキシの URL（GET /images/works/:id）を載せる。
+          items: list.items.map((item) =>
+            item.kind === "work"
+              ? {
+                  ...item,
+                  hostedImageUrl: workImageUrl(c.req.url, item.annictWorkId),
+                }
+              : item,
           ),
-          200,
-          {
-            "Cache-Control": "no-store",
-          },
-        );
-      }
-
-      return c.json(
-        {
-          title: list.title,
-          description: list.description,
-          tiers: parseTiersJson(list.tiersJson),
-          owner: { username: list.ownerUsername },
-          items: list.items.map((item) => ({
-            ...item,
-            hostedImageUrl: workImageUrl(c.req.url, item.annictWorkId),
-          })),
         },
         200,
       );
     },
   )
-  // オリジナル作品リストの共有リンク（issue #349）。tier 表と同じく
-  // ブラウザには OGP 付き HTML、JSON クライアントには構造化データを返す。
   .get(
     "/work-lists/:token",
     zValidator("param", shareTokenParamSchema),

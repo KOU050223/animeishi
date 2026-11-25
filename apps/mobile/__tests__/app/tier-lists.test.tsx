@@ -1,10 +1,12 @@
-// tier 表ハブ画面のテスト（issue #348、#352 で全種類の一覧に拡張）。
-// 「シーズン」「キャラ」「自由」の 3 択の作成導線と、
-// 作成済みの 3 種類の tier 表の一覧・削除を描画で確かめる。
+// tier 表ハブ画面のテスト（issue #348、#352 で全種類の一覧に拡張、
+// #724 で編集画面と API を 1 モデルに統合）。
+// 作成導線（featureFlags で character / custom は段階公開）と、
+// 作成済み tier 表の一覧・削除を描画で確かめる。
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import TierListsScreen from "@/app/tier-lists";
 import { confirm } from "@/lib/dialog";
+import { featureFlags } from "@/lib/featureFlags";
 import type { MergedTierListItem } from "@/lib/tierList/useMergedTierLists";
 
 const mockPush = jest.fn();
@@ -33,6 +35,15 @@ jest.mock("expo-router", () => ({
 
 jest.mock("@/lib/dialog", () => ({ alert: jest.fn(), confirm: jest.fn() }));
 
+// 機能フラグは既定 false。テストでは defineProperty で書き換える
+// （event-slug.test.tsx と同じ方式）。
+function setTierFlags(character: boolean, custom: boolean) {
+  Object.defineProperty(featureFlags, "characterTierList", {
+    value: character,
+  });
+  Object.defineProperty(featureFlags, "customTierList", { value: custom });
+}
+
 let mockItems: MergedTierListItem[] = [];
 let mockListsLoading = false;
 jest.mock("@/lib/tierList/useMergedTierLists", () => {
@@ -47,17 +58,9 @@ jest.mock("@/lib/tierList/useMergedTierLists", () => {
   };
 });
 
-const mockRemoveSeason = jest.fn();
-const mockRemoveCharacter = jest.fn();
-const mockRemoveCustom = jest.fn();
+const mockRemove = jest.fn();
 jest.mock("@/lib/tierList/useTierList", () => ({
-  useDeleteTierList: () => ({ mutateAsync: mockRemoveSeason }),
-}));
-jest.mock("@/lib/tierList/useCharacterTierList", () => ({
-  useDeleteCharacterTierList: () => ({ mutateAsync: mockRemoveCharacter }),
-}));
-jest.mock("@/lib/tierList/useCustomTierList", () => ({
-  useDeleteCustomTierList: () => ({ mutateAsync: mockRemoveCustom }),
+  useDeleteTierList: () => ({ mutateAsync: mockRemove }),
 }));
 
 // キャラ用作品ピッカーは visible と onSelect だけ検査するためスタブ化する。
@@ -72,18 +75,42 @@ jest.mock("@/components/tier-list/CharacterTierWorkPicker", () => ({
   },
 }));
 
+function item(
+  partial: Partial<MergedTierListItem> &
+    Pick<MergedTierListItem, "key" | "kind" | "id" | "title">,
+): MergedTierListItem {
+  return {
+    season: null,
+    annictWorkId: null,
+    shared: false,
+    isPublic: false,
+    updatedAt: "2026-03-01T00:00:00Z",
+    ...partial,
+  };
+}
+
 beforeEach(async () => {
   jest.clearAllMocks();
   mockItems = [];
   mockListsLoading = false;
   mockPickerProps = null;
-  mockRemoveSeason.mockResolvedValue({});
-  mockRemoveCharacter.mockResolvedValue({});
-  mockRemoveCustom.mockResolvedValue({});
+  setTierFlags(false, false);
+  mockRemove.mockResolvedValue({});
 });
 
 describe("TierListsScreen", () => {
-  it("作成方法の 3 択を出す", async () => {
+  it("機能フラグが無効なときは「シーズンから作る」だけを出す", async () => {
+    // 既定の Release ビルドは characterTierList / customTierList が
+    // false なので、作成導線はシーズン版のみになる（issue #724）。
+    await render(<TierListsScreen />);
+
+    expect(screen.getByTestId("tier-lists-create-season")).toBeTruthy();
+    expect(screen.queryByTestId("tier-lists-create-character")).toBeNull();
+    expect(screen.queryByTestId("tier-lists-create-custom")).toBeNull();
+  });
+
+  it("機能フラグが有効なときは作成方法の 3 択を出す", async () => {
+    setTierFlags(true, true);
     await render(<TierListsScreen />);
 
     expect(screen.getByTestId("tier-lists-create-season")).toBeTruthy();
@@ -99,13 +126,18 @@ describe("TierListsScreen", () => {
   });
 
   it("「テーマを決めて自由に作る」で自由作成の編集画面へ遷移する", async () => {
+    setTierFlags(false, true);
     await render(<TierListsScreen />);
 
     await fireEvent.press(screen.getByTestId("tier-lists-create-custom"));
-    expect(mockPush).toHaveBeenCalledWith("/custom-tier-list");
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/tier-list",
+      params: { kind: "custom" },
+    });
   });
 
   it("「キャラクターで作る」は作品ピッカーを開き、選択で編集画面へ遷移する", async () => {
+    setTierFlags(true, false);
     await render(<TierListsScreen />);
 
     await fireEvent.press(screen.getByTestId("tier-lists-create-character"));
@@ -115,41 +147,37 @@ describe("TierListsScreen", () => {
       mockPickerProps?.onSelect({ id: 123, title: "テスト作品" }),
     );
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/character-tier-list",
-      params: { workId: "123", workTitle: "テスト作品" },
+      pathname: "/tier-list",
+      params: { kind: "character", workId: "123", workTitle: "テスト作品" },
     });
     expect(mockPickerProps?.visible).toBe(false);
   });
 
   it("3 種類の作成済み tier 表を一覧表示し、行タップで各編集画面を開く", async () => {
     mockItems = [
-      {
-        key: "season-2026-spring",
+      item({
+        key: "season-11",
         kind: "season",
-        id: "2026-spring",
+        id: 11,
+        season: "2026-spring",
         title: "2026年春アニメ Tier",
-        shared: false,
-        isPublic: false,
         updatedAt: "2026-05-01T00:00:00Z",
-      },
-      {
-        key: "character-42",
+      }),
+      item({
+        key: "character-12",
         kind: "character",
-        id: "42",
+        id: 12,
+        annictWorkId: 42,
         title: "テスト作品 キャラクターTier",
-        shared: false,
-        isPublic: false,
         updatedAt: "2026-04-01T00:00:00Z",
-      },
-      {
+      }),
+      item({
         key: "custom-5",
         kind: "custom",
-        id: "5",
+        id: 5,
         title: "この作家の作品",
-        shared: false,
-        isPublic: false,
         updatedAt: "2026-03-01T00:00:00Z",
-      },
+      }),
     ];
     await render(<TierListsScreen />);
 
@@ -157,38 +185,34 @@ describe("TierListsScreen", () => {
     expect(screen.getByText("テスト作品 キャラクターTier")).toBeTruthy();
     expect(screen.getByText("この作家の作品")).toBeTruthy();
 
-    await fireEvent.press(
-      screen.getByTestId("tier-lists-item-season-2026-spring"),
-    );
+    await fireEvent.press(screen.getByTestId("tier-lists-item-season-11"));
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/tier-list",
       params: { season: "2026-spring" },
     });
 
-    await fireEvent.press(screen.getByTestId("tier-lists-item-character-42"));
+    await fireEvent.press(screen.getByTestId("tier-lists-item-character-12"));
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/character-tier-list",
-      params: { workId: "42" },
+      pathname: "/tier-list",
+      params: { kind: "character", workId: "42" },
     });
 
     await fireEvent.press(screen.getByTestId("tier-lists-item-custom-5"));
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/custom-tier-list",
-      params: { id: "5" },
+      pathname: "/tier-list",
+      params: { kind: "custom", id: "5" },
     });
   });
 
   it("共有トークンがある表には「リンク共有中」を出す", async () => {
     mockItems = [
-      {
+      item({
         key: "custom-3",
         kind: "custom",
-        id: "3",
+        id: 3,
         title: "表",
         shared: true,
-        isPublic: false,
-        updatedAt: "2026-03-01T00:00:00Z",
-      },
+      }),
     ];
     await render(<TierListsScreen />);
     expect(screen.getByText("リンク共有中")).toBeTruthy();
@@ -196,59 +220,46 @@ describe("TierListsScreen", () => {
 
   it("公開設定した表には「公開中」を出す", async () => {
     mockItems = [
-      {
+      item({
         key: "custom-3",
         kind: "custom",
-        id: "3",
+        id: 3,
         title: "公開の表",
-        shared: false,
         isPublic: true,
-        updatedAt: "2026-03-01T00:00:00Z",
-      },
-      {
-        key: "season-2026-spring",
+      }),
+      item({
+        key: "season-4",
         kind: "season",
-        id: "2026-spring",
+        id: 4,
+        season: "2026-spring",
         title: "共有も公開もしている表",
         shared: true,
         isPublic: true,
         updatedAt: "2026-05-01T00:00:00Z",
-      },
+      }),
     ];
     await render(<TierListsScreen />);
     expect(screen.getByText("ひろばに公開中")).toBeTruthy();
     expect(screen.getByText("リンク共有中 ・ ひろばに公開中")).toBeTruthy();
   });
 
-  it("削除は確認ダイアログの承認後に、種類に応じた削除を実行する", async () => {
+  it("削除は確認ダイアログの承認後に、id とスコープで削除を実行する", async () => {
     mockItems = [
-      {
-        key: "custom-3",
-        kind: "custom",
-        id: "3",
-        title: "消す表",
-        shared: false,
-        isPublic: false,
-        updatedAt: "2026-03-01T00:00:00Z",
-      },
-      {
-        key: "season-2026-winter",
+      item({ key: "custom-3", kind: "custom", id: 3, title: "消す表" }),
+      item({
+        key: "season-6",
         kind: "season",
-        id: "2026-winter",
+        id: 6,
+        season: "2026-winter",
         title: "冬の表",
-        shared: false,
-        isPublic: false,
-        updatedAt: "2026-01-01T00:00:00Z",
-      },
-      {
-        key: "character-9",
+      }),
+      item({
+        key: "character-7",
         kind: "character",
-        id: "9",
+        id: 7,
+        annictWorkId: 9,
         title: "キャラの表",
-        shared: false,
-        isPublic: false,
-        updatedAt: "2026-02-01T00:00:00Z",
-      },
+      }),
     ];
     const mockConfirm = jest.mocked(confirm);
     mockConfirm.mockImplementation((_t, _m, onConfirm) => onConfirm());
@@ -261,14 +272,18 @@ describe("TierListsScreen", () => {
       expect.any(Function),
       expect.objectContaining({ destructive: true }),
     );
-    expect(mockRemoveCustom).toHaveBeenCalledWith(3);
+    expect(mockRemove).toHaveBeenCalledWith({ id: 3, scope: undefined });
 
-    await fireEvent.press(
-      screen.getByTestId("tier-lists-delete-season-2026-winter"),
-    );
-    expect(mockRemoveSeason).toHaveBeenCalledWith("2026-winter");
+    await fireEvent.press(screen.getByTestId("tier-lists-delete-season-6"));
+    expect(mockRemove).toHaveBeenCalledWith({
+      id: 6,
+      scope: { kind: "season", season: "2026-winter" },
+    });
 
-    await fireEvent.press(screen.getByTestId("tier-lists-delete-character-9"));
-    expect(mockRemoveCharacter).toHaveBeenCalledWith(9);
+    await fireEvent.press(screen.getByTestId("tier-lists-delete-character-7"));
+    expect(mockRemove).toHaveBeenCalledWith({
+      id: 7,
+      scope: { kind: "character", annictWorkId: 9 },
+    });
   });
 });

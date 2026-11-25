@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { AnimeListContent } from "./AnimeListContent";
 import { currentSeason } from "./animeListUtils";
 import { ApiRequestError } from "@/lib/apiError";
+import { featureFlags } from "@/lib/featureFlags";
 
 // 一覧のデータ取得（Annict プロキシ検索・接続状態）は useAnimeList の
 // テストで検証する。ここでは「カードの描画・押下で詳細シートが開く」
@@ -189,6 +190,9 @@ const lastSort = () => {
 
 describe("AnimeListContent", () => {
   beforeEach(async () => {
+    // キャラ Tier は機能フラグで段階公開（#724）。導線のテストで
+    // ボタンを出すため有効にする。
+    Object.defineProperty(featureFlags, "characterTierList", { value: true });
     jest.clearAllMocks();
     mockMutateAsync.mockResolvedValue({});
     mockWatchHistory = undefined;
@@ -373,8 +377,8 @@ describe("AnimeListContent", () => {
     );
 
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/character-tier-list",
-      params: { workId: "42", workTitle: "テストアニメ" },
+      pathname: "/tier-list",
+      params: { kind: "character", workId: "42", workTitle: "テストアニメ" },
     });
     // Tier 表から戻ったとき一覧の上にシートが残らないよう、遷移前に閉じる。
     expect(screen.queryByTestId("anime-work-detail-sheet")).toBeNull();

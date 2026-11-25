@@ -25,7 +25,7 @@ function getBindings(
 
 // タイトル・説明付きのオリジナル作品リスト（issue #349）。推し（favorites）
 // とは別機能で、1 人がテーマ別に複数作れるため id 指定の REST 形にしてある
-// （features/custom-tier-lists と同じ構造）。
+// （features/tier-lists と同じ構造）。
 //
 // 作成・共有は活動フィード（issue #265）に記録しない。activities.type の
 // CHECK 制約が watch_status / favorite_added / tier_list_* だけを許し、

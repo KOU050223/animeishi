@@ -10,7 +10,7 @@ import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
-let mockParams: { kind?: string; id?: string } = {};
+let mockParams: { id?: string } = {};
 
 jest.mock("expo-router", () => ({
   Stack: {
@@ -154,7 +154,7 @@ beforeEach(() => {
   resetAuth();
   jest.clearAllMocks();
   loggedInUser();
-  mockParams = { kind: "season", id: "3" };
+  mockParams = { id: "3" };
   mockData = detail();
   mockLoading = false;
   mockError = false;
@@ -175,7 +175,7 @@ describe("PublicTierListScreen", () => {
   });
 
   it("キャラ tier 表はキャラクター名と対象作品を出す", async () => {
-    mockParams = { kind: "character", id: "5" };
+    mockParams = { id: "5" };
     mockData = detail({
       kind: "character",
       annictWorkId: 100,
@@ -206,11 +206,11 @@ describe("PublicTierListScreen", () => {
     });
   });
 
-  it("いいねボタンで like ミューテーションを kind つきで呼ぶ", async () => {
+  it("いいねボタンで like ミューテーションを呼ぶ", async () => {
     await render(<PublicTierListScreen />);
     await fireEvent.press(screen.getByTestId("public-tier-list-like"));
     expect(mockToggleMutate).toHaveBeenCalledWith(
-      { kind: "season", id: 3, like: true },
+      { id: 3, like: true },
       expect.anything(),
     );
   });
@@ -250,7 +250,6 @@ describe("PublicTierListScreen", () => {
     await fireEvent.press(screen.getByTestId("tier-list-report-reason-その他"));
 
     expect(mockReportSubmit).toHaveBeenCalledWith({
-      kind: "season",
       id: 3,
       ownerUserId: "other-user",
       ownerUsername: "other",
@@ -293,15 +292,8 @@ describe("PublicTierListScreen", () => {
     expect(screen.getByTestId("public-tier-list-not-found")).toBeTruthy();
   });
 
-  it("kind パラメータが無効でも「表示できません」を出す", async () => {
-    mockParams = { kind: "bogus", id: "3" };
-    mockData = undefined;
-    await render(<PublicTierListScreen />);
-    expect(screen.getByTestId("public-tier-list-not-found")).toBeTruthy();
-  });
-
   it("id パラメータが無効でも「表示できません」を出す", async () => {
-    mockParams = { kind: "season", id: "abc" };
+    mockParams = { id: "abc" };
     mockData = undefined;
     await render(<PublicTierListScreen />);
     expect(screen.getByTestId("public-tier-list-not-found")).toBeTruthy();

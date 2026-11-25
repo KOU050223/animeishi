@@ -20,9 +20,7 @@ import { achievements } from "./features/achievements";
 import { analysis } from "./features/analysis";
 import { annict } from "./features/annict";
 import { articles } from "./features/articles";
-import { characterTierLists } from "./features/character-tier-lists";
 import { common } from "./features/common";
-import { customTierLists } from "./features/custom-tier-lists";
 import { elections } from "./features/elections";
 import { episodeRecords, workEpisodes } from "./features/episode-records";
 import { events } from "./features/events";
@@ -41,7 +39,7 @@ import { avatar, me, meishiAssets } from "./features/me";
 import { pass } from "./features/pass";
 import { publicTierListsRoute } from "./features/public-tier-lists";
 import { share } from "./features/share";
-import { tierLists } from "./features/tier-lists";
+import { tierListsRoute } from "./features/tier-lists";
 import { user } from "./features/user";
 import { usersRoute } from "./features/users";
 import { demoSignIn } from "./features/demo-sign-in";
@@ -132,9 +130,7 @@ const routes = app
   .route("/events", events)
   .route("/elections", elections)
   .route("/me/pass", pass)
-  .route("/me/tier-lists", tierLists)
-  .route("/me/character-tier-lists", characterTierLists)
-  .route("/me/custom-tier-lists", customTierLists)
+  .route("/me/tier-lists", tierListsRoute)
   .route("/me/work-lists", workListsRoute)
   .route("/work-lists", publicWorkListsRoute)
   .route("/tier-lists", publicTierListsRoute)

@@ -39,7 +39,7 @@ export function useWorkSearch(query: string, enabled = true) {
   const trimmed = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS);
 
   const result = useQuery({
-    ...tierListQueries.season.workSearch.query({ title: trimmed }),
+    ...tierListQueries.workSearch.query({ title: trimmed }),
     // `query === trimmed` の一致も条件に入れる。ずれている間（入力直後の
     // デバウンス待ちや、シートを閉じてクエリを空にした直後）はクエリキーの
     // 旧語で有効なまま残り、refetch / 再マウントで余計なリクエストが出るため。

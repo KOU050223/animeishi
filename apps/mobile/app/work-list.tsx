@@ -22,6 +22,7 @@ import { WorkAddSheet } from "@/components/tier-list/WorkAddSheet";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { useThemeColors } from "@/lib/theme";
+import { featureFlags } from "@/lib/featureFlags";
 import { buildWorkListShareUrl } from "@/lib/workList/shareUrl";
 import type { TierItem } from "@/lib/tierList/types";
 import type { WorkListEntry } from "@/lib/workList/types";
@@ -57,7 +58,7 @@ export default function WorkListScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
 
   // 新規作成の最初の保存（POST）で id が確定する。以降の保存は PUT に
-  // 切り替わるよう、確定した id を画面状態として持つ（custom-tier-list
+  // 切り替わるよう、確定した id を画面状態として持つ（tier-list（kind=custom）
   // と同じく URL は書き換えない）。
   const idParam = params.id ? Number(params.id) : null;
   const [listId, setListId] = useState<number | null>(
@@ -96,7 +97,7 @@ export default function WorkListScreen() {
   );
 
   // 保存済みデータで状態を差し替える。編集中（isDirty）は上書きしない
-  // （custom-tier-list と同じく、effect での同期 setState を避けるため
+  // （tier-list（kind=custom）と同じく、effect での同期 setState を避けるため
   // レンダー中に調整する）。新規（id 無し）は初期値のまま。
   const [hydrated, setHydrated] = useState<{
     id: number | null;
@@ -213,7 +214,7 @@ export default function WorkListScreen() {
 
   // 詳細取得の完了前に保存すると空の内容で全置換し、既存の作品が消える。
   // 404（削除済み）のリストも PUT が失敗するだけなので、id 指定では
-  // saved が確定するまで保存・共有を開始させない（custom-tier-list と同じ）。
+  // saved が確定するまで保存・共有を開始させない（tier-list（kind=custom）と同じ）。
   const savedMissing = listId !== null && !isSavedLoading && !saved;
   const inputDisabled =
     isSavedLoading || savedMissing || title.trim().length === 0;
@@ -257,7 +258,7 @@ export default function WorkListScreen() {
   };
 
   // 共有は「保存された内容」を公開するため、未保存変更があっても
-  // 先に保存してからトークンを発行する（custom-tier-list と同じ流れ）。
+  // 先に保存してからトークンを発行する（tier-list（kind=custom）と同じ流れ）。
   const handleShare = async () => {
     if (shareDisabled) return;
     setIsSharing(true);
@@ -324,8 +325,11 @@ export default function WorkListScreen() {
   const handleCreateTierList = () => {
     if (works.length === 0) return;
     router.push({
-      pathname: "/custom-tier-list",
-      params: { workIds: works.map((w) => w.id).join(",") },
+      pathname: "/tier-list",
+      params: {
+        kind: "custom",
+        workIds: works.map((w) => w.id).join(","),
+      },
     });
   };
 
@@ -370,7 +374,7 @@ export default function WorkListScreen() {
 
   if (!canBrowseWorks) {
     // 作品の検索・追加は本人の Annict トークンか共用トークンが要る（issue #561）。
-    // どちらも無いと作品を集められないため、連携誘導を最優先で出す（custom-tier-list と同じ）。
+    // どちらも無いと作品を集められないため、連携誘導を最優先で出す（tier-list（kind=custom）と同じ）。
     return (
       <SafeAreaView
         className="flex-1 bg-white dark:bg-slate-900"
@@ -454,7 +458,7 @@ export default function WorkListScreen() {
         )}
 
         {/* タイトルはリスト名そのもの。保存の前提（空不可・50 文字）を
-            入力側に置く（custom-tier-list と同じ考え方）。 */}
+            入力側に置く（tier-list（kind=custom）と同じ考え方）。 */}
         <Input
           value={title}
           onChangeText={handleChangeTitle}
@@ -626,23 +630,26 @@ export default function WorkListScreen() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          className={`mt-2 items-center rounded-lg border py-3 ${
-            works.length === 0
-              ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/50"
-              : "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950"
-          }`}
-          onPress={handleCreateTierList}
-          disabled={works.length === 0}
-          accessibilityRole="button"
-          accessibilityLabel={t("このリストで Tier 表を作る")}
-          accessibilityState={{ disabled: works.length === 0 }}
-          testID="work-list-create-tier"
-        >
-          <Text className="text-sm font-semibold text-success-text">
-            {t("このリストで Tier 表を作る")}
-          </Text>
-        </TouchableOpacity>
+        {/* 自由 Tier は機能フラグで段階公開（issue #724）。 */}
+        {featureFlags.customTierList ? (
+          <TouchableOpacity
+            className={`mt-2 items-center rounded-lg border py-3 ${
+              works.length === 0
+                ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/50"
+                : "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950"
+            }`}
+            onPress={handleCreateTierList}
+            disabled={works.length === 0}
+            accessibilityRole="button"
+            accessibilityLabel={t("このリストで Tier 表を作る")}
+            accessibilityState={{ disabled: works.length === 0 }}
+            testID="work-list-create-tier"
+          >
+            <Text className="text-sm font-semibold text-success-text">
+              {t("このリストで Tier 表を作る")}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
 
         {/* 共有 URL（発行済みのときだけ表示。視聴履歴の共有と同じ方式） */}
         {shareUrl ? (

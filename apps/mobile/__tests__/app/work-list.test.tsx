@@ -1,4 +1,5 @@
 // 作品リスト編集画面のテスト（issue #349）。
+import { featureFlags } from "@/lib/featureFlags";
 // 「新規作成（id 無し）」「既存編集（id あり）」の 2 経路に加え、
 // 作品の追加・並べ替え・削除、保存、共有 URL の発行・表示・解除、
 // Tier 表作成への引き継ぎを描画で確かめる。
@@ -131,6 +132,9 @@ function savedList(
 }
 
 beforeEach(async () => {
+  // 自由 Tier は機能フラグで段階公開（#724）。「このリストで Tier 表を
+  // 作る」ボタンを出すため有効にする。
+  Object.defineProperty(featureFlags, "customTierList", { value: true });
   jest.clearAllMocks();
   mockParams = {};
   mockSaved = null;
@@ -363,8 +367,8 @@ describe("WorkListScreen", () => {
     await fireEvent.press(screen.getByTestId("work-list-create-tier"));
 
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/custom-tier-list",
-      params: { workIds: "10,20" },
+      pathname: "/tier-list",
+      params: { kind: "custom", workIds: "10,20" },
     });
   });
 

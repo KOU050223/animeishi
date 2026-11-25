@@ -304,7 +304,10 @@ async function seedAccount(api, spec) {
   }
 
   if (spec.tierList) {
-    const saved = await api("PUT", "/me/tier-lists", spec.tierList);
+    const saved = await api("POST", "/me/tier-lists", {
+      kind: "season",
+      ...spec.tierList,
+    });
     ids.tierListId = saved?.id ?? null;
     console.log("  ティア表");
   }
@@ -528,9 +531,7 @@ async function main() {
   );
   console.log(`  /user/[uid]          uid: ${friendUserId}`);
   console.log(`  /public-work-list    id: ${reviewIds.publicWorkListId}`);
-  console.log(
-    `  /public-tier-list    kind: season, id: ${reviewIds.tierListId}`,
-  );
+  console.log(`  /public-tier-list    id: ${reviewIds.tierListId}`);
 }
 
 main().catch((error) => {
