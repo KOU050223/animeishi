@@ -26,6 +26,9 @@ try {
       // typegen では型エラーを検査しない。API の型エラーは API の typecheck が
       // 検出し、ここで失敗させると prepare 経由の vp install まで止まるため。
       "--noCheck",
+      // post-checkout / post-merge や並列 worktree で余分なワーカーを起こさない。
+      "--checkers",
+      "1",
       "-p",
       join(workspaceRoot, "apps/api/tsconfig.rpc.json"),
       "--outDir",

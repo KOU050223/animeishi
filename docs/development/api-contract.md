@@ -3,8 +3,7 @@
 API の仕様を mobile とレビュー用の生成物に配るパッケージ（issue #725）。
 生成物は用途の違う 2 系統ある。
 
-- `openapi.json` / `schema.d.ts` … OpenAPI 仕様と、そこから生成した型。
-  変更内容をレビューしやすくするため、どちらもコミットする
+- `openapi.json` … OpenAPI 仕様。変更内容をレビューしやすくするためコミットする
 - `generated/rpcSchema.d.ts` … Hono RPC のルート型（`ExtractSchema`）を
   事前に展開した宣言ファイル。mobile は `@animeishi/api-contract/rpc`
   からこの型だけを読み、API のソースを型チェックの入力にしない
@@ -30,10 +29,17 @@ union 型の並び順が実行ごとに変わることがあり、同じソー�
 `.oxfmtignore` で除外している。
 
 `vp install` では prepare から typegen を実行する。新しい worktree を作った
-直後でも、エディタが `@animeishi/api-contract/rpc` を解決できる。API のルート
-やスキーマを変えたあとエディタの型を更新したいときは、上の typegen コマンドを
-実行する。mobile の typecheck・lint・test・dev は typegen に依存するため、
-`vp run` 経由では生成物がなくても先に生成・復元される。
+直後でも、エディタが `@animeishi/api-contract/rpc` を解決できる。ブランチの
+切り替え後は post-checkout、merge 後は post-merge、rebase 後は post-rewrite の
+Git フックが typegen を実行する。依存をインストールしていない worktree では
+何もせず、typegen が失敗しても警告だけを出して Git 操作は成功する。競合を
+解消して `git merge --continue` で終えた merge では post-merge が走らないため、
+API が変わったときは上の typegen コマンドを手で実行する。
+
+Claude Code 等のエージェントが API を編集した直後など、Git 操作を挟まずに
+エディタの型を更新したいときは、上の typegen コマンドを手で実行する。mobile の
+typecheck・lint・test・dev は typegen に依存するため、`vp run` 経由では生成物が
+なくても先に生成・復元される。
 
 生成時に API 側で `TS4023` / `TS7056` が出たときは、宣言ファイルに展開できない
 型が公開型へ漏れている。GraphQL のクライアント型のように RPC の入出力に不要な
@@ -43,11 +49,11 @@ union 型の並び順が実行ごとに変わることがあり、同じソー�
 ## OpenAPI 仕様の再生成と整合チェック
 
 ```bash
-vp run @animeishi/api-contract#generate   # openapi.json / schema.d.ts を書き直す
+vp run @animeishi/api-contract#generate   # openapi.json を書き直す
 vp run @animeishi/api-contract#check      # API の定義から再生成して差分があれば失敗
 ```
 
-API のルート・スキーマを変えたら generate して両ファイルをコミットする。
+API のルート・スキーマを変えたら generate して openapi.json をコミットする。
 `check` は CI の Lint & Type Check ジョブで走り、コミット済みの OpenAPI 生成物の
 ずれを検出する。Hono RPC 用の `generated/rpcSchema.d.ts` はコミットしないため、
 `check` の対象ではない。
@@ -72,13 +78,3 @@ mobile 側の `@/*` は apps/mobile 内だけを指す。mobile が Hono RPC の
 持たない。`apps/mobile/worker/` は Workers 固有の型を使うため、
 `worker/tsconfig.json` にだけ `@cloudflare/workers-types` を持たせて別に
 型チェックする。
-
-## このパッケージだけ typescript@5.9.3 を持つ
-
-openapi-typescript（型生成に使う JS API）が peer に `typescript@^5` を要求
-するため、実 devDependency として 5.9.3 を入れている。副作用としてこの
-パッケージの `node_modules/.bin/tsc` は TypeScript 5 を指すので、
-typecheck タスクと typegen はワークスペースと同じ TypeScript 7
-（`@typescript/native`）をルートの .bin 経由で明示している
-（packages/api-contract/vite.config.ts、scripts/typegen.mts）。
-openapi-typescript が TypeScript 6/7 対応をリリースしたら 5.9.3 を外せる。

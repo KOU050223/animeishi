@@ -1,0 +1,4 @@
+if [ -f .vite-hooks/typegen ]; then
+  sh .vite-hooks/typegen || true
+fi
+exit 0

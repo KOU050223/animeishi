@@ -1,0 +1,7 @@
+# ブランチ切り替え（第 3 引数が 1）のときだけ実行する。ファイル単位の
+# checkout では API の型生成は不要。
+[ "${3:-0}" = "1" ] || exit 0
+if [ -f .vite-hooks/typegen ]; then
+  sh .vite-hooks/typegen || true
+fi
+exit 0
