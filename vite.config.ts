@@ -253,7 +253,7 @@ export default defineConfig({
     ...Object.fromEntries(
       PACKAGES.flatMap((dir) => [
         [
-          `${dir}/**/*.{ts,tsx,js,jsx,mjs,cjs}`,
+          `${dir}/**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}`,
           [
             `vp -C ${dir} lint --deny-warnings`,
             `vp -C ${dir} fmt --no-error-on-unmatched-pattern --ignore-path ../../.oxfmtignore`,
