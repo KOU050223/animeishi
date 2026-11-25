@@ -20,7 +20,9 @@ mkdirSync(workDir, { recursive: true });
 try {
   execFileSync(
     join(workspaceRoot, "node_modules/.bin/tsc"),
-    ["-p", join(workspaceRoot, "apps/api/tsconfig.rpc.json")],
+    // typegen では型エラーを検査しない。API の型エラーは API の typecheck が
+    // 検出し、ここで失敗させると prepare 経由の vp install まで止まるため。
+    ["--noCheck", "-p", join(workspaceRoot, "apps/api/tsconfig.rpc.json")],
     { stdio: "inherit" },
   );
   copyFileSync(join(workDir, "rpcSchema.d.ts"), temporaryFile);

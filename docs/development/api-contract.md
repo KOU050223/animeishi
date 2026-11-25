@@ -20,6 +20,10 @@ typegen は apps/api/src/rpcSchema.ts を入口に TypeScript 7 で
 させた宣言だけを出力するため、生成物が参照する外部モジュールは hono だけであり、
 API 内部ソースや Workers 固有の型は参照しない。
 
+typegen では `tsc` に `--noCheck` を付け、型エラーの検査を API 自身の typecheck
+に任せる。prepare からも実行されるため、ここで型エラーにすると API の型エラーが
+残っている状態で `vp install` 自体が失敗する。
+
 `generated/rpcSchema.d.ts` はコミットしない。TypeScript 7 の宣言出力では
 union 型の並び順が実行ごとに変わることがあり、同じソースからでも差分が出る
 ためである。`packages/api-contract/generated/` は `.gitignore` と
