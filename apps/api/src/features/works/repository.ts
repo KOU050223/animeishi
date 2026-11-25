@@ -1,15 +1,15 @@
 import { and, desc, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
-import type { DrizzleDb } from "@/db/client";
-import { annictWorks, annictCharacters, annictWorkCasts } from "@/db/schema";
-import { normalizeAnnictSeasonName } from "@/lib/annict/client";
-import { IMAGE_SOURCE_BLOCKED } from "@/lib/catalog/imageFallback";
+import type { DrizzleDb } from "#src/db/client";
+import { annictWorks, annictCharacters, annictWorkCasts } from "#src/db/schema";
+import { normalizeAnnictSeasonName } from "#src/lib/annict/client/index";
+import { IMAGE_SOURCE_BLOCKED } from "#src/lib/catalog/imageFallback";
 import type {
   AnnictWork,
   NewAnnictWork,
   AnnictCharacter,
   NewAnnictCharacter,
-} from "@/db/schema";
+} from "#src/db/schema";
 
 /**
  * worksRepository: 作品カタログ（annict_works / annict_characters /

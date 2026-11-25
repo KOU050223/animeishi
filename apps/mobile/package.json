@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@animeishi/api": "workspace:*",
+    "@animeishi/api-contract": "workspace:*",
     "@animeishi/danime-core": "workspace:*",
     "@animeishi/observability": "workspace:*",
     "@clerk/expo": "^4.14.4",
@@ -65,6 +66,7 @@
     "i18next": "^26.3.2",
     "intl-pluralrules": "^2.0.1",
     "nativewind": "5.0.0-rc.1",
+    "openapi-fetch": "^0.17.0",
     "posthog-react-native": "^4.87.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",

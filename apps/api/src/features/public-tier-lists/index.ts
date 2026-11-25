@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { requireAuth } from "@/middleware/auth";
-import type { AuthEnv, AuthVariables } from "@/middleware/auth";
+import { requireAuth } from "#src/middleware/auth";
+import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
 import {
   publicTierListsQuerySchema,
   publicTierListParamSchema,
@@ -15,10 +15,10 @@ import {
 } from "./repository";
 import type { PublicTierListRow } from "./repository";
 import { usersRepository, ReportRateLimitError } from "../users/repository";
-import { createDb } from "@/db/client";
-import { workImageUrl } from "@/lib/catalog/workImage";
-import { notifyUserReport } from "@/observability";
-import { userRateLimit } from "@/middleware/rateLimit";
+import { createDb } from "#src/db/client";
+import { workImageUrl } from "#src/lib/catalog/workImage";
+import { notifyUserReport } from "#src/observability";
+import { userRateLimit } from "#src/middleware/rateLimit";
 
 function getBindings(
   c: Context,

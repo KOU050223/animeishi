@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { requireAuth } from "@/middleware/auth";
-import type { AuthEnv, AuthVariables } from "@/middleware/auth";
+import { requireAuth } from "#src/middleware/auth";
+import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
 import { tierListSaveSchema, tierListSeasonParamSchema } from "./schema";
 import { tierListsRepository } from "./repository";
 import { feedRepository } from "../feed/repository";
 import { worksRepository } from "../works/repository";
-import { createDb } from "@/db/client";
-import { workImageUrl } from "@/lib/catalog/workImage";
+import { createDb } from "#src/db/client";
+import { workImageUrl } from "#src/lib/catalog/workImage";
 
 function getBindings(
   c: Context,

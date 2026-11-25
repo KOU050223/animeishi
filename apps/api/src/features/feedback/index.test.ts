@@ -4,10 +4,10 @@ import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { feedbackRoute } from "@/features/feedback";
-import { FEEDBACK_HOURLY_LIMIT } from "@/features/feedback/repository";
-import { feedbacks, users } from "@/db/schema";
-import { resetLocalSuppression } from "@/lib/discordAlert";
+import { feedbackRoute } from "#src/features/feedback/index";
+import { FEEDBACK_HOURLY_LIMIT } from "#src/features/feedback/repository";
+import { feedbacks, users } from "#src/db/schema";
+import { resetLocalSuppression } from "#src/lib/discordAlert";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

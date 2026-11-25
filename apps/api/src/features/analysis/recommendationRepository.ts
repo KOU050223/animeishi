@@ -1,8 +1,8 @@
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import type { DrizzleDb } from "@/db/client";
-import { recommendations } from "@/db/schema";
-import type { Recommendation } from "@/db/schema";
+import type { DrizzleDb } from "#src/db/client";
+import { recommendations } from "#src/db/schema";
+import type { Recommendation } from "#src/db/schema";
 
 // ---- キャッシュ・レート制限のポリシー（issue #335。analyses と同じ考え方）----
 // Workers AI の呼び出しコストを抑えるため、結果を 24h キャッシュし、

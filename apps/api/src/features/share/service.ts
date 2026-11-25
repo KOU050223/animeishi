@@ -1,12 +1,12 @@
 import type { Context } from "hono";
-import type { DrizzleDb } from "@/db/client";
-import { html, joinHtml, raw, type HtmlEscapedString } from "@/lib/html";
+import type { DrizzleDb } from "#src/db/client";
+import { html, joinHtml, raw, type HtmlEscapedString } from "#src/lib/html";
 import {
   fetchFollowingRedirects,
   isPublicImageUrl,
   readBodyWithLimit,
-} from "@/lib/http";
-import { serveWorkImage, workImageUrl } from "@/lib/catalog/workImage";
+} from "#src/lib/http";
+import { serveWorkImage, workImageUrl } from "#src/lib/catalog/workImage";
 import type { GuestCtaSource } from "@animeishi/observability";
 import { renderSharePage, statsHtml } from "./layout";
 import { isKnownImageUrl } from "./repository";

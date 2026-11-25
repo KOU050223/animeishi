@@ -4,22 +4,22 @@ import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { analysis } from "@/features/analysis";
+import { analysis } from "#src/features/analysis/index";
 import {
   analyses,
   annictWorks,
   users,
   watchHistory,
   workRatings,
-} from "@/db/schema";
+} from "#src/db/schema";
 import {
   ANALYSIS_MODEL,
   buildAnalysisInput,
   computeInputHash,
   runAnalysis,
-} from "@/features/analysis/service";
-import { ANALYSIS_MAX_GENERATIONS_PER_WINDOW } from "@/features/analysis/repository";
-import type { WatchHistoryWithWork } from "@/features/watch-history/repository";
+} from "#src/features/analysis/service";
+import { ANALYSIS_MAX_GENERATIONS_PER_WINDOW } from "#src/features/analysis/repository";
+import type { WatchHistoryWithWork } from "#src/features/watch-history/repository";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

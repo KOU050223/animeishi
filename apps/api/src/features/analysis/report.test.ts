@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { attachInsights, buildSectionDrafts } from "@/features/analysis/report";
-import type { WatchHistoryWithWork } from "@/features/watch-history/repository";
+import {
+  attachInsights,
+  buildSectionDrafts,
+} from "#src/features/analysis/report";
+import type { WatchHistoryWithWork } from "#src/features/watch-history/repository";
 
 // レポート集計（issue #375）の単体テスト。件数・割合・根拠作品は
 // すべてここで確定する（LLM には解釈文だけを書かせる）ため、

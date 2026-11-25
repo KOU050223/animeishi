@@ -6,9 +6,9 @@ import {
   index,
   check,
 } from "drizzle-orm/sqlite-core";
-import { TIER_LIST_KINDS } from "@/features/public-tier-lists/schema.db";
-import { users } from "@/features/users/schema.db";
-import { workLists } from "@/features/work-lists/schema.db";
+import { TIER_LIST_KINDS } from "#src/features/public-tier-lists/schema.db";
+import { users } from "#src/features/users/schema.db";
+import { workLists } from "#src/features/work-lists/schema.db";
 
 // reports.status の許可値（モデレーション対応状況, issue #186）。
 // open: 未対応 / resolved: 対応済み / dismissed: 却下（対応不要と判断）。

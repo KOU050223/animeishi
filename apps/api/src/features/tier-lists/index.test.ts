@@ -3,8 +3,8 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { tierLists } from "@/features/tier-lists";
-import { users, annictWorks, tierListLikes } from "@/db/schema";
+import { tierLists } from "#src/features/tier-lists/index";
+import { users, annictWorks, tierListLikes } from "#src/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

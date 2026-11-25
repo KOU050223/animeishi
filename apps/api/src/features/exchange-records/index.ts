@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { and, eq } from "drizzle-orm";
-import { requireAuth } from "@/middleware/auth";
-import type { AuthEnv, AuthVariables } from "@/middleware/auth";
+import { requireAuth } from "#src/middleware/auth";
+import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
 import {
   EventNotFoundError,
   ExchangeRecordNotFoundError,
@@ -16,10 +16,10 @@ import {
   listExchangeRecordsRoute,
   updateExchangeRecordRoute,
 } from "./schema";
-import { createDb } from "@/db/client";
-import { exchangeRecords as exchangeRecordsTable } from "@/db/schema";
-import { createOpenApiApp } from "@/lib/openapi";
-import type { ExchangeRecord } from "@/db/schema";
+import { createDb } from "#src/db/client";
+import { exchangeRecords as exchangeRecordsTable } from "#src/db/schema";
+import { createOpenApiApp } from "#src/lib/openapi";
+import type { ExchangeRecord } from "#src/db/schema";
 
 function getBindings(
   c: Context,

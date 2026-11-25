@@ -12,7 +12,7 @@ import {
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
-import type { DrizzleDb } from "@/db/client";
+import type { DrizzleDb } from "#src/db/client";
 import {
   users,
   deletedUsers,
@@ -40,8 +40,8 @@ import {
   analyses,
   tierListLikes,
   userLikes,
-} from "@/db/schema";
-import type { User, NewUser, Report, TierListKind } from "@/db/schema";
+} from "#src/db/schema";
+import type { User, NewUser, Report, TierListKind } from "#src/db/schema";
 import { deleteExchangeRecordsBetween } from "../exchange-records/repository";
 import { deleteFriendThanksBetween } from "../friend-thanks/repository";
 

@@ -9,7 +9,7 @@ import {
   sql,
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
-import type { DrizzleDb } from "@/db/client";
+import type { DrizzleDb } from "#src/db/client";
 import {
   users,
   blocks,
@@ -22,8 +22,8 @@ import {
   tierListLikes,
   annictWorks,
   annictCharacters,
-} from "@/db/schema";
-import type { TierListKind } from "@/db/schema";
+} from "#src/db/schema";
+import type { TierListKind } from "#src/db/schema";
 import type { TierRow } from "../share/service";
 import { parseTiersJson } from "../share/service";
 import { fetchTierListItems } from "../tier-lists/repository";

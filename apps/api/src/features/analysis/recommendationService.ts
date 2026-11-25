@@ -5,13 +5,13 @@ import {
   signatureSimilarity,
 } from "@animeishi/danime-core";
 import type { TitleSignature } from "@animeishi/danime-core";
-import { WATCH_STATES } from "@/db/schema";
+import { WATCH_STATES } from "#src/db/schema";
 import {
   searchAnnictWorksByTitle,
   searchAnnictWorksByTitles,
-} from "@/lib/annict/client";
-import type { AnnictLibraryEntry } from "@/lib/annict/client";
-import { withAnnictRetry } from "@/lib/annict/retry";
+} from "#src/lib/annict/client/index";
+import type { AnnictLibraryEntry } from "#src/lib/annict/client/index";
+import { withAnnictRetry } from "#src/lib/annict/retry";
 import {
   ANALYSIS_MODEL,
   RATING_LABELS,

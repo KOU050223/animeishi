@@ -2,10 +2,13 @@ import { clerkMiddleware, getAuth } from "@clerk/hono";
 import { isClerkAPIResponseError } from "@clerk/backend/errors";
 import { createMiddleware } from "hono/factory";
 import type { Context } from "hono";
-import type { Env } from "@/db/client";
-import { createDb } from "@/db/client";
-import { usersRepository, DeletedUserError } from "@/features/users/repository";
-import { captureServerEvent } from "@/lib/posthog";
+import type { Env } from "#src/db/client";
+import { createDb } from "#src/db/client";
+import {
+  usersRepository,
+  DeletedUserError,
+} from "#src/features/users/repository";
+import { captureServerEvent } from "#src/lib/posthog";
 
 // hono/client (RPC) 向け: Bindingsを含まない型。RNアプリ側でも安全にimportできる
 export type AuthVariables = {

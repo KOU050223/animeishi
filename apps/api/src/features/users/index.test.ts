@@ -4,19 +4,19 @@ import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { friends } from "@/features/friends";
-import { issueQrExchangeToken } from "@/features/friends/qrExchangeToken";
-import { avatar, me } from "@/features/me";
-import { user } from "@/features/user";
-import { usersRoute } from "@/features/users";
+import { friends } from "#src/features/friends/index";
+import { issueQrExchangeToken } from "#src/features/friends/qrExchangeToken";
+import { avatar, me } from "#src/features/me/index";
+import { user } from "#src/features/user/index";
+import { usersRoute } from "#src/features/users/index";
 import {
   friends as friendsTable,
   friendNotes,
   exchangeRecords,
   reports,
   users,
-} from "@/db/schema";
-import { resetLocalSuppression } from "@/lib/discordAlert";
+} from "#src/db/schema";
+import { resetLocalSuppression } from "#src/lib/discordAlert";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

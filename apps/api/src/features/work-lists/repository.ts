@@ -11,7 +11,7 @@ import {
   sql,
 } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
-import type { DrizzleDb } from "@/db/client";
+import type { DrizzleDb } from "#src/db/client";
 import {
   annictWorks,
   blocks,
@@ -19,8 +19,8 @@ import {
   workLists,
   workListItems,
   workListLikes,
-} from "@/db/schema";
-import type { WorkList } from "@/db/schema";
+} from "#src/db/schema";
+import type { WorkList } from "#src/db/schema";
 import type { AnnictWorkMeta } from "../works/repository";
 
 /** 作品リストに登録された作品 1 件（作品メタを含む）。 */

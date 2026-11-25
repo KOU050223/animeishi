@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023"],
+    // scripts が組み立てる OpenAPI ドキュメントは apps/api のルート定義を
+    // 辿るため、API ソースが参照する Workers グローバル型が必要。
+    "types": ["node", "@cloudflare/workers-types"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["scripts/**/*", "vite.config.ts"],
+  "exclude": ["node_modules"]
+}

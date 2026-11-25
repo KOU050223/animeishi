@@ -7,14 +7,14 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { importRoute } from "@/features/import";
+import { importRoute } from "#src/features/import/index";
 import { eq } from "drizzle-orm";
 import {
   users,
   annictTokens,
   danimeEpisodeImportItems,
   danimeEpisodeImportJobs,
-} from "@/db/schema";
+} from "#src/db/schema";
 import { episodeImportJobRepository } from "./repository";
 
 vi.mock("@clerk/hono", () => ({

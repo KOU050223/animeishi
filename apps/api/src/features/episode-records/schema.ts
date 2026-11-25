@@ -1,11 +1,11 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { requireAnnictToken } from "@/lib/annict/middleware";
+import { requireAnnictToken } from "#src/lib/annict/middleware";
 import {
   bearerAuthWithAnnict,
   codedErrorResponseSchema,
   errorResponseSchema,
   successResponseSchema,
-} from "@/lib/openapi";
+} from "#src/lib/openapi";
 import { annictWorkIdParamSchema } from "../works/schema";
 
 // /me/episode-records/:annictEpisodeId 系パスのパラメータ。

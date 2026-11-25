@@ -1,5 +1,5 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { bearerAuth, errorResponseSchema } from "@/lib/openapi";
+import { bearerAuth, errorResponseSchema } from "#src/lib/openapi";
 
 // GET /articles のクエリ。limit は 1 ページ件数の指定（サーバー側で
 // 上限を設ける）。公開中の記事だけを published_at の新しい順に返す。

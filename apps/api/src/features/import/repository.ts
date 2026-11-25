@@ -4,19 +4,19 @@
 // ポーリングはこの表を見る。
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
-import type { DrizzleDb } from "@/db/client";
+import type { DrizzleDb } from "#src/db/client";
 import {
   danimeEpisodeImportItems,
   danimeEpisodeImportJobs,
   danimeEpisodeImportWorks,
-} from "@/db/schema";
+} from "#src/db/schema";
 import type {
   DanimeEpisodeImportItem,
   DanimeEpisodeImportJob,
   DanimeEpisodeImportWork,
   DanimeEpisodeItemStatus,
   DanimeEpisodeJobStatus,
-} from "@/db/schema";
+} from "#src/db/schema";
 
 // 「実行中」として新規ジョブ作成を拒否する状態。matching は話対応付け中、
 // writing は Annict への書き込み中。

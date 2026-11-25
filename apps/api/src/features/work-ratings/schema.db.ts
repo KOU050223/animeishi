@@ -7,8 +7,8 @@ import {
   unique,
   check,
 } from "drizzle-orm/sqlite-core";
-import { users } from "@/features/users/schema.db";
-import { annictWorks } from "@/features/works/schema.db";
+import { users } from "#src/features/users/schema.db";
+import { annictWorks } from "#src/features/works/schema.db";
 
 // ---- work_ratings (視聴済み作品へのワンタップ 3 段階評価, issue #416) ----
 // Animeishi 独自の評価。Annict のレビュー評価は GET で初期値として読むだけで、

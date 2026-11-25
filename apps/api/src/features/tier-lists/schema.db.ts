@@ -5,8 +5,8 @@ import {
   index,
   unique,
 } from "drizzle-orm/sqlite-core";
-import { users } from "@/features/users/schema.db";
-import { annictWorks } from "@/features/works/schema.db";
+import { users } from "#src/features/users/schema.db";
+import { annictWorks } from "#src/features/works/schema.db";
 
 // ---- tier_lists (シーズン単位のアニメ tier 表) ----
 // tiers（S/A/B... の行定義）は行数・ラベル・色をユーザーが自由に決められるため

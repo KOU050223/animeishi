@@ -1,5 +1,5 @@
 import { integer, sqliteTable, text, index } from "drizzle-orm/sqlite-core";
-import { users } from "@/features/users/schema.db";
+import { users } from "#src/features/users/schema.db";
 
 // ---- friend_thanks (名刺交換後のお礼。issue #694) ----
 // チャットではなく、交換した相手へ「定型文 1 つ＋任意の 1 行」を送る

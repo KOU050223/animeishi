@@ -6,7 +6,7 @@ import {
   index,
   check,
 } from "drizzle-orm/sqlite-core";
-import { users } from "@/features/users/schema.db";
+import { users } from "#src/features/users/schema.db";
 
 export const socialLinks = sqliteTable(
   "social_links",

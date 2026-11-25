@@ -7,7 +7,7 @@ import {
   unique,
   check,
 } from "drizzle-orm/sqlite-core";
-import { users } from "@/features/users/schema.db";
+import { users } from "#src/features/users/schema.db";
 
 // ---- elections (期間限定の投票型「総選挙」, issue #438) ----
 // 投入は scripts/publish-election.mjs（#437 の記事と同じ frontmatter 付き

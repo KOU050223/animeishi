@@ -11,11 +11,11 @@ import {
   ANNICT_GRAPHQL_ENDPOINT,
   ANNICT_TOKEN_ENDPOINT,
   ANNICT_TOKEN_INFO_ENDPOINT,
-} from "@/lib/annict";
+} from "#src/lib/annict/index";
 import {
   isPersistableState,
   ANNICT_ALL_STATUS_STATES,
-} from "@/lib/annict/statusState";
+} from "#src/lib/annict/statusState";
 import {
   createAnnictRecord,
   deleteAnnictRecord,
@@ -26,7 +26,7 @@ import {
   fetchAnnictWorkEpisodes,
   normalizeAnnictSeasonName,
   searchAnnictWorksByTitles,
-} from "@/lib/annict/client";
+} from "#src/lib/annict/client/index";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {

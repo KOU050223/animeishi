@@ -1,11 +1,11 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { requireAnnictWorkCatalog } from "@/lib/annict/middleware";
+import { requireAnnictWorkCatalog } from "#src/lib/annict/middleware";
 import {
   bearerAuth,
   bearerAuthWithAnnict,
   codedErrorResponseSchema,
   errorResponseSchema,
-} from "@/lib/openapi";
+} from "#src/lib/openapi";
 
 // 作品検索（GET /works/search）のクエリパラメータ。
 // title は Annict searchWorks に渡す検索語。省略時はサーバーが「今期シーズン」を

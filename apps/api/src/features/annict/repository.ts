@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import type { DrizzleDb } from "@/db/client";
-import { annictTokens } from "@/db/schema";
-import type { AnnictToken } from "@/db/schema";
+import type { DrizzleDb } from "#src/db/client";
+import { annictTokens } from "#src/db/schema";
+import type { AnnictToken } from "#src/db/schema";
 
 /**
  * annictRepository: 認証済みユーザーIDを束縛した annict_tokens の

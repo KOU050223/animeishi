@@ -1,13 +1,13 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
-import type { DrizzleDb } from "@/db/client";
+import type { DrizzleDb } from "#src/db/client";
 import {
   annictWorks,
   customTierLists,
   customTierListItems,
   tierListLikes,
-} from "@/db/schema";
-import type { CustomTierList } from "@/db/schema";
+} from "#src/db/schema";
+import type { CustomTierList } from "#src/db/schema";
 import type { AnnictWorkMeta } from "../works/repository";
 
 /** 自由作成 tier 表に配置された作品 1 件（作品メタを含む）。 */

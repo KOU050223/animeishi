@@ -1,14 +1,14 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { requireAnnictToken } from "@/lib/annict/middleware";
+import { requireAnnictToken } from "#src/lib/annict/middleware";
 import {
   bearerAuth,
   bearerAuthWithAnnict,
   codedErrorResponseSchema,
   errorResponseSchema,
   successResponseSchema,
-} from "@/lib/openapi";
+} from "#src/lib/openapi";
 import { WATCH_STATES } from "./schema.db";
-import { ANNICT_STATUS_STATES } from "@/lib/annict/statusState";
+import { ANNICT_STATUS_STATES } from "#src/lib/annict/statusState";
 
 export const watchHistoryUpsertSchema = z.object({
   state: z.enum(ANNICT_STATUS_STATES, {

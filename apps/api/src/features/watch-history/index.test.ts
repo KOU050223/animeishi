@@ -3,12 +3,12 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { watchHistory } from "@/features/watch-history";
+import { watchHistory } from "#src/features/watch-history/index";
 import {
   users,
   annictWorks,
   watchHistory as watchHistoryTable,
-} from "@/db/schema";
+} from "#src/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

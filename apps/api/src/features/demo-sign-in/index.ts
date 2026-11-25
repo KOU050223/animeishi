@@ -1,7 +1,7 @@
 import { createClerkClient } from "@clerk/backend";
 import { isClerkAPIResponseError } from "@clerk/backend/errors";
 import type { Context } from "hono";
-import { createOpenApiApp } from "@/lib/openapi";
+import { createOpenApiApp } from "#src/lib/openapi";
 import { demoSignInRoute } from "./schema";
 
 // Clerk ユーザーの public_metadata.demoAccount がこの値のアカウントだけを対象にする

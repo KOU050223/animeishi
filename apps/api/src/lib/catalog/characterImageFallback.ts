@@ -21,7 +21,7 @@
 //   * マッチしなければ画像なし（null）で返す — best-effort であり、
 //     呼び出し元のレスポンス自体は壊さない。
 
-import type { AnnictCharacterSummary } from "@/lib/annict/client";
+import type { AnnictCharacterSummary } from "#src/lib/annict/client/index";
 import { fetchKitsuAnimeIds } from "./imageFallback";
 
 const KITSU_CHARACTERS_ENDPOINT_BASE = "https://kitsu.io/api/edge/anime";

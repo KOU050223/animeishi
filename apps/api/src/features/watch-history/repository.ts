@@ -1,13 +1,13 @@
 import { and, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
-import type { DrizzleDb } from "@/db/client";
-import { watchHistory, annictWorks, users } from "@/db/schema";
+import type { DrizzleDb } from "#src/db/client";
+import { watchHistory, annictWorks, users } from "#src/db/schema";
 import type {
   AnnictWork,
   WatchHistory,
   NewWatchHistory,
   NewAnnictWork,
-} from "@/db/schema";
+} from "#src/db/schema";
 import type { AnnictWorkMeta } from "../works/repository";
 import { isUnchangedCachedWork, worksRepository } from "../works/repository";
 

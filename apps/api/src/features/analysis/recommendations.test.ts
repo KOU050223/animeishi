@@ -4,13 +4,13 @@ import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { analysis } from "@/features/analysis";
+import { analysis } from "#src/features/analysis/index";
 import {
   buildAnalysisInput,
   computeInputHash,
-} from "@/features/analysis/service";
-import { watchHistoryRepository } from "@/features/watch-history/repository";
-import { workRatingsRepository } from "@/features/work-ratings/repository";
+} from "#src/features/analysis/service";
+import { watchHistoryRepository } from "#src/features/watch-history/repository";
+import { workRatingsRepository } from "#src/features/work-ratings/repository";
 import {
   analyses,
   annictWorks,
@@ -18,8 +18,8 @@ import {
   users,
   watchHistory,
   workRatings,
-} from "@/db/schema";
-import { RECOMMENDATION_MAX_GENERATIONS_PER_WINDOW } from "@/features/analysis/recommendationRepository";
+} from "#src/db/schema";
+import { RECOMMENDATION_MAX_GENERATIONS_PER_WINDOW } from "#src/features/analysis/recommendationRepository";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -642,7 +642,7 @@ describe("matchCandidateWorks", () => {
 
   it("union 検索の結果から各候補の最一致作品を選び履歴外だけ残す", async () => {
     const { matchCandidateWorks } =
-      await import("@/features/analysis/recommendationService");
+      await import("#src/features/analysis/recommendationService");
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -680,7 +680,7 @@ describe("matchCandidateWorks", () => {
 
   it("union で拾えなかった候補は単発検索で救い、別作品への誤照合はしない", async () => {
     const { matchCandidateWorks } =
-      await import("@/features/analysis/recommendationService");
+      await import("#src/features/analysis/recommendationService");
     // union は空、単発検索（2 回目以降）はタイトルに応じた結果を返す。
     const fetchMock = vi
       .fn()
@@ -739,7 +739,7 @@ describe("matchCandidateWorks", () => {
 
   it("union で部分一致しか取れなかった候補は単発検索で正式タイトルを照合し直す", async () => {
     const { matchCandidateWorks } =
-      await import("@/features/analysis/recommendationService");
+      await import("#src/features/analysis/recommendationService");
     // union 検索は先頭 50 件打ち切りのため、正式作品が圏外にあると
     // 同シリーズの別作品へ包含スコアで確定し得る。単発検索の結果に
     // 正式タイトルがあればそちらへ差し替える。
@@ -790,7 +790,7 @@ describe("matchCandidateWorks", () => {
 
   it("複数候補が同じ作品に寄ったときは先に出た候補だけ残す", async () => {
     const { matchCandidateWorks } =
-      await import("@/features/analysis/recommendationService");
+      await import("#src/features/analysis/recommendationService");
     vi.stubGlobal(
       "fetch",
       // 「鬼滅の刃 無限列車編」は union では包含一致止まりのため単発検索も

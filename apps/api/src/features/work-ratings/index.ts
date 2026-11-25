@@ -1,23 +1,21 @@
 import type { Context } from "hono";
-import { requireAuth } from "@/middleware/auth";
-import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { createDb } from "@/db/client";
-import type { WorkRatingValue } from "@/db/schema";
+import { requireAuth } from "#src/middleware/auth";
+import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
+import { createDb } from "#src/db/client";
+import type { WorkRatingValue } from "#src/db/schema";
 import { workRatingsRepository } from "./repository";
 import {
   deleteWorkRatingRoute,
   getWorkRatingRoute,
   putWorkRatingRoute,
 } from "./schema";
-import { createOpenApiApp } from "@/lib/openapi";
+import { createOpenApiApp } from "#src/lib/openapi";
 import { worksRepository } from "../works/repository";
-// 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する
-// （理由は features/watch-history/index.ts 参照）。
 import {
   fetchAnnictViewerWorkRating,
   fetchAnnictWorkByAnnictId,
-} from "@/lib/annict/client";
-import { resolveAnnictToken } from "@/lib/annict/middleware";
+} from "#src/lib/annict/client/index";
+import { resolveAnnictToken } from "#src/lib/annict/middleware";
 
 function getBindings(
   c: Context,

@@ -13,15 +13,15 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import type { DrizzleDb } from "@/db/client";
+import type { DrizzleDb } from "#src/db/client";
 import {
   blocks,
   events,
   eventParticipations,
   friends,
   users,
-} from "@/db/schema";
-import type { Event, EventParticipationVisibility } from "@/db/schema";
+} from "#src/db/schema";
+import type { Event, EventParticipationVisibility } from "#src/db/schema";
 import type { FriendWithUser } from "../friends/repository";
 
 /**

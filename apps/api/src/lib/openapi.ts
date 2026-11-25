@@ -2,7 +2,7 @@ import { swaggerUI } from "@hono/swagger-ui";
 import { z, OpenAPIHono } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import type { Context, Env } from "hono";
-import { handleError, reportApiFailure } from "@/observability";
+import { handleError, reportApiFailure } from "#src/observability";
 
 // OpenAPI ドキュメント生成の基盤（issue #14）。
 // 各 feature の schema.ts で使う共通スキーマ・security 要件と、
@@ -75,7 +75,9 @@ export function createOpenApiApp<E extends Env>() {
   return app;
 }
 
-const openApiDocumentConfig = {
+// /doc が返す OpenAPI 3.0 ドキュメントの設定。info は packages/api-contract の
+// 書き出しスクリプト（OpenAPI 3.1 ドキュメント）でも共用する。
+export const openApiDocumentConfig = {
   openapi: "3.0.0",
   info: {
     title: "Animeishi API",

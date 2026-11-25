@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { usersRepository, DeletedUserError } from "./repository";
-import { annictWorks, deletedUsers, users } from "@/db/schema";
+import { annictWorks, deletedUsers, users } from "#src/db/schema";
 
 const USER_ID = "user_testuser001";
 const ANOTHER_USER_ID = "user_testuser002";

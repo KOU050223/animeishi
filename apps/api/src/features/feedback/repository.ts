@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import type { DrizzleDb } from "@/db/client";
-import { feedbacks } from "@/db/schema";
+import type { DrizzleDb } from "#src/db/client";
+import { feedbacks } from "#src/db/schema";
 import type { FeedbackCreateInput } from "./schema";
 
 export const FEEDBACK_HOURLY_LIMIT = 5;

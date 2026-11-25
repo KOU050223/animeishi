@@ -3,7 +3,7 @@ import {
   bearerAuth,
   bearerAuthWithAnnict,
   errorResponseSchema,
-} from "@/lib/openapi";
+} from "#src/lib/openapi";
 
 // Annict OAuth: モバイルが deep link で受領した認可コードを交換するリクエスト。
 // redirect_uri はトークン交換時の検証に使われるため、モバイルが実際に使った値を

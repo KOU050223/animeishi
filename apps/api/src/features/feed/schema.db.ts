@@ -6,8 +6,8 @@ import {
   index,
   check,
 } from "drizzle-orm/sqlite-core";
-import { users } from "@/features/users/schema.db";
-import { annictWorks } from "@/features/works/schema.db";
+import { users } from "#src/features/users/schema.db";
+import { annictWorks } from "#src/features/works/schema.db";
 
 // ---- activities (フレンドの活動フィード, issue #265) ----
 // ユーザーの「活動」（視聴ステータス更新・推し追加・tier 表の作成/共有）を

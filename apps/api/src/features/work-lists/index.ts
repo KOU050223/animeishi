@@ -1,6 +1,6 @@
 import type { Context } from "hono";
-import { requireAuth } from "@/middleware/auth";
-import type { AuthEnv, AuthVariables } from "@/middleware/auth";
+import { requireAuth } from "#src/middleware/auth";
+import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
 import {
   addWorkListItemRoute,
   createWorkListRoute,
@@ -11,11 +11,11 @@ import {
   unshareWorkListRoute,
   updateWorkListRoute,
 } from "./schema";
-import { createOpenApiApp } from "@/lib/openapi";
+import { createOpenApiApp } from "#src/lib/openapi";
 import { workListsRepository, type WorkListWithItems } from "./repository";
 import { worksRepository } from "../works/repository";
-import { createDb } from "@/db/client";
-import { workImageUrl } from "@/lib/catalog/workImage";
+import { createDb } from "#src/db/client";
+import { workImageUrl } from "#src/lib/catalog/workImage";
 
 function getBindings(
   c: Context,

@@ -7,7 +7,7 @@ import {
   unique,
   check,
 } from "drizzle-orm/sqlite-core";
-import { users } from "@/features/users/schema.db";
+import { users } from "#src/features/users/schema.db";
 
 // tier 表の種別（tier_list_likes.list_kind / reports.reported_tier_list_kind の
 // 許可値, issue #418）。3 種類の tier 表が別テーブルに分かれるため

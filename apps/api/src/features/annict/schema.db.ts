@@ -1,5 +1,5 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { users } from "@/features/users/schema.db";
+import { users } from "#src/features/users/schema.db";
 
 // ---- annict_tokens (Web 連携用の暗号化トークン保存) ----
 // Web(ブラウザ)連携では SecureStore が無く localStorage は XSS リスクがあるため、

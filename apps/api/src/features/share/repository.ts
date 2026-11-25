@@ -1,5 +1,5 @@
 import { desc, eq, or } from "drizzle-orm";
-import type { DrizzleDb } from "@/db/client";
+import type { DrizzleDb } from "#src/db/client";
 import {
   users,
   annictWorks,
@@ -9,7 +9,7 @@ import {
   customTierLists,
   watchHistory,
   workLists,
-} from "@/db/schema";
+} from "#src/db/schema";
 import {
   fetchTierListItems,
   type TierListItemWithWork,

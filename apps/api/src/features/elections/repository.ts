@@ -1,7 +1,7 @@
 import { and, asc, eq, gt, isNull, lte, or, sql } from "drizzle-orm";
-import type { DrizzleDb } from "@/db/client";
-import { elections, electionCandidates, electionVotes } from "@/db/schema";
-import type { Election, ElectionCandidate } from "@/db/schema";
+import type { DrizzleDb } from "#src/db/client";
+import { elections, electionCandidates, electionVotes } from "#src/db/schema";
+import type { Election, ElectionCandidate } from "#src/db/schema";
 
 /**
  * electionsRepository: 総選挙（issue #438）のリポジトリ層。

@@ -4,13 +4,13 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { friends } from "@/features/friends";
+import { friends } from "#src/features/friends/index";
 import {
   issueOfflineExchangeToken,
   issueQrExchangeToken,
   OFFLINE_EXCHANGE_TOKEN_TTL_SEC,
   QR_EXCHANGE_TOKEN_TTL_SEC,
-} from "@/features/friends/qrExchangeToken";
+} from "#src/features/friends/qrExchangeToken";
 import {
   users,
   friends as friendsTable,
@@ -18,8 +18,8 @@ import {
   activities,
   annictWorks,
   blocks,
-} from "@/db/schema";
-import { currentAnnictSeason } from "@/lib/annict/client";
+} from "#src/db/schema";
+import { currentAnnictSeason } from "#src/lib/annict/client/index";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

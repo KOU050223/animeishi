@@ -5,7 +5,7 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "paths": {
-      "@/*": ["./*", "../../apps/api/src/*"]
+      "@/*": ["./*"]
     },
     "types": ["jest", "node", "@cloudflare/workers-types", "expo/types"],
     "skipLibCheck": true

@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { createDb } from "@/db/client";
-import type { Env } from "@/db/client";
+import { createDb } from "#src/db/client";
+import type { Env } from "#src/db/client";
 import {
   getSharedCharacterTierList,
   getSharedCustomTierList,
@@ -26,7 +26,7 @@ import {
   watchHistoryNotFoundHtml,
   workListNotFoundHtml,
 } from "./service";
-import { workImageUrl } from "@/lib/catalog/workImage";
+import { workImageUrl } from "#src/lib/catalog/workImage";
 import type { GuestCtaSource } from "@animeishi/observability";
 
 // 共有ページの登録 CTA の表示を Workers Logs に残す（issue #217 / #562）。

@@ -7,8 +7,8 @@ import {
   unique,
   check,
 } from "drizzle-orm/sqlite-core";
-import { users } from "@/features/users/schema.db";
-import { annictWorks } from "@/features/works/schema.db";
+import { users } from "#src/features/users/schema.db";
+import { annictWorks } from "#src/features/works/schema.db";
 
 // ---- episode_records (話数単位の視聴記録ログ, issue #439) ----
 // 「記録した」イベントのログ。1 行 = Annict の 1 record（再視聴で同じ話に

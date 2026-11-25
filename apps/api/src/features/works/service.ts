@@ -1,19 +1,22 @@
-import type { AnnictLibraryEntry, AnnictWorkDetail } from "@/lib/annict/client";
-import type { AnnictWorkCatalog } from "@/lib/annict/workCatalog";
+import type {
+  AnnictLibraryEntry,
+  AnnictWorkDetail,
+} from "#src/lib/annict/client/index";
+import type { AnnictWorkCatalog } from "#src/lib/annict/workCatalog";
 import {
   readSeasonWorksCache,
   writeSeasonWorksCache,
-} from "@/lib/catalog/seasonWorksCache";
+} from "#src/lib/catalog/seasonWorksCache";
 import {
   readWorkCache,
   workCacheUrl,
   writeWorkCache,
-} from "@/lib/catalog/workSearchCache";
+} from "#src/lib/catalog/workSearchCache";
 import {
   isPlaceholderImageUrl,
   resolveImagesViaKitsu,
-} from "@/lib/catalog/imageFallback";
-import { workImageUrl } from "@/lib/catalog/workImage";
+} from "#src/lib/catalog/imageFallback";
+import { workImageUrl } from "#src/lib/catalog/workImage";
 import { isUnchangedCachedWork, type WorksRepository } from "./repository";
 
 type WorksPage = {

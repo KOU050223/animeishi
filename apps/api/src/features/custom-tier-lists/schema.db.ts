@@ -5,8 +5,8 @@ import {
   index,
   unique,
 } from "drizzle-orm/sqlite-core";
-import { users } from "@/features/users/schema.db";
-import { annictWorks } from "@/features/works/schema.db";
+import { users } from "#src/features/users/schema.db";
+import { annictWorks } from "#src/features/works/schema.db";
 
 // ---- custom_tier_lists (テーマ名を付けた自由作成の作品 tier 表) ----
 // tier_lists（シーズン版）と違い対象の作品集合をシーズンで縛らない。

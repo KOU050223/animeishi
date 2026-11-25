@@ -4,8 +4,8 @@ import {
   bearerAuthWithAnnict,
   errorResponseSchema,
   successResponseSchema,
-} from "@/lib/openapi";
-import { WORK_RATINGS } from "@/db/schema";
+} from "#src/lib/openapi";
+import { WORK_RATINGS } from "#src/db/schema";
 import { annictWorkIdParamSchema } from "../works/schema";
 
 // PUT /me/work-ratings/:annictWorkId のボディ。3 段階

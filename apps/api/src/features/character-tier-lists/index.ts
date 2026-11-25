@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { requireAuth } from "@/middleware/auth";
-import type { AuthEnv, AuthVariables } from "@/middleware/auth";
+import { requireAuth } from "#src/middleware/auth";
+import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
 import { characterTierListSaveSchema } from "./schema";
 import { annictWorkIdParamSchema } from "../works/schema";
 import { characterTierListsRepository } from "./repository";
 import { feedRepository } from "../feed/repository";
 import { worksRepository } from "../works/repository";
-import { createDb } from "@/db/client";
+import { createDb } from "#src/db/client";
 
 function getBindings(
   c: Context,

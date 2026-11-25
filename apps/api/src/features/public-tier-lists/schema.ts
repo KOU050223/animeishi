@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TIER_LIST_KINDS } from "@/db/schema";
+import { TIER_LIST_KINDS } from "#src/db/schema";
 
 // ひろば「みつける」の公開 Tier 表一覧のクエリ（issue #418）。
 // 3 種類（season / character / custom）を 1 つのフィードに混ぜて返す。

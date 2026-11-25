@@ -3,13 +3,16 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { episodeRecords, workEpisodes } from "@/features/episode-records";
+import {
+  episodeRecords,
+  workEpisodes,
+} from "#src/features/episode-records/index";
 import {
   users,
   annictWorks,
   annictTokens,
   episodeRecords as episodeRecordsTable,
-} from "@/db/schema";
+} from "#src/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

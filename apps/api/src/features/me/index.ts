@@ -13,8 +13,8 @@ import {
   uploadMeishiAssetRoute,
   uploadMeishiSnapshotRoute,
 } from "./schema";
-import { requireAuth } from "@/middleware/auth";
-import type { AuthEnv, AuthVariables } from "@/middleware/auth";
+import { requireAuth } from "#src/middleware/auth";
+import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
 import {
   usersRepository,
   findUserById,
@@ -24,11 +24,11 @@ import { listCardSnapshotKeysForUserDeletion } from "../exchange-records/reposit
 import { EXCHANGE_CARD_SNAPSHOT_KEY_PREFIX } from "../exchange-records/cardSnapshot";
 import { findNowWatching } from "../user/repository";
 import { nowWatchingResponse } from "../user/service";
-import { createDb } from "@/db/client";
+import { createDb } from "#src/db/client";
 import { isClerkAPIResponseError } from "@clerk/backend/errors";
-import { captureApiError } from "@/observability";
-import { createOpenApiApp } from "@/lib/openapi";
-import { readBodyWithLimit } from "@/lib/http";
+import { captureApiError } from "#src/observability";
+import { createOpenApiApp } from "#src/lib/openapi";
+import { readBodyWithLimit } from "#src/lib/http";
 import {
   ALLOWED_AVATAR_TYPES,
   avatarKeyFromUrl,

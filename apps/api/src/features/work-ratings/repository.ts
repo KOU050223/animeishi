@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
-import type { DrizzleDb } from "@/db/client";
-import { workRatings } from "@/db/schema";
-import type { WorkRating, WorkRatingValue } from "@/db/schema";
+import type { DrizzleDb } from "#src/db/client";
+import { workRatings } from "#src/db/schema";
+import type { WorkRating, WorkRatingValue } from "#src/db/schema";
 
 /** 分析入力用の評価サマリ（作品 ID → 評価）。 */
 export type MyWorkRating = {

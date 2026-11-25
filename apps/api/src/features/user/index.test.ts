@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { user } from "@/features/user";
+import { user } from "#src/features/user/index";
 import {
   annictWorks,
   episodeRecords,
@@ -11,7 +11,7 @@ import {
   users,
   userGenres,
   watchHistory,
-} from "@/db/schema";
+} from "#src/db/schema";
 
 // optionalAuth 経由で呼ばれる @clerk/hono の挙動を再現する。
 // "handshake": Accept: text/html のドキュメント取得などで Clerk が

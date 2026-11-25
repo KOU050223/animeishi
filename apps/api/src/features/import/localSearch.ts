@@ -9,8 +9,8 @@
 // 再インポートでは大半の作品がキャッシュ済みのため、Annict への往復
 // （＝サブリクエスト消費）をここで大きく削れる。
 import { desc, or, sql } from "drizzle-orm";
-import type { DrizzleDb } from "@/db/client";
-import { annictWorks } from "@/db/schema";
+import type { DrizzleDb } from "#src/db/client";
+import { annictWorks } from "#src/db/schema";
 import type { AnnictSearcher, DanimeAnnictWork } from "@animeishi/danime-core";
 
 // 1 クエリで返す行数の上限。短い・汎用的なタイトルでも候補プールが

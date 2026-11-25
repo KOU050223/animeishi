@@ -1,5 +1,5 @@
 import { integer, sqliteTable, text, index } from "drizzle-orm/sqlite-core";
-import { users } from "@/features/users/schema.db";
+import { users } from "#src/features/users/schema.db";
 
 // ---- feedbacks (アプリ内の不具合報告・ご意見) ----
 // category の許可値はクライアントの選択肢と揃える（features/feedback/schema.ts）。

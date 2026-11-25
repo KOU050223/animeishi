@@ -4,16 +4,16 @@ import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { workListsRoute } from "@/features/work-lists";
-import { publicWorkListsRoute } from "@/features/work-lists/public";
-import { usersRoute } from "@/features/users";
+import { workListsRoute } from "#src/features/work-lists/index";
+import { publicWorkListsRoute } from "#src/features/work-lists/public";
+import { usersRoute } from "#src/features/users/index";
 import {
   users,
   annictWorks,
   workLists,
   workListLikes,
   blocks,
-} from "@/db/schema";
+} from "#src/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

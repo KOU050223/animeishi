@@ -8,7 +8,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import type { DrizzleDb } from "@/db/client";
+import type { DrizzleDb } from "#src/db/client";
 import {
   users,
   friends,
@@ -17,9 +17,9 @@ import {
   blocks,
   activities,
   annictWorks,
-} from "@/db/schema";
-import type { Friend } from "@/db/schema";
-import { currentAnnictSeason } from "@/lib/annict/client";
+} from "#src/db/schema";
+import type { Friend } from "#src/db/schema";
+import { currentAnnictSeason } from "#src/lib/annict/client/index";
 import { UserBlockedError, usersRepository } from "../users/repository";
 import {
   countMeetingRecords,

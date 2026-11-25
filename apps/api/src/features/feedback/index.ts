@@ -1,10 +1,10 @@
 import { createFeedbackRoute } from "./schema";
 import { FeedbackRateLimitError, feedbackRepository } from "./repository";
-import { requireAuth } from "@/middleware/auth";
-import type { AuthVariables } from "@/middleware/auth";
-import { createDb } from "@/db/client";
-import { notifyFeedback } from "@/observability";
-import { createOpenApiApp } from "@/lib/openapi";
+import { requireAuth } from "#src/middleware/auth";
+import type { AuthVariables } from "#src/middleware/auth";
+import { createDb } from "#src/db/client";
+import { notifyFeedback } from "#src/observability";
+import { createOpenApiApp } from "#src/lib/openapi";
 
 const app = createOpenApiApp<AuthVariables>();
 app.use("*", requireAuth);

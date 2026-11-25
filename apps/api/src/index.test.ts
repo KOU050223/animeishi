@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as Sentry from "@sentry/cloudflare";
-import { resetLocalSuppression } from "@/lib/discordAlert";
+import { resetLocalSuppression } from "#src/lib/discordAlert";
 
 // cron ハンドラが呼ぶ 3 ジョブだけ差し替える。D1・外部 API には出ない。
 const jobs = vi.hoisted(() => ({
@@ -20,26 +20,26 @@ vi.mock("@sentry/cloudflare", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/providers/kitsu/titleSearch", async (importOriginal) => ({
+vi.mock("#src/lib/providers/kitsu/titleSearch", async (importOriginal) => ({
   ...(await importOriginal<
-    typeof import("@/lib/providers/kitsu/titleSearch")
+    typeof import("#src/lib/providers/kitsu/titleSearch")
   >()),
   resolveMissingMalIds: jobs.resolveMissingMalIds,
 }));
 
-vi.mock("@/lib/catalog/imageFallbackPending", async (importOriginal) => ({
+vi.mock("#src/lib/catalog/imageFallbackPending", async (importOriginal) => ({
   ...(await importOriginal<
-    typeof import("@/lib/catalog/imageFallbackPending")
+    typeof import("#src/lib/catalog/imageFallbackPending")
   >()),
   resolvePendingImageFallbacks: jobs.resolvePendingImageFallbacks,
 }));
 
-vi.mock("@/lib/catalog/workGenres", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/catalog/workGenres")>()),
+vi.mock("#src/lib/catalog/workGenres", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("#src/lib/catalog/workGenres")>()),
   resolvePendingWorkGenres: jobs.resolvePendingWorkGenres,
 }));
 
-import handler from "@/index";
+import handler from "#src/index";
 
 const WEBHOOK = "https://discord.com/api/webhooks/1/secret-token";
 const captureException = vi.mocked(Sentry.captureException);

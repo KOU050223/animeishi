@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseAllowedOrigins, resolveAllowedOrigin } from "@/cors";
+import { parseAllowedOrigins, resolveAllowedOrigin } from "#src/cors";
 
 describe("parseAllowedOrigins", () => {
   it("カンマ区切りを分割し、空白と空要素を除去する", () => {

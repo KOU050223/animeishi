@@ -1,6 +1,6 @@
 import type { Context } from "hono";
-import { requireAuth } from "@/middleware/auth";
-import type { AuthEnv, AuthVariables } from "@/middleware/auth";
+import { requireAuth } from "#src/middleware/auth";
+import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
 import {
   getPublicWorkListRoute,
   likeWorkListRoute,
@@ -8,7 +8,7 @@ import {
   reportWorkListRoute,
   unlikeWorkListRoute,
 } from "./schema";
-import { createOpenApiApp } from "@/lib/openapi";
+import { createOpenApiApp } from "#src/lib/openapi";
 import {
   workListsRepository,
   fetchWorkListTopWorks,
@@ -17,9 +17,9 @@ import {
 } from "./repository";
 import type { PublicWorkListSort } from "./repository";
 import { usersRepository, ReportRateLimitError } from "../users/repository";
-import { createDb } from "@/db/client";
-import { workImageUrl } from "@/lib/catalog/workImage";
-import { notifyUserReport } from "@/observability";
+import { createDb } from "#src/db/client";
+import { workImageUrl } from "#src/lib/catalog/workImage";
+import { notifyUserReport } from "#src/observability";
 
 function getBindings(
   c: Context,

@@ -5,7 +5,7 @@ import {
   kitsuRequestedMalIds,
   makeKitsuAnimeListResponse,
   makeKitsuResponse,
-} from "@/test-utils/kitsu";
+} from "#src/test-utils/kitsu";
 import {
   IMAGE_FALLBACK_MAX_TARGETS_PER_INVOCATION,
   MAL_MAX_LOOKUPS_PER_CALL,

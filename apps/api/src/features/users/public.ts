@@ -1,10 +1,10 @@
 import type { Context } from "hono";
-import { requireAuth } from "@/middleware/auth";
-import type { AuthEnv, AuthVariables } from "@/middleware/auth";
+import { requireAuth } from "#src/middleware/auth";
+import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
 import { usersRepository } from "./repository";
 import type { PublicUserSummary } from "./repository";
-import { createDb } from "@/db/client";
-import { createOpenApiApp } from "@/lib/openapi";
+import { createDb } from "#src/db/client";
+import { createOpenApiApp } from "#src/lib/openapi";
 import { likeUserRoute, listPublicUsersRoute, unlikeUserRoute } from "./schema";
 import {
   publicMeishiSnapshotKey,

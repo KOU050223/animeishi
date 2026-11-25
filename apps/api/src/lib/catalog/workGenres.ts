@@ -18,8 +18,8 @@
 //                  MAL の genres/themes の name が混在しうる（Kitsu 優先で、
 //                  取れた作品には MAL を引かないため併存はしない）。
 
-import type { DrizzleDb } from "@/db/client";
-import { worksRepository } from "@/features/works/repository";
+import type { DrizzleDb } from "#src/db/client";
+import { worksRepository } from "#src/features/works/repository";
 import {
   MAL_MAX_LOOKUPS_PER_CALL,
   resolveKitsuAnimeIds,

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { findUserWatchSummary } from "./repository";
-import { annictWorks, favorites, users, watchHistory } from "@/db/schema";
+import { annictWorks, favorites, users, watchHistory } from "#src/db/schema";
 
 const USER_ID = "user_testuser001";
 const ANOTHER_USER_ID = "user_testuser002";

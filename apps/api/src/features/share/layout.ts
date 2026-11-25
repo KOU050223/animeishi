@@ -2,7 +2,7 @@ import {
   GUEST_CTA_SOURCE_PARAM,
   type GuestCtaSource,
 } from "@animeishi/observability";
-import { html, raw, type HtmlEscapedString } from "@/lib/html";
+import { html, raw, type HtmlEscapedString } from "#src/lib/html";
 
 /**
  * 共有ページ（/share/*）の HTML 骨格と共通スタイル（issue #518）。

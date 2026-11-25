@@ -1,13 +1,13 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
-import type { DrizzleDb } from "@/db/client";
+import type { DrizzleDb } from "#src/db/client";
 import {
   annictCharacters,
   characterTierLists,
   characterTierListItems,
   tierListLikes,
-} from "@/db/schema";
-import type { CharacterTierList } from "@/db/schema";
+} from "#src/db/schema";
+import type { CharacterTierList } from "#src/db/schema";
 
 /** キャラクター tier 表に配置されたキャラクター 1 件（キャラメタを含む）。 */
 export type CharacterTierListItemWithMeta = {

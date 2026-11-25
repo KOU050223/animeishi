@@ -1,5 +1,5 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { bearerAuthWithAnnict, errorResponseSchema } from "@/lib/openapi";
+import { bearerAuthWithAnnict, errorResponseSchema } from "#src/lib/openapi";
 import { ACHIEVEMENT_KINDS } from "./definitions";
 
 // 実績 1 件（service.ts の Achievement の JSON 表現）。

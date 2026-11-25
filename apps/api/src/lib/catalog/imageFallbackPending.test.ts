@@ -1,20 +1,20 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { env } from "cloudflare:workers";
-import { setupTestDb } from "@/test-utils/setup-db";
-import { requestUrl } from "@/test-utils/fetch";
+import { setupTestDb } from "#src/test-utils/setup-db";
+import { requestUrl } from "#src/test-utils/fetch";
 import {
   isKitsuAnimeListUrl,
   makeKitsuAnimeListResponse,
   makeKitsuResponse,
-} from "@/test-utils/kitsu";
-import { annictWorks } from "@/db/schema";
-import { IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS } from "@/lib/catalog/imageFallback";
+} from "#src/test-utils/kitsu";
+import { annictWorks } from "#src/db/schema";
+import { IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS } from "#src/lib/catalog/imageFallback";
 import {
   IMAGE_FALLBACK_ATTEMPT_COOLDOWN_MS,
   imageFallbackAttemptStaleBefore,
   imageFallbackNoneStaleBefore,
   resolvePendingImageFallbacks,
-} from "@/lib/catalog/imageFallbackPending";
+} from "#src/lib/catalog/imageFallbackPending";
 
 async function insertWork(
   db: Awaited<ReturnType<typeof setupTestDb>>,

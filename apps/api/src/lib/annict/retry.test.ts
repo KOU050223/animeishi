@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { AnnictApiError } from "@/lib/annict/client";
-import { withAnnictRetry } from "@/lib/annict/retry";
+import { AnnictApiError } from "#src/lib/annict/client/index";
+import { withAnnictRetry } from "#src/lib/annict/retry";
 
 const noSleep = () => Promise.resolve();
 

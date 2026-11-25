@@ -24,5 +24,7 @@ apps/api/migrations/meta/
 migrations/meta/
 apps/mobile/expo-env.d.ts
 expo-env.d.ts
+packages/api-contract/openapi.json
+packages/api-contract/schema.d.ts
 pnpm-lock.yaml
 skills-lock.json

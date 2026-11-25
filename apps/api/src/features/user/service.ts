@@ -1,5 +1,5 @@
-import { escapeHtml } from "@/lib/html";
-import { workImageUrl } from "@/lib/catalog/workImage";
+import { escapeHtml } from "#src/lib/html";
+import { workImageUrl } from "#src/lib/catalog/workImage";
 import type { NowWatching, UserWatchSummary } from "./repository";
 
 /**

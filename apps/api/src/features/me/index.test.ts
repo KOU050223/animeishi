@@ -5,7 +5,7 @@ import { ClerkAPIResponseError } from "@clerk/backend/errors";
 import { eq, inArray, or } from "drizzle-orm";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { avatar, me, meishiAssets } from "@/features/me";
+import { avatar, me, meishiAssets } from "#src/features/me/index";
 import {
   annictTokens,
   annictWorks,
@@ -28,7 +28,7 @@ import {
   users,
   watchHistory,
   workLists,
-} from "@/db/schema";
+} from "#src/db/schema";
 
 // requireAuth ミドルウェアは c.get("clerk") から Backend API クライアントを
 // 取得するため、clerkMiddleware モックでも clerk 変数をセットしておく。

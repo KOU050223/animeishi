@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
-import type { DrizzleDb } from "@/db/client";
-import { episodeRecords, watchHistory, annictWorks } from "@/db/schema";
+import type { DrizzleDb } from "#src/db/client";
+import { episodeRecords, watchHistory, annictWorks } from "#src/db/schema";
 import type { SeasonCandidate } from "./service";
 
 /**

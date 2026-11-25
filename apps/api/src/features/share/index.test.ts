@@ -6,18 +6,18 @@ import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { requestUrl } from "../../test-utils/fetch";
-import { tierLists } from "@/features/tier-lists";
-import { customTierLists } from "@/features/custom-tier-lists";
-import { watchHistory } from "@/features/watch-history";
-import { workListsRoute } from "@/features/work-lists";
-import { share } from "@/features/share";
-import { workImageKey } from "@/lib/catalog/workImage";
+import { tierLists } from "#src/features/tier-lists/index";
+import { customTierLists } from "#src/features/custom-tier-lists/index";
+import { watchHistory } from "#src/features/watch-history/index";
+import { workListsRoute } from "#src/features/work-lists/index";
+import { share } from "#src/features/share/index";
+import { workImageKey } from "#src/lib/catalog/workImage";
 import {
   users,
   annictWorks,
   watchHistory as watchHistoryTable,
-} from "@/db/schema";
-import * as schema from "@/db/schema";
+} from "#src/db/schema";
+import * as schema from "#src/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

@@ -1,6 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { bearerAuth, errorResponseSchema } from "@/lib/openapi";
-import { ACTIVITY_TYPES } from "@/db/schema";
+import { bearerAuth, errorResponseSchema } from "#src/lib/openapi";
+import { ACTIVITY_TYPES } from "#src/db/schema";
 
 // GET /me/feed のクエリ。cursor は前ページ最後尾の活動 id、limit は 1 ページ
 // 件数の指定（サーバー側で上限を設ける）。いずれも省略可。

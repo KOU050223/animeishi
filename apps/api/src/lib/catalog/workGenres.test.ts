@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { env } from "cloudflare:workers";
-import { setupTestDb } from "@/test-utils/setup-db";
-import { requestUrl } from "@/test-utils/fetch";
-import { isKitsuAnimeListUrl, isKitsuMappingsUrl } from "@/test-utils/kitsu";
-import { annictWorks } from "@/db/schema";
+import { setupTestDb } from "#src/test-utils/setup-db";
+import { requestUrl } from "#src/test-utils/fetch";
+import { isKitsuAnimeListUrl, isKitsuMappingsUrl } from "#src/test-utils/kitsu";
+import { annictWorks } from "#src/db/schema";
 import { eq } from "drizzle-orm";
-import { worksRepository } from "@/features/works/repository";
+import { worksRepository } from "#src/features/works/repository";
 import {
   GENRE_EMPTY_REFETCH_AFTER_MS,
   GENRE_FETCH_ATTEMPT_COOLDOWN_MS,

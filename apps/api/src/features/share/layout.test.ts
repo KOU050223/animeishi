@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { html } from "@/lib/html";
+import { html } from "#src/lib/html";
 import { renderSharePage, statsHtml } from "./layout";
 
 describe("renderSharePage のエスケープ（issue #716）", () => {

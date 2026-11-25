@@ -3,8 +3,8 @@ import {
   bearerAuth,
   errorResponseSchema,
   successResponseSchema,
-} from "@/lib/openapi";
-import { FRIEND_THANKS_PRESET_KEYS } from "@/db/schema";
+} from "#src/lib/openapi";
+import { FRIEND_THANKS_PRESET_KEYS } from "#src/db/schema";
 
 // 名刺交換後のお礼（issue #694）。チャットではなく、フレンドへ
 // 「定型文 1 つ＋任意の 1 行」を送る一方通行のメッセージ。

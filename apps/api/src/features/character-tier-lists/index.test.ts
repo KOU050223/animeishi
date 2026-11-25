@@ -3,16 +3,16 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { createDb } from "@/db/client";
-import { characterTierLists } from "@/features/character-tier-lists";
-import { share } from "@/features/share";
+import { createDb } from "#src/db/client";
+import { characterTierLists } from "#src/features/character-tier-lists/index";
+import { share } from "#src/features/share/index";
 import {
   users,
   annictWorks,
   annictCharacters,
   annictWorkCasts,
   tierListLikes,
-} from "@/db/schema";
+} from "#src/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

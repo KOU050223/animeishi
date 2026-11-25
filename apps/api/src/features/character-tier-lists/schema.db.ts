@@ -5,8 +5,8 @@ import {
   index,
   unique,
 } from "drizzle-orm/sqlite-core";
-import { users } from "@/features/users/schema.db";
-import { annictCharacters, annictWorks } from "@/features/works/schema.db";
+import { users } from "#src/features/users/schema.db";
+import { annictCharacters, annictWorks } from "#src/features/works/schema.db";
 
 // ---- character_tier_lists (作品単位のキャラクター tier 表) ----
 // 作品 tier 表（tier_lists）のキャラクター版。対象の単位が「シーズン」ではなく

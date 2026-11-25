@@ -1,10 +1,10 @@
 import type { Context } from "hono";
-import { requireAuth } from "@/middleware/auth";
-import type { AuthEnv, AuthVariables } from "@/middleware/auth";
+import { requireAuth } from "#src/middleware/auth";
+import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
 import { usersRepository } from "../users/repository";
-import { createDb } from "@/db/client";
-import { buildMeishiPassJson } from "@/lib/pass/buildPassJson";
-import { createOpenApiApp } from "@/lib/openapi";
+import { createDb } from "#src/db/client";
+import { buildMeishiPassJson } from "#src/lib/pass/buildPassJson";
+import { createOpenApiApp } from "#src/lib/openapi";
 import { getMeishiPassJsonRoute } from "./schema";
 
 // Apple Wallet 用の Pass Type ID / Team ID / .p12(base64) は環境変数で受け取る。

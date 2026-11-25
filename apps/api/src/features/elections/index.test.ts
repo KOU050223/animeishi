@@ -9,7 +9,7 @@ import {
   electionCandidates,
   electionVotes,
   users,
-} from "@/db/schema";
+} from "#src/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

@@ -1,18 +1,16 @@
 import type { Context } from "hono";
-import { requireAuth } from "@/middleware/auth";
-import type { AuthEnv, AuthVariables } from "@/middleware/auth";
+import { requireAuth } from "#src/middleware/auth";
+import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
 import { episodeRecordsRepository } from "./repository";
 import type { AnnictRecordLogEntry } from "./repository";
 import { worksRepository } from "../works/repository";
-import { createDb } from "@/db/client";
+import { createDb } from "#src/db/client";
 import {
   getWorkEpisodesRoute,
   recordEpisodeRoute,
   unrecordEpisodeRoute,
 } from "./schema";
-import { createOpenApiApp } from "@/lib/openapi";
-// 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
-// features/watch-history/index.ts のコメント参照）。
+import { createOpenApiApp } from "#src/lib/openapi";
 import {
   AnnictApiError,
   createAnnictRecord,
@@ -21,10 +19,10 @@ import {
   fetchAnnictViewerRecords,
   fetchAnnictWorkByAnnictId,
   fetchAnnictWorkEpisodes,
-} from "@/lib/annict/client";
+} from "#src/lib/annict/client/index";
 import { annictRepository } from "../annict/repository";
-import { withAnnictRetry } from "@/lib/annict/retry";
-import type { NewAnnictWork } from "@/db/schema";
+import { withAnnictRetry } from "#src/lib/annict/retry";
+import type { NewAnnictWork } from "#src/db/schema";
 
 function getBindings(c: Context): Omit<AuthEnv["Bindings"], "DB"> & {
   DB: D1Database;

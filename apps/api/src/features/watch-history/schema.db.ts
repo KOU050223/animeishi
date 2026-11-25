@@ -7,8 +7,8 @@ import {
   unique,
   check,
 } from "drizzle-orm/sqlite-core";
-import { users } from "@/features/users/schema.db";
-import { annictWorks } from "@/features/works/schema.db";
+import { users } from "#src/features/users/schema.db";
+import { annictWorks } from "#src/features/works/schema.db";
 
 // Annict の StatusState（watch_history.state の許可値）
 export const WATCH_STATES = [

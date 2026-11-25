@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   REMOVE_IMAGE_ONERROR,
   WORK_IMAGE_ONERROR,
-} from "@/features/share/service";
+} from "#src/features/share/service";
 import {
   SHARE_INLINE_HANDLER_HASHES,
   securityHeaders,
