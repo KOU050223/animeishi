@@ -17,8 +17,8 @@ vp run @animeishi/api-contract#typegen   # generated/rpcSchema.d.ts を生成・
 
 typegen は apps/api/src/rpcSchema.ts を入口に TypeScript 7 で
 `tsc --emitDeclarationOnly` を実行する。`ExtractSchema<typeof routes>` を展開
-させた宣言だけを出力するため、生成物は `hono/types` 以外の API 内部ソースや
-Workers 固有の型を参照しない。
+させた宣言だけを出力するため、生成物が参照する外部モジュールは hono だけであり、
+API 内部ソースや Workers 固有の型は参照しない。
 
 `generated/rpcSchema.d.ts` はコミットしない。TypeScript 7 の宣言出力では
 union 型の並び順が実行ごとに変わることがあり、同じソースからでも差分が出る
