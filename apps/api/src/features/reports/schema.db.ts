@@ -6,7 +6,7 @@ import {
   index,
   check,
 } from "drizzle-orm/sqlite-core";
-import { TIER_LIST_KINDS } from "@/features/public-tier-lists/schema.db";
+import { tierLists } from "@/features/tier-lists/schema.db";
 import { users } from "@/features/users/schema.db";
 import { workLists } from "@/features/work-lists/schema.db";
 
@@ -36,14 +36,14 @@ export const reports = sqliteTable(
       () => workLists.id,
       { onDelete: "set null" },
     ),
-    // 通報対象が tier 表のとき、その (種別, id)（issue #418）。このとき
-    // reported_user_id にはリストの所有者が入る。対象テーブルが 3 種に
-    // 分かれるため FK は張らず、リストが削除されても通報行は残す
-    // （所有者は reported_user_id で辿れる）。
-    reportedTierListKind: text("reported_tier_list_kind", {
-      enum: TIER_LIST_KINDS,
-    }),
-    reportedTierListId: integer("reported_tier_list_id"),
+    // 通報対象が tier 表のとき、その id（issue #418）。このとき
+    // reported_user_id にはリストの所有者が入る。#724 で 3 系統の tier 表が
+    // tier_lists に統合されたため FK を張り、表の削除で通報行も cascade で
+    // 消える（所有者の被通報数は reported_user_id で辿れる）。
+    reportedTierListId: integer("reported_tier_list_id").references(
+      () => tierLists.id,
+      { onDelete: "cascade" },
+    ),
     // モデレーション対応状況。更新は scripts/reports.sh（wrangler d1 execute）
     // から行い、API 経路では触らない（認可設計が未決のため）。
     status: text("status", { enum: REPORT_STATUSES }).notNull().default("open"),
@@ -55,10 +55,7 @@ export const reports = sqliteTable(
     index("reports_reporter_idx").on(t.reporterId),
     index("reports_reported_user_idx").on(t.reportedUserId),
     index("reports_reported_work_list_idx").on(t.reportedWorkListId),
-    index("reports_reported_tier_list_idx").on(
-      t.reportedTierListKind,
-      t.reportedTierListId,
-    ),
+    index("reports_reported_tier_list_idx").on(t.reportedTierListId),
     index("reports_status_idx").on(t.status),
     check(
       "reports_status_check",

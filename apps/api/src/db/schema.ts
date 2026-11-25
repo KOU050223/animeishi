@@ -15,8 +15,6 @@ export * from "@/features/friend-requests/schema.db";
 export * from "@/features/exchange-records/schema.db";
 export * from "@/features/friend-thanks/schema.db";
 export * from "@/features/tier-lists/schema.db";
-export * from "@/features/character-tier-lists/schema.db";
-export * from "@/features/custom-tier-lists/schema.db";
 export * from "@/features/work-lists/schema.db";
 export * from "@/features/public-tier-lists/schema.db";
 export * from "@/features/reports/schema.db";

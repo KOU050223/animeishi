@@ -30,9 +30,6 @@ import {
   annictTokens,
   tierLists,
   tierListItems,
-  characterTierLists,
-  characterTierListItems,
-  customTierLists,
   workLists,
   reports,
   blocks,
@@ -41,7 +38,7 @@ import {
   tierListLikes,
   userLikes,
 } from "@/db/schema";
-import type { User, NewUser, Report, TierListKind } from "@/db/schema";
+import type { User, NewUser, Report } from "@/db/schema";
 import { deleteExchangeRecordsBetween } from "../exchange-records/repository";
 import { deleteFriendThanksBetween } from "../friend-thanks/repository";
 
@@ -117,13 +114,13 @@ const REPORT_HOURLY_LIMIT = 10;
 
 /**
  * 通報対象（issue #418）。省略はユーザー通報、workListId は作品リスト
- * 通報（issue #422）、tierList は tier 表通報（kind + id で 3 種類の
- * テーブルを区別する）。
+ * 通報（issue #422）、tierList は tier 表通報（issue #724 で 3 種類が
+ * 1 テーブルに統合されたため id だけで区別できる）。
  */
 type ReportTarget =
   | { kind: "user" }
   | { kind: "work_list"; id: number }
-  | { kind: "tier_list"; tierListKind: TierListKind; id: number };
+  | { kind: "tier_list"; id: number };
 
 export type { ReportTarget };
 
@@ -190,7 +187,6 @@ function reportDedupCondition(
     case "tier_list":
       return and(
         eq(reports.reporterId, reporterId),
-        eq(reports.reportedTierListKind, target.tierListKind),
         eq(reports.reportedTierListId, target.id),
       );
     case "user":
@@ -573,19 +569,18 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
         target.kind === "work_list"
           ? sql`reported_work_list_id = ${target.id}`
           : target.kind === "tier_list"
-            ? sql`reported_tier_list_kind = ${target.tierListKind} AND reported_tier_list_id = ${target.id}`
+            ? sql`reported_tier_list_id = ${target.id}`
             : sql`reported_user_id = ${targetUserId} AND reported_work_list_id IS NULL AND reported_tier_list_id IS NULL`;
 
       const inserted = await db.run(sql`
         INSERT INTO ${reports} (
           reporter_id, reported_user_id, reported_work_list_id,
-          reported_tier_list_kind, reported_tier_list_id,
+          reported_tier_list_id,
           reason, created_at
         )
         SELECT
           ${currentUserId}, ${targetUserId},
           ${target.kind === "work_list" ? target.id : null},
-          ${target.kind === "tier_list" ? target.tierListKind : null},
           ${target.kind === "tier_list" ? target.id : null},
           ${reason}, ${nowSec}
         WHERE NOT EXISTS (
@@ -615,8 +610,6 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
         reporterId: currentUserId,
         reportedUserId: targetUserId,
         reportedWorkListId: target.kind === "work_list" ? target.id : null,
-        reportedTierListKind:
-          target.kind === "tier_list" ? target.tierListKind : null,
         reportedTierListId: target.kind === "tier_list" ? target.id : null,
         reason,
         status: "open",
@@ -947,12 +940,6 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
           .from(tierLists)
           .where(eq(tierLists.userId, currentUserId))
       ).map((row) => row.id);
-      const myCharacterTierListIds = (
-        await db
-          .select({ id: characterTierLists.id })
-          .from(characterTierLists)
-          .where(eq(characterTierLists.userId, currentUserId))
-      ).map((row) => row.id);
       const queries: BatchItem<"sqlite">[] = [
         // friends と同様に「いいねした側／された側」の両方向を対象にする
         db
@@ -963,8 +950,8 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
               eq(userLikes.likedUserId, currentUserId),
             ),
           ),
-        // tier_list_likes は list_id 側に FK を張れない（kind で参照先が
-        // 変わるため）ので、自分のリストへの他人のいいねも含めて明示的に消す。
+        // tier_list_likes は tier_list_id の cascade でも消えるが、
+        // FK 強制の有無に依存せず確実に消すため明示的に消す（上の方針どおり）。
         // id を先に取得して inArray に渡すと、Tier 表を多く持つユーザーで
         // D1 のバインド変数上限を超えるため、サブクエリで直接参照する。
         db
@@ -972,35 +959,12 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
           .where(
             or(
               eq(tierListLikes.userId, currentUserId),
-              and(
-                eq(tierListLikes.listKind, "season"),
-                inArray(
-                  tierListLikes.listId,
-                  db
-                    .select({ id: tierLists.id })
-                    .from(tierLists)
-                    .where(eq(tierLists.userId, currentUserId)),
-                ),
-              ),
-              and(
-                eq(tierListLikes.listKind, "character"),
-                inArray(
-                  tierListLikes.listId,
-                  db
-                    .select({ id: characterTierLists.id })
-                    .from(characterTierLists)
-                    .where(eq(characterTierLists.userId, currentUserId)),
-                ),
-              ),
-              and(
-                eq(tierListLikes.listKind, "custom"),
-                inArray(
-                  tierListLikes.listId,
-                  db
-                    .select({ id: customTierLists.id })
-                    .from(customTierLists)
-                    .where(eq(customTierLists.userId, currentUserId)),
-                ),
+              inArray(
+                tierListLikes.tierListId,
+                db
+                  .select({ id: tierLists.id })
+                  .from(tierLists)
+                  .where(eq(tierLists.userId, currentUserId)),
               ),
             ),
           ),
@@ -1084,23 +1048,8 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
             .where(inArray(tierListItems.tierListId, myTierListIds)),
         );
       }
-      if (myCharacterTierListIds.length > 0) {
-        queries.push(
-          db
-            .delete(characterTierListItems)
-            .where(
-              inArray(
-                characterTierListItems.characterTierListId,
-                myCharacterTierListIds,
-              ),
-            ),
-        );
-      }
       queries.push(
         db.delete(tierLists).where(eq(tierLists.userId, currentUserId)),
-        db
-          .delete(characterTierLists)
-          .where(eq(characterTierLists.userId, currentUserId)),
         db.delete(users).where(eq(users.id, currentUserId)),
         // 残存 JWT による users 行の再作成を防ぐ tombstone（issue #144）。
         // 削除と同一 batch に載せるため「users 行は消えたが tombstone が
@@ -1122,7 +1071,6 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
 
     /**
      * DELETE /me で消えるデータの件数（退会フローの確認画面用, issue #426）。
-     * tierLists はシーズン・キャラクター・自由作成の 3 種の合計。
      * 名刺（端末内 AsyncStorage）はサーバーが持たないため含まない。
      */
     async getMyDeletionSummary(): Promise<{
@@ -1132,7 +1080,7 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
       tierLists: number;
       workLists: number;
     }> {
-      const [wh, fav, fr, tl, ctl, xtl, wl] = await db.batch([
+      const [wh, fav, fr, tl, wl] = await db.batch([
         db
           .select({ c: count() })
           .from(watchHistory)
@@ -1151,14 +1099,6 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
           .where(eq(tierLists.userId, currentUserId)),
         db
           .select({ c: count() })
-          .from(characterTierLists)
-          .where(eq(characterTierLists.userId, currentUserId)),
-        db
-          .select({ c: count() })
-          .from(customTierLists)
-          .where(eq(customTierLists.userId, currentUserId)),
-        db
-          .select({ c: count() })
           .from(workLists)
           .where(eq(workLists.userId, currentUserId)),
       ]);
@@ -1166,7 +1106,7 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
         watchHistories: wh[0]?.c ?? 0,
         favorites: fav[0]?.c ?? 0,
         friends: fr[0]?.c ?? 0,
-        tierLists: (tl[0]?.c ?? 0) + (ctl[0]?.c ?? 0) + (xtl[0]?.c ?? 0),
+        tierLists: tl[0]?.c ?? 0,
         workLists: wl[0]?.c ?? 0,
       };
     },

@@ -10,8 +10,8 @@ function render(color: string): string {
       tiersJson: JSON.stringify([{ key: "s", label: "S", color }]),
       items: [],
     },
-    "http://localhost/share/custom-tier-lists/t",
-    "http://localhost/share/custom-tier-lists/t",
+    "http://localhost/share/tier-lists/t",
+    "http://localhost/share/tier-lists/t",
   );
 }
 
