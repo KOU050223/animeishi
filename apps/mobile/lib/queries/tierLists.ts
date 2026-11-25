@@ -2,10 +2,6 @@ import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
-import type { TierListKind } from "@/lib/tierList/useMergedTierLists";
-
-export type { TierListKind };
-
 export type PublicTierListsResponse = InferResponseType<
   (typeof apiClient)["tier-lists"]["public"]["$get"],
   200

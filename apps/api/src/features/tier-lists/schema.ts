@@ -139,7 +139,7 @@ export const tierListCreateSchema = z
 
 // PUT /me/tier-lists/:id の入力。kind / 対象スコープは作成時に決まるため
 // 変更できない。
-export const tierListUpdateSchema = z
+const tierListUpdateSchema = z
   .object({ ...tierListFields.shape })
   .refine(tierKeyRefinement, {
     error: "存在しない tier が指定されています",

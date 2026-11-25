@@ -4,7 +4,6 @@ import { apiClient, apiFetch } from "@/lib/api";
 import { PUBLIC_TIER_LISTS_KEY } from "./usePublicTierLists";
 import { tierListQueries } from "@/lib/queries/tierLists";
 import type {
-  MyTierListsResponse,
   SavedTierListResponse,
   TierListScope,
   TierListShareResponse,
@@ -195,5 +194,3 @@ export function useDeleteTierList() {
     },
   });
 }
-
-export type { MyTierListsResponse };
