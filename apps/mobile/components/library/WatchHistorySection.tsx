@@ -600,7 +600,8 @@ export function WatchHistorySection() {
           position: "absolute",
           left: 0,
           right: 0,
-          bottom: 0,
+          // タブバーの下に潜らないよう safe area 分だけ持ち上げる（issue #462）
+          bottom: insets.bottom,
           zIndex: 20,
         }}
       >

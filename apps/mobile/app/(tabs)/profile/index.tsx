@@ -322,6 +322,11 @@ export default function ProfileScreen() {
         // 下端はネイティブのタブバーに潜り込むため、最後の要素がその下に
         // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
         contentInsetAdjustmentBehavior="never"
+        // 下部の入力欄（自己紹介・好きなセリフなど）がキーボードに隠れないよう、
+        // iOS にキーボード分の contentInset 調整とフォーカス中入力欄への
+        // 自動スクロールを任せる（issue #462）。
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={
           isLoading || (isError && !profile)
             ? styles.loadingContent
