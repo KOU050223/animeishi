@@ -8,12 +8,20 @@ export class ApiRequestError extends Error {
   readonly status: number;
   /** エラーレスポンス JSON の code（annict_upstream 等）。無ければ undefined。 */
   readonly code: string | undefined;
+  /** 429 等でサーバーが指定した再試行までの秒数（Retry-After ヘッダ）。無ければ undefined。 */
+  readonly retryAfterSeconds: number | undefined;
 
-  constructor(status: number, message: string, code?: string) {
+  constructor(
+    status: number,
+    message: string,
+    code?: string,
+    retryAfterSeconds?: number,
+  ) {
     super(message);
     this.name = "ApiRequestError";
     this.status = status;
     this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -30,4 +38,18 @@ export async function readApiErrorCode(res: {
     code?: unknown;
   } | null;
   return typeof body?.code === "string" ? body.code : undefined;
+}
+
+/**
+ * 429 応答の Retry-After ヘッダを秒数で取り出す。
+ * API は秒数のみを返す（HTTP 日付形式は扱わない）。ヘッダが無い・
+ * 数値でない場合は undefined。
+ */
+export function readRetryAfterSeconds(res: {
+  headers: { get(name: string): string | null };
+}): number | undefined {
+  const value = res.headers.get("Retry-After");
+  if (value === null) return undefined;
+  const seconds = Number(value);
+  return Number.isFinite(seconds) ? seconds : undefined;
 }

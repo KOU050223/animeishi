@@ -22,8 +22,17 @@ function okResponse(body: unknown = {}) {
   return { ok: true, status: 200, json: async () => body };
 }
 
-function errorResponse(status: number, body: unknown = {}) {
-  return { ok: false, status, json: async () => body };
+function errorResponse(
+  status: number,
+  body: unknown = {},
+  headers?: HeadersInit,
+) {
+  return {
+    ok: false,
+    status,
+    json: async () => body,
+    headers: new Headers(headers),
+  };
 }
 
 // apiFetch が組み立てた Headers を可読な形で取り出す。
@@ -212,5 +221,37 @@ describe("apiFetch", () => {
     expect(error).toBeInstanceOf(ApiRequestError);
     expect((error as ApiRequestError).status).toBe(429);
     expect((error as ApiRequestError).message).toBe("実行回数が上限です");
+  });
+
+  it("429 の Retry-After は ApiRequestError.retryAfterSeconds に入る", async () => {
+    loggedInUser();
+    setMockClerkState({ getToken: async () => "clerk_jwt" });
+    mockFetch.mockResolvedValue(
+      errorResponse(
+        429,
+        { error: "実行回数が上限です" },
+        { "Retry-After": "60" },
+      ),
+    );
+
+    const error = await apiFetch({
+      errorMessage: "作品の取得に失敗しました",
+    })("https://api.example.com/me/analysis").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiRequestError);
+    expect((error as ApiRequestError).retryAfterSeconds).toBe(60);
+  });
+
+  it("Retry-After の無いエラー応答では retryAfterSeconds は undefined", async () => {
+    loggedInUser();
+    setMockClerkState({ getToken: async () => "clerk_jwt" });
+    mockFetch.mockResolvedValue(errorResponse(500));
+
+    const error = await apiFetch({
+      errorMessage: "作品の取得に失敗しました",
+    })("https://api.example.com/works").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiRequestError);
+    expect((error as ApiRequestError).retryAfterSeconds).toBeUndefined();
   });
 });

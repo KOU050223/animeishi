@@ -1,7 +1,11 @@
 import createClient from "openapi-fetch";
 import type { paths } from "@animeishi/api-contract";
 import { apiUrl } from "@/lib/apiUrl";
-import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
+import {
+  ApiRequestError,
+  readApiErrorCode,
+  readRetryAfterSeconds,
+} from "@/lib/apiError";
 import { clerkSessionToken } from "@/lib/api";
 import { buildAnnictAuthHeader } from "@/lib/annict/buildAnnictAuthHeader";
 
@@ -56,8 +60,16 @@ const ANNICT_OPERATIONS = new Set(
  */
 export const openapiClient = createClient<paths>({ baseUrl: apiUrl });
 
+const API_ORIGIN = new URL(apiUrl).origin;
+
 openapiClient.use({
   async onRequest({ request, schemaPath }) {
+    // baseUrl 以外のオリジンに向かうリクエストには資格情報を付けない。
+    // onRequest は呼び出し側が URL を変えた場合にも走るため、付与前に
+    // 送信先を確認する。
+    if (new URL(request.url).origin !== API_ORIGIN) {
+      return request;
+    }
     const token = await clerkSessionToken();
     if (token) {
       request.headers.set("Authorization", `Bearer ${token}`);
@@ -76,6 +88,7 @@ openapiClient.use({
         response.status,
         `${request.method} ${schemaPath} failed with status ${response.status}`,
         await readApiErrorCode(response),
+        readRetryAfterSeconds(response),
       );
     }
     return response;
