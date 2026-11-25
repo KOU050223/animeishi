@@ -8,6 +8,7 @@ import {
   WorkDetailHeader,
   WorkDetailInfo,
 } from "@/components/anime-list/WorkDetailInfo";
+import { WorkDetailSkeleton } from "@/components/anime-list/WorkDetailSkeleton";
 import {
   seasonListHref,
   workMediaLabel,
@@ -98,16 +99,24 @@ export default function WorkScreen() {
       {screenOptions}
       <ScrollView testID="work-page">
         <View className="w-full max-w-2xl self-center gap-5 px-6 pt-6 pb-10">
-          {work ? (
-            <WorkDetailHeader
-              work={work}
-              mediaLabel={workMediaLabel(work.media, t)}
-              onOpenSeasonList={(seasonParam) =>
-                router.push(seasonListHref(seasonParam))
-              }
-            />
-          ) : null}
-          <WorkDetailInfo detail={detail} creditsInitiallyExpanded />
+          {isAccessLoading || detail.isLoading ? (
+            // 連携状態の確定前や詳細取得中は、実レイアウトと同じ形の
+            // スケルトンを敷く（空の画面に遷移して見えないようにする）。
+            <WorkDetailSkeleton />
+          ) : (
+            <>
+              {work ? (
+                <WorkDetailHeader
+                  work={work}
+                  mediaLabel={workMediaLabel(work.media, t)}
+                  onOpenSeasonList={(seasonParam) =>
+                    router.push(seasonListHref(seasonParam))
+                  }
+                />
+              ) : null}
+              <WorkDetailInfo detail={detail} creditsInitiallyExpanded />
+            </>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

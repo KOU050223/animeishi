@@ -47,6 +47,8 @@
   --color-tier-card: #ffffff;
   --color-tier-card-fallback: #e2e8f0;
   --color-tier-card-label: #ffffff;
+  --color-skeleton: #e2e8f0;
+  --color-skeleton-muted: #f1f5f9;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -77,5 +79,7 @@
     --color-tier-card: #334155;
     --color-tier-card-fallback: #475569;
     --color-tier-card-label: #0f172a;
+    --color-skeleton: #334155;
+    --color-skeleton-muted: #1e293b;
   }
 }

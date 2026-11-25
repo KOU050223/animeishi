@@ -35,6 +35,8 @@ const TOKEN_TO_TW_COLOR = {
   tierCard: "tier-card",
   tierCardFallback: "tier-card-fallback",
   tierCardLabel: "tier-card-label",
+  skeleton: "skeleton",
+  skeletonMuted: "skeleton-muted",
 } satisfies Record<keyof ThemeColors, string>;
 
 const css = readFileSync(
