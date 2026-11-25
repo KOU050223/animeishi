@@ -136,21 +136,21 @@ describe("DiscoverTierLists", () => {
     expect(screen.getByText("42")).toBeTruthy();
   });
 
-  it("カードを押すと公開 tier 表の詳細画面へ kind つきで遷移する", async () => {
+  it("カードを押すと公開 tier 表の詳細画面へ遷移する", async () => {
     mockItems = [publicItem(9, { kind: "custom" })];
     await render(<DiscoverTierLists />);
     await fireEvent.press(screen.getByTestId("public-tier-list-open-custom-9"));
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/public-tier-list",
-      params: { kind: "custom", id: "9" },
+      params: { id: "9" },
     });
   });
 
-  it("いいねボタンで like ミューテーションを kind つきで呼ぶ", async () => {
+  it("いいねボタンで like ミューテーションを呼ぶ", async () => {
     await render(<DiscoverTierLists />);
     await fireEvent.press(screen.getByTestId("tier-list-like-season-1"));
     expect(mockToggleMutate).toHaveBeenCalledWith(
-      { kind: "season", id: 1, like: true },
+      { id: 1, like: true },
       expect.anything(),
     );
   });
@@ -160,7 +160,7 @@ describe("DiscoverTierLists", () => {
     await render(<DiscoverTierLists />);
     await fireEvent.press(screen.getByTestId("tier-list-like-season-1"));
     expect(mockToggleMutate).toHaveBeenCalledWith(
-      { kind: "season", id: 1, like: false },
+      { id: 1, like: false },
       expect.anything(),
     );
   });
@@ -217,7 +217,6 @@ describe("DiscoverTierLists", () => {
     );
 
     expect(mockReportSubmit).toHaveBeenCalledWith({
-      kind: "season",
       id: 1,
       ownerUserId: "other-user",
       ownerUsername: "other",

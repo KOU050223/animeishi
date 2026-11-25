@@ -23,28 +23,15 @@ import {
   useToggleTierListLike,
 } from "@/lib/tierList/usePublicTierLists";
 import { useReportTierListFlow } from "@/lib/tierList/useReportTierListFlow";
-import {
-  TIER_KIND_LABELS,
-  type TierListKind,
-} from "@/lib/tierList/useMergedTierLists";
+import { TIER_KIND_LABELS } from "@/lib/tierList/useMergedTierLists";
 import { tierLabelFontSize, tierLabelTextColor } from "@/lib/tierList/label";
 import { DiscoverReportSheet } from "@/components/hiroba/DiscoverReportSheet";
 import type { ReportReason } from "@/lib/useModeration";
-
-const TIER_LIST_KINDS: readonly TierListKind[] = [
-  "season",
-  "character",
-  "custom",
-];
 
 type PublicTierListDetail = NonNullable<
   ReturnType<typeof usePublicTierList>["data"]
 >;
 type PublicTierListItem = PublicTierListDetail["items"][number];
-
-function parseKindParam(kind: string | undefined): TierListKind | null {
-  return TIER_LIST_KINDS.find((k) => k === kind) ?? null;
-}
 
 function NotFound() {
   const { t } = useTranslation();
@@ -272,7 +259,6 @@ function TierRowView({
 }
 
 function ScreenContent({
-  kind,
   listId,
   isHidden,
   isLoading,
@@ -284,7 +270,6 @@ function ScreenContent({
   onPressLike,
   onPressReport,
 }: {
-  kind: TierListKind | null;
   listId: number | null;
   isHidden: boolean;
   isLoading: boolean;
@@ -297,7 +282,7 @@ function ScreenContent({
   onPressReport: () => void;
 }) {
   const { t } = useTranslation();
-  if (kind === null || listId === null || isHidden) {
+  if (listId === null || isHidden) {
     return <NotFound />;
   }
   if (isLoading || !data) {
@@ -346,7 +331,7 @@ function ScreenContent({
 }
 
 /**
- * 公開 tier 表の閲覧画面（issue #418）。
+ * 公開 tier 表の閲覧画面（issue #418、#724 でパスを id 指定に統一）。
  * ひろば「みつける」のカードから遷移し、tier 行ごとの配置を
  * 読み取り専用で表示する。いいね・通報の導線を持つ。
  * 一覧と同じ可視条件で解決するため、開けないリストはエラー表示にする
@@ -357,12 +342,11 @@ export default function PublicTierListScreen() {
   const router = useRouter();
   const colors = useThemeColors();
   const { userId } = useAuth();
-  const params = useLocalSearchParams<{ kind?: string; id?: string }>();
-  const kind = parseKindParam(params.kind);
+  const params = useLocalSearchParams<{ id?: string }>();
   const idParam = params.id !== undefined ? Number(params.id) : NaN;
   const listId = Number.isFinite(idParam) && idParam > 0 ? idParam : null;
 
-  const detail = usePublicTierList(kind ?? "season", kind ? listId : null);
+  const detail = usePublicTierList(listId);
   const toggleLike = useToggleTierListLike();
   const reportFlow = useReportTierListFlow();
   const [reportSheetOpen, setReportSheetOpen] = useState(false);
@@ -386,9 +370,9 @@ export default function PublicTierListScreen() {
   };
 
   const onPressLike = () => {
-    if (!data || !kind || isOwn) return;
+    if (!data || isOwn) return;
     toggleLike.mutate(
-      { kind, id: data.id, like: !data.likedByMe },
+      { id: data.id, like: !data.likedByMe },
       {
         onError: (e) =>
           alert(
@@ -406,9 +390,8 @@ export default function PublicTierListScreen() {
 
   const onSelectReason = (reason: ReportReason) => {
     setReportSheetOpen(false);
-    if (!data || !kind) return;
+    if (!data) return;
     reportFlow.submit({
-      kind,
       id: data.id,
       ownerUserId: data.owner.userId,
       ownerUsername: data.owner.username,
@@ -435,7 +418,6 @@ export default function PublicTierListScreen() {
         }}
       />
       <ScreenContent
-        kind={kind}
         listId={listId}
         isHidden={isHidden}
         isLoading={detail.isLoading}

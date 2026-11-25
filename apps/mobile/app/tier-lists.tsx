@@ -13,9 +13,8 @@ import { BackButton } from "@/components/ui";
 import { alert, confirm } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
-import { useDeleteCustomTierList } from "@/lib/tierList/useCustomTierList";
+import { featureFlags } from "@/lib/featureFlags";
 import { useDeleteTierList } from "@/lib/tierList/useTierList";
-import { useDeleteCharacterTierList } from "@/lib/tierList/useCharacterTierList";
 import {
   useMergedTierLists,
   TIER_KIND_LABELS,
@@ -34,19 +33,18 @@ const KIND_BADGE_STYLES: Record<MergedTierListItem["kind"], string> = {
 /**
  * Tier 表の作成導線と作成済み一覧のハブ（issue #348）。
  *
- * 「シーズンから作る」（従来の tier-list.tsx）・「作品を選んでキャラで
- * 作る」（character-tier-list.tsx）・「テーマを決めて自由に作る」
- * （custom-tier-list.tsx）をここで選ばせる。作成済みの表は 3 種類とも
- * ここから開き直せる（#352 で全種類の一覧に拡張）。
+ * 「シーズンから作る」・「作品を選んでキャラで作る」・「テーマを決めて
+ * 自由に作る」をここで選ばせる（編集は tier-list.tsx の 1 画面に統合。
+ * issue #724）。キャラ版・自由版は機能フラグが有効なときだけ選択肢に
+ * 出す。作成済みの表は 3 種類ともここから開き直せる（#352 で全種類の
+ * 一覧に拡張）。
  */
 export default function TierListsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
   const lists = useMergedTierLists();
-  const removeSeason = useDeleteTierList();
-  const removeCharacter = useDeleteCharacterTierList();
-  const removeCustom = useDeleteCustomTierList();
+  const remove = useDeleteTierList();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const handleBack = () => {
@@ -70,22 +68,25 @@ export default function TierListsScreen() {
         haptics.warning();
         // 呼び出し別コールバックは連続 mutate で前の呼び出し分が発火しない
         // ため、mutateAsync の promise で失敗を個別に拾う
-        // （FavoritesSection と同じ方式）。
-        const remove =
-          item.kind === "season"
-            ? removeSeason.mutateAsync(item.id)
-            : item.kind === "character"
-              ? removeCharacter.mutateAsync(Number(item.id))
-              : removeCustom.mutateAsync(Number(item.id));
-        void remove.catch(() =>
-          alert(
-            t("削除に失敗しました"),
-            t("時間をおいて再度お試しください。"),
-            {
-              okLabel: "OK",
-            },
-          ),
-        );
+        // （FavoritesSection と同じ方式）。scope は削除後に編集画面の
+        // 保存済みキャッシュも消すために渡す。
+        const scope =
+          item.kind === "season" && item.season
+            ? { kind: "season" as const, season: item.season }
+            : item.kind === "character" && item.annictWorkId
+              ? { kind: "character" as const, annictWorkId: item.annictWorkId }
+              : undefined;
+        void remove
+          .mutateAsync(scope ? { id: item.id, scope } : { id: item.id })
+          .catch(() =>
+            alert(
+              t("削除に失敗しました"),
+              t("時間をおいて再度お試しください。"),
+              {
+                okLabel: "OK",
+              },
+            ),
+          );
       },
       {
         confirmLabel: t("削除する"),
@@ -97,25 +98,38 @@ export default function TierListsScreen() {
 
   const handleOpen = (item: MergedTierListItem) => {
     if (item.kind === "season") {
-      router.push({ pathname: "/tier-list", params: { season: item.id } });
+      router.push({
+        pathname: "/tier-list",
+        params: { season: item.season ?? "" },
+      });
       return;
     }
     if (item.kind === "character") {
       router.push({
-        pathname: "/character-tier-list",
-        params: { workId: item.id },
+        pathname: "/tier-list",
+        params: {
+          kind: "character",
+          workId: String(item.annictWorkId ?? ""),
+        },
       });
       return;
     }
-    router.push({ pathname: "/custom-tier-list", params: { id: item.id } });
+    router.push({
+      pathname: "/tier-list",
+      params: { kind: "custom", id: String(item.id) },
+    });
   };
 
   // ピッカーで選んだ作品でキャラクター tier 表を開く。
   const openCharacterTierList = (work: TierItem) => {
     setPickerOpen(false);
     router.push({
-      pathname: "/character-tier-list",
-      params: { workId: String(work.id), workTitle: work.title },
+      pathname: "/tier-list",
+      params: {
+        kind: "character",
+        workId: String(work.id),
+        workTitle: work.title,
+      },
     });
   };
 
@@ -159,36 +173,45 @@ export default function TierListsScreen() {
               {t("放送シーズンの全作品を並べて振り分けます")}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            className="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-800 dark:bg-rose-950"
-            onPress={() => setPickerOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel={t("キャラクターで作る")}
-            testID="tier-lists-create-character"
-          >
-            <Text className="text-base font-semibold text-rose-700 dark:text-rose-300">
-              {t("キャラクターで作る")}
-            </Text>
-            <Text className="mt-1 text-sm text-rose-900/70 dark:text-rose-200/70">
-              {t("作品を選んで、そのキャラクターを並べて振り分けます")}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950"
-            onPress={() => router.push("/custom-tier-list")}
-            accessibilityRole="button"
-            accessibilityLabel={t("テーマを決めて自由に作る")}
-            testID="tier-lists-create-custom"
-          >
-            <Text className="text-base font-semibold text-success-text">
-              {t("テーマを決めて自由に作る")}
-            </Text>
-            <Text className="mt-1 text-sm text-success-text">
-              {t(
-                "「歴代で好きなアニメ」など好きなテーマで、作品を検索して追加します",
-              )}
-            </Text>
-          </TouchableOpacity>
+          {featureFlags.characterTierList ? (
+            <TouchableOpacity
+              className="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-800 dark:bg-rose-950"
+              onPress={() => setPickerOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t("キャラクターで作る")}
+              testID="tier-lists-create-character"
+            >
+              <Text className="text-base font-semibold text-rose-700 dark:text-rose-300">
+                {t("キャラクターで作る")}
+              </Text>
+              <Text className="mt-1 text-sm text-rose-900/70 dark:text-rose-200/70">
+                {t("作品を選んで、そのキャラクターを並べて振り分けます")}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          {featureFlags.customTierList ? (
+            <TouchableOpacity
+              className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950"
+              onPress={() =>
+                router.push({
+                  pathname: "/tier-list",
+                  params: { kind: "custom" },
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel={t("テーマを決めて自由に作る")}
+              testID="tier-lists-create-custom"
+            >
+              <Text className="text-base font-semibold text-success-text">
+                {t("テーマを決めて自由に作る")}
+              </Text>
+              <Text className="mt-1 text-sm text-success-text">
+                {t(
+                  "「歴代で好きなアニメ」など好きなテーマで、作品を検索して追加します",
+                )}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <Text className="mt-10 text-base font-semibold text-foreground">

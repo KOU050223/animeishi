@@ -4,26 +4,11 @@
  * /share/* を API へ転送して OGP 付きの静的 HTML を返す（issue #408）。
  * webBaseUrl には webUrl（@/lib/webUrl）を渡す。引数にしているのは、
  * expo-constants への依存をこの純関数から切り離すため。
+ * kind を問わず /share/tier-lists/:token に一本化（issue #724）。
  */
 export function buildTierListShareUrl(
   shareToken: string,
   webBaseUrl: string,
 ): string {
   return `${webBaseUrl.replace(/\/+$/, "")}/share/tier-lists/${encodeURIComponent(shareToken)}`;
-}
-
-/** キャラクター tier 表の共有 URL（issue #169）。エンドポイントだけが違う。 */
-export function buildCharacterTierListShareUrl(
-  shareToken: string,
-  webBaseUrl: string,
-): string {
-  return `${webBaseUrl.replace(/\/+$/, "")}/share/character-tier-lists/${encodeURIComponent(shareToken)}`;
-}
-
-/** 自由作成 tier 表の共有 URL（issue #348）。エンドポイントだけが違う。 */
-export function buildCustomTierListShareUrl(
-  shareToken: string,
-  webBaseUrl: string,
-): string {
-  return `${webBaseUrl.replace(/\/+$/, "")}/share/custom-tier-lists/${encodeURIComponent(shareToken)}`;
 }

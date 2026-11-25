@@ -8,6 +8,7 @@ import {
 import { Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ApiRequestError } from "@/lib/apiError";
+import { featureFlags } from "@/lib/featureFlags";
 import { loggedInUser, signedOutUser } from "@/test-utils/auth";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
@@ -321,6 +322,9 @@ const sheetElement = (
 
 describe("AnimeWorkDetailSheet", () => {
   beforeEach(async () => {
+    // キャラ Tier は機能フラグで段階公開（#724）。導線のテストで
+    // ボタンを出すため有効にする。
+    Object.defineProperty(featureFlags, "characterTierList", { value: true });
     jest.clearAllMocks();
     loggedInUser();
     mockUseWorkDetail.mockReturnValue(detailState());

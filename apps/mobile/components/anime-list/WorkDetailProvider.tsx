@@ -45,8 +45,9 @@ export function WorkDetailProvider({ children }: { children: ReactNode }) {
         }}
         onOpenCharacterTierList={(target) =>
           router.push({
-            pathname: "/character-tier-list",
+            pathname: "/tier-list",
             params: {
+              kind: "character",
               workId: String(target.annictWorkId),
               workTitle: target.title,
             },

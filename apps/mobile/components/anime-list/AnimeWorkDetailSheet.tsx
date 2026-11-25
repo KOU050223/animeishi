@@ -49,6 +49,7 @@ import { alert } from "@/lib/dialog";
 import { useAnnictConnection, useAnnictTokenErrorPrompt } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { trackEvent } from "@/lib/events";
+import { featureFlags } from "@/lib/featureFlags";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { AddToWorkListSheet } from "@/components/work-list";
 import { buildDanimeWorkSearchUrl } from "@/lib/danime/workSearchUrl";
@@ -1091,19 +1092,23 @@ function ActionRow({
           {isFavorite ? t("推し登録を解除") : t("推しに登録")}
         </Text>
       </TouchableOpacity>
-      <TouchableOpacity
-        className="flex-1 items-center rounded-lg bg-indigo-50 py-2.5 dark:bg-indigo-950"
-        onPress={onOpenCharacterTierList}
-        accessibilityRole="button"
-        accessibilityLabel={t("{{title}} のキャラクター Tier 表を作る", {
-          title,
-        })}
-        testID="work-detail-character-tier-list"
-      >
-        <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-          {t("キャラ Tier 表を作る")}
-        </Text>
-      </TouchableOpacity>
+      {/* キャラ版は機能フラグで段階公開（issue #724）。既定の
+          Release ビルドではシーズン版だけが作れる。 */}
+      {featureFlags.characterTierList ? (
+        <TouchableOpacity
+          className="flex-1 items-center rounded-lg bg-indigo-50 py-2.5 dark:bg-indigo-950"
+          onPress={onOpenCharacterTierList}
+          accessibilityRole="button"
+          accessibilityLabel={t("{{title}} のキャラクター Tier 表を作る", {
+            title,
+          })}
+          testID="work-detail-character-tier-list"
+        >
+          <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+            {t("キャラ Tier 表を作る")}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }

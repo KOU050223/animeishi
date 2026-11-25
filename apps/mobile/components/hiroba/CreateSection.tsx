@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useThemeColors } from "@/lib/theme";
+import { featureFlags } from "@/lib/featureFlags";
 import {
   useMergedTierLists,
   type MergedTierListItem,
@@ -53,20 +54,23 @@ export function CreateSection() {
     if (item.kind === "season") {
       router.push({
         pathname: "/tier-list",
-        params: { season: item.id },
+        params: { season: item.season ?? "" },
       });
       return;
     }
     if (item.kind === "character") {
       router.push({
-        pathname: "/character-tier-list",
-        params: { workId: item.id },
+        pathname: "/tier-list",
+        params: {
+          kind: "character",
+          workId: String(item.annictWorkId ?? ""),
+        },
       });
       return;
     }
     router.push({
-      pathname: "/custom-tier-list",
-      params: { id: item.id },
+      pathname: "/tier-list",
+      params: { kind: "custom", id: String(item.id) },
     });
   };
 
@@ -74,8 +78,12 @@ export function CreateSection() {
   const openCharacterTierList = (work: TierItem) => {
     setPickerOpen(false);
     router.push({
-      pathname: "/character-tier-list",
-      params: { workId: String(work.id), workTitle: work.title },
+      pathname: "/tier-list",
+      params: {
+        kind: "character",
+        workId: String(work.id),
+        workTitle: work.title,
+      },
     });
   };
 
@@ -103,24 +111,33 @@ export function CreateSection() {
           onPress={() => router.push("/tier-list")}
           testID="hiroba-create-work-tier"
         />
-        <CreateTile
-          icon="people-outline"
-          tint="rose"
-          label={t("キャラ Tier")}
-          sub={t("作品のキャラを並べる")}
-          onPress={() => setPickerOpen(true)}
-          testID="hiroba-create-character-tier"
-        />
+        {featureFlags.characterTierList ? (
+          <CreateTile
+            icon="people-outline"
+            tint="rose"
+            label={t("キャラ Tier")}
+            sub={t("作品のキャラを並べる")}
+            onPress={() => setPickerOpen(true)}
+            testID="hiroba-create-character-tier"
+          />
+        ) : null}
       </View>
       <View className="mt-3 flex-row gap-3">
-        <CreateTile
-          icon="sparkles-outline"
-          tint="emerald"
-          label={t("自由 Tier")}
-          sub={t("好きなテーマで作る")}
-          onPress={() => router.push("/custom-tier-list")}
-          testID="hiroba-create-custom-tier"
-        />
+        {featureFlags.customTierList ? (
+          <CreateTile
+            icon="sparkles-outline"
+            tint="emerald"
+            label={t("自由 Tier")}
+            sub={t("好きなテーマで作る")}
+            onPress={() =>
+              router.push({
+                pathname: "/tier-list",
+                params: { kind: "custom" },
+              })
+            }
+            testID="hiroba-create-custom-tier"
+          />
+        ) : null}
         <CreateTile
           icon="list-outline"
           tint="amber"

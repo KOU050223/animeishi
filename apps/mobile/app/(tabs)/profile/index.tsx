@@ -803,8 +803,9 @@ export default function ProfileScreen() {
         onOpenCharacterTierList={(work) => {
           trackEvent("character_tier_open");
           router.push({
-            pathname: "/character-tier-list",
+            pathname: "/tier-list",
             params: {
+              kind: "character",
               workId: String(work.annictWorkId),
               workTitle: work.title,
             },

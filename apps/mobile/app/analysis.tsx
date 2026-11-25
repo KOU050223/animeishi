@@ -397,8 +397,12 @@ function RecommendationsSection() {
   const openCharacterTierList = (work: WorkDetailSheetTarget) => {
     trackEvent("character_tier_open");
     router.push({
-      pathname: "/character-tier-list",
-      params: { workId: String(work.annictWorkId), workTitle: work.title },
+      pathname: "/tier-list",
+      params: {
+        kind: "character",
+        workId: String(work.annictWorkId),
+        workTitle: work.title,
+      },
     });
   };
 

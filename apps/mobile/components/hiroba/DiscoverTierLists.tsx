@@ -64,7 +64,7 @@ export function DiscoverTierLists() {
 
   function onPressLike(item: PublicTierListItem) {
     toggleLike.mutate(
-      { kind: item.kind, id: item.id, like: !item.likedByMe },
+      { id: item.id, like: !item.likedByMe },
       {
         onError: (e) =>
           alert(
@@ -85,7 +85,6 @@ export function DiscoverTierLists() {
     setReportTarget(null);
     if (!target) return;
     reportFlow.submit({
-      kind: target.kind,
       id: target.id,
       ownerUserId: target.owner.userId,
       ownerUsername: target.owner.username,
@@ -133,8 +132,7 @@ export function DiscoverTierLists() {
       ) : (
         <FlatList
           data={items}
-          // kind をまたいだ id の衝突を避けるため kind 付きのキーにする。
-          keyExtractor={(item) => `${item.kind}-${item.id}`}
+          keyExtractor={(item) => String(item.id)}
           refreshing={refreshing}
           onRefresh={onRefresh}
           onEndReached={onEndReached}
@@ -157,7 +155,7 @@ export function DiscoverTierLists() {
               onPress={() =>
                 router.push({
                   pathname: "/public-tier-list",
-                  params: { kind: item.kind, id: String(item.id) },
+                  params: { id: String(item.id) },
                 })
               }
               onPressLike={() => onPressLike(item)}

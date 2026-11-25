@@ -96,6 +96,31 @@ jest.mock("@/lib/tierList/useSeasonWorks", () => ({
   }),
 }));
 
+// season 以外の候補ソースはこのテストでは使わない（kind=season で開く）。
+jest.mock("@/lib/tierList/useWorkCharacters", () => ({
+  useWorkCharacters: () => ({
+    characters: [],
+    workTitle: null,
+    isLoading: false,
+    isError: false,
+    canBrowseWorks: true,
+    isAccessLoading: false,
+  }),
+}));
+
+jest.mock("@/lib/tierList/useWorksLookup", () => ({
+  useWorksLookup: () => ({ data: undefined, isLoading: false, isError: false }),
+}));
+
+// Annict 連携のゲートは「連携済み」で通す。未連携時の出し分けは
+// AnnictSoftGate のテスト側で扱う。
+jest.mock("@/lib/annict", () => ({
+  useWorkCatalogAccess: () => ({
+    canBrowseWorks: true,
+    isLoading: false,
+  }),
+}));
+
 jest.mock("@/lib/useAnimeList", () => ({
   usePrefetchSeasonWorks: jest.fn(),
 }));
@@ -109,11 +134,13 @@ const mockPresentShareUrl = jest.fn();
 const mockPresentOptions = jest.fn();
 let mockUseRealWebShare = false;
 jest.mock("@/lib/tierList/useTierList", () => ({
-  useSavedTierList: (season: string) => {
-    mockSavedSeasons.push(season);
+  useSavedTierList: (scope: { kind: string; season?: string } | null) => {
+    const season = scope?.kind === "season" ? scope.season : undefined;
+    if (season) mockSavedSeasons.push(season);
     return {
-      data: mockSavedBySeason[season] ?? null,
+      data: (season ? mockSavedBySeason[season] : null) ?? null,
       isLoading: mockSavedLoading,
+      isError: false,
     };
   },
   useSaveTierList: () => ({
@@ -160,12 +187,15 @@ function savedList(
   options?: { description?: string | null; isPublic?: boolean },
 ) {
   return {
+    id: 1,
     title,
     description: options?.description ?? null,
     isPublic: options?.isPublic ?? false,
+    shareToken: null,
     tiersJson: JSON.stringify(DEFAULT_TIERS),
     items: items.map((i) => ({
       ...i,
+      kind: "work",
       title: `作品${i.annictWorkId}`,
       hostedImageUrl: null,
     })),
@@ -382,9 +412,11 @@ describe("TierListScreen の盤面 hydrate（レンダー中の状態調整）",
   });
 
   it("保存成功で isDirty が解除されると最新の saved を反映する", async () => {
-    const onSuccessRef: { current?: (() => void) | undefined } = {};
+    const onSuccessRef: {
+      current?: ((data: unknown) => void) | undefined;
+    } = {};
     mockSaveMutate.mockImplementation(
-      (_input: unknown, options?: { onSuccess?: () => void }) => {
+      (_input: unknown, options?: { onSuccess?: (data: unknown) => void }) => {
         onSuccessRef.current = options?.onSuccess;
       },
     );
@@ -402,7 +434,7 @@ describe("TierListScreen の盤面 hydrate（レンダー中の状態調整）",
     // 保存 → onSuccess で isDirty 解除 → 最新の saved が反映される
     await fireEvent.press(screen.getByTestId("tier-list-save"));
     expect(mockSaveMutate).toHaveBeenCalled();
-    await act(() => onSuccessRef.current?.());
+    await act(() => onSuccessRef.current?.(savedList("v2", [])));
     await rerender(<TierListScreen />);
 
     expect(mockBoardProps?.assignment.get(9)).toBe("0");
