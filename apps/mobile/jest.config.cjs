@@ -36,7 +36,6 @@ module.exports = {
   resolver: require.resolve("./jest.resolver.cjs"),
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
-    "^@animeishi/api$": "<rootDir>/../../apps/api/src/index.ts",
     "^@animeishi/danime-core$":
       "<rootDir>/../../packages/danime-core/src/index.ts",
     "^@animeishi/observability$":

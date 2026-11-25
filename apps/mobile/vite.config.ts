@@ -17,10 +17,6 @@ export default defineConfig({
     alias: [
       { find: /^@\/(.*)$/, replacement: resolve(__dirname, "$1") },
       {
-        find: /^@animeishi\/api$/,
-        replacement: resolve(__dirname, "../../apps/api/src/index.ts"),
-      },
-      {
         find: /^@animeishi\/danime-core$/,
         replacement: resolve(
           __dirname,
@@ -49,7 +45,11 @@ export default defineConfig({
   run: {
     tasks: {
       typecheck: {
-        command: "tsc --noEmit --checkers 1",
+        command: [
+          "tsc --noEmit --checkers 1",
+          "tsc --noEmit --checkers 1 -p worker/tsconfig.json",
+        ],
+        dependsOn: ["@animeishi/api-contract#typegen"],
         cache: {
           // tsc はネイティブバイナリで自動追跡に載らないため入力を明示する
           // （issue #806。詳細は docs/development/toolchain.md の
@@ -64,14 +64,12 @@ export default defineConfig({
             "!node_modules",
             "!node_modules/**",
             { pattern: "pnpm-lock.yaml", base: "workspace" },
-            // tsconfig の paths（@/* → ../../apps/api/src/*）と @animeishi/api の
-            // types（./src/index.ts）で、apps/api のソースを直接読む
-            // （AppType 参照は issue #725 段階④まで残す）
-            { pattern: "apps/api/src/**", base: "workspace" },
-            { pattern: "apps/api/package.json", base: "workspace" },
-            // @animeishi/api-contract の types（./schema.d.ts）はコミット済み
-            // の生成物なのでファイル単位で入力にする
-            { pattern: "packages/api-contract/schema.d.ts", base: "workspace" },
+            // Hono RPC の型は api-contract が typegen で生成する d.ts だけを読む。
+            // API のソースは mobile の入力に含めない（issue #725）。
+            {
+              pattern: "packages/api-contract/generated/rpcSchema.d.ts",
+              base: "workspace",
+            },
             {
               pattern: "packages/api-contract/package.json",
               base: "workspace",
@@ -88,6 +86,50 @@ export default defineConfig({
           ],
           output: [],
         },
+      },
+      // type-aware ルールが生成済みの rpcSchema.d.ts を読むため、typegen の後に実行する。
+      // lint:fix はファイルを書き換えるのでキャッシュしない。
+      lint: {
+        command: "vp lint . --deny-warnings",
+        dependsOn: ["@animeishi/api-contract#typegen"],
+        cache: {
+          input: [
+            { auto: true },
+            "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,json}",
+            ".expo/types/**",
+            "!node_modules",
+            "!node_modules/**",
+            { pattern: "pnpm-lock.yaml", base: "workspace" },
+            {
+              pattern: "packages/api-contract/generated/rpcSchema.d.ts",
+              base: "workspace",
+            },
+            {
+              pattern: "packages/api-contract/package.json",
+              base: "workspace",
+            },
+            { pattern: "packages/danime-core/src/**", base: "workspace" },
+            { pattern: "packages/danime-core/package.json", base: "workspace" },
+            { pattern: "packages/observability/src/**", base: "workspace" },
+            {
+              pattern: "packages/observability/package.json",
+              base: "workspace",
+            },
+          ],
+          output: [],
+        },
+      },
+      "lint:fix": {
+        command: "vp lint . --fix --deny-warnings",
+        dependsOn: ["@animeishi/api-contract#typegen"],
+        cache: false,
+      },
+      // Expo の dev server は型を消費しないが、並行して開くエディタが
+      // rpcSchema.d.ts を必要とするため、起動前に生成しておく。
+      dev: {
+        command: "expo start",
+        dependsOn: ["@animeishi/api-contract#typegen"],
+        cache: false,
       },
       // jest もキャッシュする（issue #251）。jest が読む設定・セットアップ・モック・ソース・依存は
       // 自動追跡で入力に入る。jest 自身のキャッシュ（変換結果・Haste マップ）は OS の一時
@@ -107,7 +149,7 @@ export default defineConfig({
           input: [{ auto: true }, "!node_modules"],
           output: [],
         },
-        dependsOn: ["test:vitest"],
+        dependsOn: ["test:vitest", "@animeishi/api-contract#typegen"],
       },
       "test:vitest": {
         // vp test は vitest のキャッシュパス（node_modules/.vite-temp・.vite 内の
@@ -134,6 +176,7 @@ export default defineConfig({
           ],
           output: [],
         },
+        dependsOn: ["@animeishi/api-contract#typegen"],
       },
     },
   },

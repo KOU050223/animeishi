@@ -31,3 +31,5 @@ Thumbs.db
 # Claude Code
 .claude/worktrees/
 .claude/settings.local.json
+# Hono RPC の型生成物（TypeScript 7 の出力が冪等でないためコミットしない。issue #725）
+packages/api-contract/generated/

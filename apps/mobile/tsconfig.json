@@ -5,9 +5,9 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "paths": {
-      "@/*": ["./*", "../../apps/api/src/*"]
+      "@/*": ["./*"]
     },
-    "types": ["jest", "node", "@cloudflare/workers-types", "expo/types"],
+    "types": ["jest", "node", "expo/types"],
     "skipLibCheck": true
   },
   "include": [
@@ -17,5 +17,5 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "worker"]
 }

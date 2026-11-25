@@ -5,13 +5,17 @@
   "type": "module",
   "types": "./schema.d.ts",
   "exports": {
-    ".": "./schema.d.ts"
+    ".": "./schema.d.ts",
+    "./rpc": "./generated/rpcSchema.d.ts"
   },
   "scripts": {
     "lint": "vp lint --ignore-path ../../.oxfmtignore . --deny-warnings",
     "lint:fix": "vp lint --ignore-path ../../.oxfmtignore . --fix --deny-warnings",
     "fmt": "vp fmt --ignore-path ../../.oxfmtignore .",
     "fmt:check": "vp fmt --check --ignore-path ../../.oxfmtignore ."
+  },
+  "dependencies": {
+    "hono": "^4.12.14"
   },
   "devDependencies": {
     "@animeishi/api": "workspace:*",

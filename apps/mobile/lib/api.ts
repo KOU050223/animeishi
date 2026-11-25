@@ -1,5 +1,7 @@
 import { hc } from "hono/client";
-import type { AppType } from "@animeishi/api";
+import type { Hono } from "hono";
+import type { BlankEnv } from "hono/types";
+import type { rpcSchema } from "@animeishi/api-contract/rpc";
 import { getClerkInstance } from "@clerk/expo";
 import i18next from "i18next";
 import { apiUrl } from "@/lib/apiUrl";
@@ -10,6 +12,9 @@ import {
 } from "@/lib/apiError";
 import { buildAnnictAuthHeader } from "@/lib/annict/buildAnnictAuthHeader";
 import type { TranslationKey } from "@/lib/i18n/keys";
+
+type RpcSchema = typeof rpcSchema;
+type AppType = Hono<BlankEnv, RpcSchema>;
 
 export const apiClient = hc<AppType>(apiUrl);
 

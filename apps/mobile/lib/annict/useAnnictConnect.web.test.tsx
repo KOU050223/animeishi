@@ -127,7 +127,7 @@ describe("useAnnictConnect (web)", () => {
     // authorize URL の state パラメータと一致する。
     const state = window.sessionStorage.getItem(ANNICT_STATE_STORAGE_KEY);
     const [encodedOrigin, random] = (state ?? "").split(".");
-    expect(Buffer.from(encodedOrigin, "base64url").toString()).toBe(
+    expect(Buffer.from(encodedOrigin ?? "", "base64url").toString()).toBe(
       "http://localhost",
     );
     expect(random).toBeTruthy();
@@ -157,7 +157,7 @@ describe("useAnnictConnect (web)", () => {
     // 戻り先は実行中のオリジン（ここでは jsdom の http://localhost）。
     const state = authorizeUrl.searchParams.get("state") ?? "";
     const [encodedOrigin] = state.split(".");
-    expect(Buffer.from(encodedOrigin, "base64url").toString()).toBe(
+    expect(Buffer.from(encodedOrigin ?? "", "base64url").toString()).toBe(
       "http://localhost",
     );
   });

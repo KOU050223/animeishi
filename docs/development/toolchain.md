@@ -105,6 +105,11 @@ type-aware ルールの対象にもなるので、対象外の tsconfig（`tscon
 作らない。api の Workers テストが使う `cloudflare:workers` の `env` と
 `caches.default` の型は `apps/api/src/test-utils/workers-env.d.ts` で宣言マージしている。
 
+mobile では `worker/` だけ Workers 固有の型を使う。アプリ本体の tsconfig に
+`@cloudflare/workers-types` を入れる必要はないため、
+`apps/mobile/worker/tsconfig.json` に分けている。
+mobile の typecheck タスクは本体と worker の 2 回の tsc を実行する。
+
 ## タスクキャッシュ
 
 typecheck / lint / fmt:check / test の結果は `vp run` がキャッシュし、入力ファイル
@@ -136,10 +141,14 @@ script として `--cache` で実行していたため、script は `cache.input
 `ios/`・`.wrangler/` 等の生成物までフィンガープリントに入り、型と無関係な変更でも
 ミスになる。`node_modules` は除外し、依存パッケージの .d.ts の変更は
 `pnpm-lock.yaml` の入力で捕捉する。api は packages/danime-core・observability の
-`src/**`、mobile はそれに加えて `apps/api/src/**` と `.expo/types/**` も入力に含める
-（内部パッケージは `exports` / `types` が `./src/index.ts` で、mobile の paths は
-`apps/api/src/*` を直接読み、`.expo/types` は Expo Router が生成する型で
-tsconfig の include に含まれるため）。tsc が他の拡張子を読む構成
+`src/**` を入力に含める（内部パッケージは `exports` / `types` が
+`./src/index.ts` で、tsc が依存先のソースを直接読むため）。
+mobile は内部パッケージの `src/**`、`.expo/types/**`、api-contract が生成する
+`generated/rpcSchema.d.ts` を入力に含める。mobile は API のソースを読まず、
+API の変更は typegen が更新した `rpcSchema.d.ts` 経由で検知する
+（issue #725。typegen 側の入力には `apps/api/src/**` を入れている）。
+`.expo/types` は Expo Router が生成する型で tsconfig の include に含まれる。
+tsc が他の拡張子を読む構成
 （resolveJsonModule 相当のプラグイン設定等）を足すときは、この glob にも追加する。
 
 ルートの `typecheck` タスク（`vp run -r typecheck` + ルートの tsc）は `cache: false` に

@@ -26,5 +26,6 @@ apps/mobile/expo-env.d.ts
 expo-env.d.ts
 packages/api-contract/openapi.json
 packages/api-contract/schema.d.ts
+packages/api-contract/generated/
 pnpm-lock.yaml
 skills-lock.json

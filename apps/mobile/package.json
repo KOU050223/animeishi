@@ -6,7 +6,6 @@
   "main": "index.js",
   "scripts": {
     "start": "expo start",
-    "dev": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "ios:device:release": "bash scripts/ios-device-release.sh",
@@ -15,8 +14,6 @@
     "bundle:size": "node scripts/check-web-bundle-size.mjs",
     "deploy:web": "wrangler deploy --env production",
     "preview:web": "wrangler dev",
-    "lint": "vp lint . --deny-warnings",
-    "lint:fix": "vp lint . --fix --deny-warnings",
     "fmt": "vp fmt --ignore-path ../../.oxfmtignore .",
     "fmt:check": "vp fmt --check --ignore-path ../../.oxfmtignore .",
     "generate:icons": "node scripts/generate-icons.mjs",
@@ -24,7 +21,6 @@
     "e2e:ios": "bash scripts/e2e-ios.sh"
   },
   "dependencies": {
-    "@animeishi/api": "workspace:*",
     "@animeishi/api-contract": "workspace:*",
     "@animeishi/danime-core": "workspace:*",
     "@animeishi/observability": "workspace:*",
@@ -66,7 +62,6 @@
     "i18next": "^26.3.2",
     "intl-pluralrules": "^2.0.1",
     "nativewind": "5.0.0-rc.1",
-    "openapi-fetch": "^0.17.0",
     "posthog-react-native": "^4.87.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",

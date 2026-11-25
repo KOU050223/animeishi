@@ -26,7 +26,14 @@ type AnnictDocument<Query extends string> = ReturnType<
   typeof tadaDocument<Query>
 >;
 
-/** クエリ文字列のレスポンス（data）型。 */
+/**
+ * クエリ文字列のレスポンス（data）型。
+ *
+ * @internal Hono RPC の schema を宣言出力するとき、TypeScript は依存した
+ * 全ファイルの d.ts も出力しようとして gql.tada の内部型を直列化できずに失敗する
+ * （TS4023 / TS7056）。rpcSchema.d.ts は Annict の型を参照しないため、
+ * tsconfig.rpc.json の stripInternal でこの型を宣言出力から外す。
+ */
 export type AnnictResult<Query extends string> = ResultOf<
   AnnictDocument<Query>
 >;
