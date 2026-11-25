@@ -35,15 +35,7 @@
         // jest-expo の babel-jest トランスフォームが解決するバージョンを
         // Jest 30 系に揃えるための直接依存（jest-config 経由の推移的依存に
         // 委ねると解決バージョンが変わり得る）。
-        "babel-jest",
-        // lib/openapiClient.ts（issue #725 段階②で配置した openapi-fetch
-        // クライアント）が使う。hook の移行は段階③なので消費箇所はまだ無い。
-        "@animeishi/api-contract",
-        "openapi-fetch"
-      ],
-      "ignore": [
-        // 同上。段階③で hook が参照し始めるまで未使用のまま置く。
-        "lib/openapiClient.ts"
+        "babel-jest"
       ]
     },
     "apps/api": {
@@ -57,7 +49,17 @@
         // Taskfile の `dir: apps/api` 付きタスクから `node scripts/*.mjs` で
         // 起動される CLI。knip の taskfile プラグインは dir を考慮せず
         // ワークスペースルート基準で解決するため entry に含める。
-        "scripts/**/*.{mjs,ts}"
+        "scripts/**/*.{mjs,ts}",
+        // Hono RPC 型生成の入口。typegen は tsconfig.rpc.json の include で
+        // 読むため、ソース import としては現れない。
+        "src/rpcSchema.ts"
+      ]
+    },
+    "packages/api-contract": {
+      "ignoreDependencies": [
+        // generated/rpcSchema.d.ts が import("hono/types") を参照する。
+        // 生成物はコミットしないため、knip の参照解析には現れない。
+        "hono"
       ]
     }
   }

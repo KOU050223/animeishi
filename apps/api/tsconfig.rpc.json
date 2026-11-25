@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "stripInternal": true,
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "../../packages/api-contract/generated/.typegen"
+  },
+  "include": ["src/rpcSchema.ts"]
+}

@@ -24,6 +24,8 @@ export default defineConfig({
             "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,json}",
             "!node_modules",
             "!node_modules/**",
+            "!generated",
+            "!generated/**",
             { pattern: "pnpm-lock.yaml", base: "workspace" },
             // scripts が import する apps/api のソースも tsc が読む
             { pattern: "apps/api/src/**", base: "workspace" },
@@ -41,6 +43,31 @@ export default defineConfig({
           output: [],
         },
       },
+      // Hono RPC の型推論結果を d.ts に事前コンパイルする（issue #725）。
+      // mobile は生成物だけを読み、API ソースを型チェックの入力にしない。
+      // tsc はネイティブバイナリで自動追跡に載らないため入力を明示する。
+      typegen: {
+        command: "tsx scripts/typegen.mts",
+        cache: {
+          input: [
+            { auto: true },
+            "scripts/typegen.mts",
+            { pattern: "pnpm-lock.yaml", base: "workspace" },
+            { pattern: "apps/api/src/**", base: "workspace" },
+            { pattern: "apps/api/package.json", base: "workspace" },
+            { pattern: "apps/api/tsconfig.json", base: "workspace" },
+            { pattern: "apps/api/tsconfig.rpc.json", base: "workspace" },
+            { pattern: "packages/danime-core/src/**", base: "workspace" },
+            { pattern: "packages/danime-core/package.json", base: "workspace" },
+            { pattern: "packages/observability/src/**", base: "workspace" },
+            {
+              pattern: "packages/observability/package.json",
+              base: "workspace",
+            },
+          ],
+          output: ["generated/rpcSchema.d.ts"],
+        },
+      },
       check: {
         command: "tsx scripts/check.mts",
         cache: {
@@ -49,6 +76,8 @@ export default defineConfig({
             "**/*.{ts,mts,json}",
             "!node_modules",
             "!node_modules/**",
+            "!generated",
+            "!generated/**",
             { pattern: "pnpm-lock.yaml", base: "workspace" },
             // 仕様の生成元は API のルート定義
             { pattern: "apps/api/src/**", base: "workspace" },

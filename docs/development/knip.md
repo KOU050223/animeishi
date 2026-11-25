@@ -27,7 +27,11 @@ wrangler の `src/index.ts`、Workflows のクラス、jest / vitest の設定�
   `*.ios.ts` 等。Metro のプラットフォーム解決は静的解析で辿れない）、
   jest の `@jest-environment` pragma が指す `jest.jsdom-env.cjs`
 - `apps/api`: `drizzle.config.ts`、Taskfile の `dir:` 付きタスクから起動される
-  `scripts/*.mjs`
+  `scripts/*.mjs`、Hono RPC 型生成の入口 `src/rpcSchema.ts`
+  （typegen は tsconfig の include で読むため、import グラフには現れない）
+- `packages/api-contract`: `hono` は生成物 `generated/rpcSchema.d.ts` が
+  `import("hono/types")` で参照するが、生成物をコミットしないため
+  `ignoreDependencies` に入れている
 
 ## 誤検出への対処
 

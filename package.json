@@ -2,7 +2,7 @@
   "name": "animeishi",
   "private": true,
   "scripts": {
-    "prepare": "vp config --no-agent"
+    "prepare": "vp config --no-agent && vp run @animeishi/api-contract#typegen"
   },
   "devDependencies": {
     "@go-task/cli": "3.52.0",
