@@ -1,23 +1,23 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
-import { setupTestDb } from "#src/test-utils/setup-db";
-import { requestUrl } from "#src/test-utils/fetch";
+import { setupTestDb } from "@/test-utils/setup-db";
+import { requestUrl } from "@/test-utils/fetch";
 import {
   isKitsuAnimeListUrl,
   isKitsuMappingsUrl,
   makeKitsuAnimeListResponse,
   makeKitsuResponse,
-} from "#src/test-utils/kitsu";
-import { IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS } from "#src/lib/catalog/imageFallback";
-import { annictWorks } from "#src/db/schema";
+} from "@/test-utils/kitsu";
+import { IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS } from "@/lib/catalog/imageFallback";
+import { annictWorks } from "@/db/schema";
 import {
   WORK_IMAGE_FAILURE_COOLDOWN_MS,
   serveWorkImage,
   workImageKey,
   workImageSourceCandidates,
   workImageUrl,
-} from "#src/lib/catalog/workImage";
+} from "@/lib/catalog/workImage";
 
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
 

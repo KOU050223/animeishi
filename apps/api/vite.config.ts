@@ -1,5 +1,6 @@
 import { cloudflareTest } from "@cloudflare/vitest-plugin";
 import { availableParallelism } from "node:os";
+import { resolve } from "node:path";
 import { defineConfig } from "vite-plus";
 
 // vitest の "50%" 指定は Math.round で解決されるため奇数コアで切り上げに
@@ -44,6 +45,11 @@ const NODE_POOL_TESTS = [
 ];
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@": resolve(__dirname, "./src"),
+    },
+  },
   plugins: [
     cloudflareTest({
       wrangler: { configPath: "./wrangler.toml" },
@@ -108,8 +114,14 @@ export default defineConfig({
         // inline プロジェクトは宣言元の設定ファイル（このファイル）を既定で
         // 継承し、plugins も引き継がれる。継承すると cloudflareTest が
         // pool を Workers プールに書き換えてしまうため、node プロジェクトは
-        // extends: false で親設定を切り離し、globals を自前で持つ。
+        // extends: false で親設定を切り離し、resolve.alias と globals を
+        // 自前で持つ。
         extends: false,
+        resolve: {
+          alias: {
+            "@": resolve(__dirname, "./src"),
+          },
+        },
         test: {
           name: "node",
           testTimeout: 30_000,

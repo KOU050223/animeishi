@@ -5,7 +5,7 @@ import {
   index,
   unique,
 } from "drizzle-orm/sqlite-core";
-import { users } from "#src/features/users/schema.db";
+import { users } from "@/features/users/schema.db";
 
 // ---- events (運営が登録する大型イベント, issue #411) ----
 // 投入は scripts/publish-event.mjs（#437 の記事と同じ frontmatter 付き

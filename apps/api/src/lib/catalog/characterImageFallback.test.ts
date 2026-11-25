@@ -4,8 +4,8 @@ import {
   isKitsuMappingsUrl,
   makeKitsuCharactersResponse,
   makeKitsuResponse,
-} from "#src/test-utils/kitsu";
-import { requestUrl } from "#src/test-utils/fetch";
+} from "@/test-utils/kitsu";
+import { requestUrl } from "@/test-utils/fetch";
 import {
   fetchKitsuCharacters,
   isKitsuDerivativeImageUrl,

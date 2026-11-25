@@ -1,16 +1,18 @@
-import { createDb } from "#src/db/client";
-import { requireAuth } from "#src/middleware/auth";
-import type { AuthVariables } from "#src/middleware/auth";
+import { createDb } from "@/db/client";
+import { requireAuth } from "@/middleware/auth";
+import type { AuthVariables } from "@/middleware/auth";
 import { danimeMatchRoute } from "./schema";
-import { createOpenApiApp } from "#src/lib/openapi";
+import { createOpenApiApp } from "@/lib/openapi";
 import { danimeEpisodeJobs } from "./episodeJobs";
+// 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
+// features/watch-history/index.ts のコメント参照）。
 import {
   AnnictApiError,
   AnnictBudgetExhaustedError,
   isAnnictGraphQLError,
   searchAnnictWorksByTitles,
-} from "#src/lib/annict/client/index";
-import { withAnnictRetry } from "#src/lib/annict/retry";
+} from "@/lib/annict/client";
+import { withAnnictRetry } from "@/lib/annict/retry";
 import { matchDanimeWorks } from "@animeishi/danime-core";
 import type { AnnictSearcher } from "@animeishi/danime-core";
 import { createLocalWorkSearcher } from "./localSearch";

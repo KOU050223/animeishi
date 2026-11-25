@@ -5,8 +5,8 @@ import {
   index,
   unique,
 } from "drizzle-orm/sqlite-core";
-import { users } from "#src/features/users/schema.db";
-import { annictWorks } from "#src/features/works/schema.db";
+import { users } from "@/features/users/schema.db";
+import { annictWorks } from "@/features/works/schema.db";
 
 // ---- work_lists (タイトル・説明付きのオリジナル作品リスト) ----
 // favorites（推し）とは別機能で、1 人 1 一覧の favorites と違い

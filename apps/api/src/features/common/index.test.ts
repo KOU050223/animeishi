@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
-import { setupTestDb } from "#src/test-utils/setup-db";
-import { applyApiErrorHandling } from "#src/test-utils/apiApp";
+import { setupTestDb } from "@/test-utils/setup-db";
+import { applyApiErrorHandling } from "@/test-utils/apiApp";
 import {
   annictWorks,
   blocks,
@@ -10,8 +10,8 @@ import {
   friends,
   users,
   watchHistory,
-} from "#src/db/schema";
-import { currentAnnictSeason } from "#src/lib/annict/client/index";
+} from "@/db/schema";
+import { currentAnnictSeason } from "@/lib/annict/client";
 import { common } from "./index";
 
 vi.mock("@clerk/hono", () => ({

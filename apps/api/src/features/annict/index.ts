@@ -1,14 +1,17 @@
 import type { Context } from "hono";
-import { requireAuth } from "#src/middleware/auth";
-import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
+import { requireAuth } from "@/middleware/auth";
+import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import {
   annictDisconnectRoute,
   annictExchangeRoute,
   getAnnictConnectionRoute,
 } from "./schema";
-import { createOpenApiApp } from "#src/lib/openapi";
-import { createDb } from "#src/db/client";
+import { createOpenApiApp } from "@/lib/openapi";
+import { createDb } from "@/db/client";
 import { annictRepository } from "./repository";
+// NOTE: モバイル(apps/mobile)も同名の `@/lib/annict` を持つため、`@/` エイリアスだと
+// モバイルの tsconfig 経由で型チェックされる際にモバイル側へ誤解決される。
+// API 専用の実装を確実に指すよう相対パスで import する。
 import {
   AnnictApiError,
   exchangeAnnictCode,
@@ -17,8 +20,8 @@ import {
   decryptToken,
   assertEncryptionKey,
   ANNICT_TOKEN_HEADER,
-} from "#src/lib/annict/index";
-import { reportApiFailure } from "#src/observability";
+} from "../../lib/annict";
+import { reportApiFailure } from "../../observability";
 
 // Annict OAuth 連携用バインディング。
 // ANNICT_CLIENT_ID は公開可（vars）、ANNICT_CLIENT_SECRET は Workers Secret。

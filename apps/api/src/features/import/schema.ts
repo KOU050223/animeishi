@@ -1,11 +1,11 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { requireAnnictToken } from "#src/lib/annict/middleware";
+import { requireAnnictToken } from "@/lib/annict/middleware";
 import {
   bearerAuth,
   bearerAuthWithAnnict,
   codedErrorResponseSchema,
   errorResponseSchema,
-} from "#src/lib/openapi";
+} from "@/lib/openapi";
 import { DANIME_EPISODE_JOB_STATUSES } from "./schema.db";
 
 // インポート対象の 1 作品。クライアント（WebView 注入 / ブックマークレット）が

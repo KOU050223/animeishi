@@ -3,8 +3,8 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { watchHistory } from "#src/features/watch-history/index";
-import { users, annictWorks } from "#src/db/schema";
+import { watchHistory } from "@/features/watch-history";
+import { users, annictWorks } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -16,10 +16,10 @@ vi.mock("@clerk/hono", () => ({
 // D1 書き込み失敗（AnnictApiError ではない想定外の例外）を再現するため、
 // 特定作品の upsertWatchHistory だけを落とせるようリポジトリをラップする。
 const failUpsertIds = new Set<number>();
-vi.mock("#src/features/watch-history/repository", async (importOriginal) => {
+vi.mock("@/features/watch-history/repository", async (importOriginal) => {
   const mod =
     await importOriginal<
-      typeof import("#src/features/watch-history/repository")
+      typeof import("@/features/watch-history/repository")
     >();
   return {
     ...mod,

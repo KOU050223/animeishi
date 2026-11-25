@@ -8,7 +8,7 @@ import {
   annictWorks,
   users,
   watchHistory as watchHistoryTable,
-} from "#src/db/schema";
+} from "@/db/schema";
 
 const USER_ID = "user_testuser001";
 const ANOTHER_USER_ID = "user_testuser002";

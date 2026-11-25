@@ -22,9 +22,9 @@ import {
   danimeEpisodeImportWorks,
   episodeRecords,
   users,
-} from "#src/db/schema";
-import { encryptToken } from "#src/lib/annict/crypto";
-import type { DanimeEpisodeJobStatus } from "#src/db/schema";
+} from "@/db/schema";
+import { encryptToken } from "@/lib/annict/crypto";
+import type { DanimeEpisodeJobStatus } from "@/db/schema";
 import { isSubrequestLimitError } from "./episodeImportWorkflow";
 
 const USER_ID = "user_epwf01";

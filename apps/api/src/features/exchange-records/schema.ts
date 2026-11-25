@@ -3,8 +3,8 @@ import {
   bearerAuth,
   errorResponseSchema,
   successResponseSchema,
-} from "#src/lib/openapi";
-import { EXCHANGE_RECORD_SOURCES } from "#src/db/schema";
+} from "@/lib/openapi";
+import { EXCHANGE_RECORD_SOURCES } from "@/db/schema";
 
 // 交換記録（issue #661）の 1 件。本人の名刺帳にだけ残る私的な履歴で、
 // owner フィールドは常に認証ユーザー自身のためレスポンスには含めない。

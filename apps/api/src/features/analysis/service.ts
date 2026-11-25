@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { WATCH_STATES } from "#src/db/schema";
-import type { WorkRatingValue } from "#src/db/schema";
+import { WATCH_STATES } from "@/db/schema";
+import type { WorkRatingValue } from "@/db/schema";
 import { VALID_GENRES } from "../me/schema";
 import type { Genre } from "../me/schema";
 import type { WatchHistoryWithWork } from "../watch-history/repository";

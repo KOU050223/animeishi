@@ -3,16 +3,10 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { feed } from "#src/features/feed/index";
+import { feed } from "@/features/feed";
 import { eq } from "drizzle-orm";
-import {
-  activities,
-  annictWorks,
-  blocks,
-  friends,
-  users,
-} from "#src/db/schema";
-import type { ActivityType } from "#src/db/schema";
+import { activities, annictWorks, blocks, friends, users } from "@/db/schema";
+import type { ActivityType } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/d1";
-import * as schema from "#src/db/schema";
+import * as schema from "@/db/schema";
 
 // contracts（RNクライアント）が@cloudflare/workers-typesなしでAppTypeをimportできるよう
 // Env['DB']はD1Databaseに依存しない構造的型で表現する。

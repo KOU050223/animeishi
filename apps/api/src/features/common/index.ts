@@ -1,8 +1,8 @@
-import { createDb } from "#src/db/client";
-import { createOpenApiApp } from "#src/lib/openapi";
-import { workImageUrl } from "#src/lib/catalog/workImage";
-import { requireAuth } from "#src/middleware/auth";
-import type { AuthVariables } from "#src/middleware/auth";
+import { createDb } from "@/db/client";
+import { createOpenApiApp } from "@/lib/openapi";
+import { workImageUrl } from "@/lib/catalog/workImage";
+import { requireAuth } from "@/middleware/auth";
+import type { AuthVariables } from "@/middleware/auth";
 import { commonRepository } from "./repository";
 import { getCommonRoute } from "./schema";
 

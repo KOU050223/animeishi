@@ -5,7 +5,7 @@ import {
   index,
   unique,
 } from "drizzle-orm/sqlite-core";
-import { users } from "#src/features/users/schema.db";
+import { users } from "@/features/users/schema.db";
 
 // ---- friend_requests (フレンド申請。issue #417) ----
 // 行が存在する = 申請中（pending）。承認で friends へ双方向登録して行を消し、

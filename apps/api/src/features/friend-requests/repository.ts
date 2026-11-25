@@ -1,8 +1,8 @@
 import { and, desc, eq, notExists, or, sql } from "drizzle-orm";
 import type { SQLWrapper } from "drizzle-orm";
-import type { DrizzleDb } from "#src/db/client";
-import { users, friends, friendRequests, blocks } from "#src/db/schema";
-import type { FriendRequest } from "#src/db/schema";
+import type { DrizzleDb } from "@/db/client";
+import { users, friends, friendRequests, blocks } from "@/db/schema";
+import type { FriendRequest } from "@/db/schema";
 import {
   UserBlockedError,
   UserNotFoundError,

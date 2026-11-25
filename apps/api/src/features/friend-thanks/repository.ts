@@ -1,8 +1,8 @@
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
-import type { DrizzleDb } from "#src/db/client";
-import { friends, friendThanks, users } from "#src/db/schema";
-import type { FriendThanksPresetKey } from "#src/db/schema";
-import { jstDayRange } from "#src/lib/jst";
+import type { DrizzleDb } from "@/db/client";
+import { friends, friendThanks, users } from "@/db/schema";
+import type { FriendThanksPresetKey } from "@/db/schema";
+import { jstDayRange } from "@/lib/jst";
 import { NotFriendError } from "../exchange-records/repository";
 
 /** お礼が存在しない、または送り手本人ではないときに投げる。ルート層で 404 に変換する。 */

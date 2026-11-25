@@ -26,13 +26,13 @@
 // バケットはアバター用の AVATARS（animeishi-avatars）を `works/` プレフィックスで
 // 共有する。アカウント削除時の掃除は `avatars/` 配下のみ対象なので混ざらない。
 
-import type { DrizzleDb } from "#src/db/client";
-import { worksRepository } from "#src/features/works/repository";
+import type { DrizzleDb } from "@/db/client";
+import { worksRepository } from "@/features/works/repository";
 import {
   fetchFollowingRedirects,
   isPublicImageUrl,
   readBodyWithLimit,
-} from "#src/lib/http";
+} from "@/lib/http";
 import {
   IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS,
   IMAGE_SOURCE_BLOCKED,

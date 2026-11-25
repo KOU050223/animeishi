@@ -3,8 +3,8 @@ import {
   bearerAuth,
   errorResponseSchema,
   successResponseSchema,
-} from "#src/lib/openapi";
-import { ELECTION_CANDIDATE_KINDS } from "#src/db/schema";
+} from "@/lib/openapi";
+import { ELECTION_CANDIDATE_KINDS } from "@/db/schema";
 
 // GET /elections のクエリ。limit は 1 ページ件数の指定（サーバー側で
 // 上限を設ける）。公開中の総選挙だけを返す。

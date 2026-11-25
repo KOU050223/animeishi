@@ -6285,6 +6285,612 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/tier-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 自分の tier 表一覧を取得する
+         * @description kind で種別（season / character / custom）を、season / annictWorkId で対象スコープを絞れる。内容（items）は含まない。
+         */
+        get: {
+            parameters: {
+                query?: {
+                    kind?: "season" | "character" | "custom";
+                    season?: string;
+                    annictWorkId?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description tier 表（内容は含まない） */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: number;
+                            userId: string;
+                            /** @enum {string} */
+                            kind: "season" | "character" | "custom";
+                            season: string | null;
+                            annictWorkId: number | null;
+                            title: string;
+                            description: string | null;
+                            tiersJson: string;
+                            shareToken: string | null;
+                            isPublic: boolean;
+                            createdAt: string;
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+                /** @description 入力エラー */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 未認証 */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * tier 表を作成する
+         * @description season / character はスコープキー（1 ユーザー 1 シーズン / 1 作品）で upsert され、既存があれば全置換する。custom は常に新規作成。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title: string;
+                        description?: string | null;
+                        isPublic?: boolean;
+                        tiers: {
+                            key: string;
+                            label: string;
+                            color: string;
+                        }[];
+                        items: {
+                            annictWorkId?: number;
+                            annictCharacterId?: number;
+                            tierKey: string;
+                        }[];
+                        /** @enum {string} */
+                        kind: "season" | "character" | "custom";
+                        season?: string;
+                        annictWorkId?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description 作成・置き換え後の tier 表 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: number;
+                            userId: string;
+                            /** @enum {string} */
+                            kind: "season" | "character" | "custom";
+                            season: string | null;
+                            annictWorkId: number | null;
+                            title: string;
+                            description: string | null;
+                            tiersJson: string;
+                            shareToken: string | null;
+                            isPublic: boolean;
+                            createdAt: string;
+                            updatedAt: string;
+                            items: ({
+                                /** @enum {string} */
+                                kind: "work";
+                                annictWorkId: number;
+                                tierKey: string;
+                                position: number;
+                                title: string;
+                                titleKana: string | null;
+                                titleEn: string | null;
+                                seasonName: string | null;
+                                seasonYear: number | null;
+                                imageUrl: string | null;
+                                resolvedImageUrl: string | null;
+                                imageSource: string | null;
+                                imageR2Key: string | null;
+                                watchersCount: number | null;
+                                hostedImageUrl: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "character";
+                                annictCharacterId: number;
+                                tierKey: string;
+                                position: number;
+                                name: string;
+                                nameKana: string | null;
+                                nameEn: string | null;
+                                imageUrl: string | null;
+                            })[];
+                        };
+                    };
+                };
+                /** @description 入力エラー・未キャッシュの作品/キャラクター（annictWorkIds / annictCharacterIds に列挙） */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 未認証 */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/tier-lists/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 自分の tier 表を取得する */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description tier 表と配置内容 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: number;
+                            userId: string;
+                            /** @enum {string} */
+                            kind: "season" | "character" | "custom";
+                            season: string | null;
+                            annictWorkId: number | null;
+                            title: string;
+                            description: string | null;
+                            tiersJson: string;
+                            shareToken: string | null;
+                            isPublic: boolean;
+                            createdAt: string;
+                            updatedAt: string;
+                            items: ({
+                                /** @enum {string} */
+                                kind: "work";
+                                annictWorkId: number;
+                                tierKey: string;
+                                position: number;
+                                title: string;
+                                titleKana: string | null;
+                                titleEn: string | null;
+                                seasonName: string | null;
+                                seasonYear: number | null;
+                                imageUrl: string | null;
+                                resolvedImageUrl: string | null;
+                                imageSource: string | null;
+                                imageR2Key: string | null;
+                                watchersCount: number | null;
+                                hostedImageUrl: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "character";
+                                annictCharacterId: number;
+                                tierKey: string;
+                                position: number;
+                                name: string;
+                                nameKana: string | null;
+                                nameEn: string | null;
+                                imageUrl: string | null;
+                            })[];
+                        };
+                    };
+                };
+                /** @description 入力エラー */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 未認証 */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description tier 表が見つからない（他人の表を含む） */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * tier 表を丸ごと置き換える
+         * @description kind と対象スコープ（season / annictWorkId）は作成時に決まるため変更できない。
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title: string;
+                        description?: string | null;
+                        isPublic?: boolean;
+                        tiers: {
+                            key: string;
+                            label: string;
+                            color: string;
+                        }[];
+                        items: {
+                            annictWorkId?: number;
+                            annictCharacterId?: number;
+                            tierKey: string;
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description 置き換え後の tier 表 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: number;
+                            userId: string;
+                            /** @enum {string} */
+                            kind: "season" | "character" | "custom";
+                            season: string | null;
+                            annictWorkId: number | null;
+                            title: string;
+                            description: string | null;
+                            tiersJson: string;
+                            shareToken: string | null;
+                            isPublic: boolean;
+                            createdAt: string;
+                            updatedAt: string;
+                            items: ({
+                                /** @enum {string} */
+                                kind: "work";
+                                annictWorkId: number;
+                                tierKey: string;
+                                position: number;
+                                title: string;
+                                titleKana: string | null;
+                                titleEn: string | null;
+                                seasonName: string | null;
+                                seasonYear: number | null;
+                                imageUrl: string | null;
+                                resolvedImageUrl: string | null;
+                                imageSource: string | null;
+                                imageR2Key: string | null;
+                                watchersCount: number | null;
+                                hostedImageUrl: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "character";
+                                annictCharacterId: number;
+                                tierKey: string;
+                                position: number;
+                                name: string;
+                                nameKana: string | null;
+                                nameEn: string | null;
+                                imageUrl: string | null;
+                            })[];
+                        };
+                    };
+                };
+                /** @description 入力エラー・未キャッシュの作品/キャラクター */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 未認証 */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description tier 表が見つからない（他人の表を含む） */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** tier 表を削除する */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 削除した */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                        };
+                    };
+                };
+                /** @description 入力エラー */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 未認証 */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description tier 表が見つからない（他人の表を含む） */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/tier-lists/{id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** tier 表を共有する（共有トークンを発行。発行済みなら同じものを返す） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 共有トークン */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            shareToken: string;
+                        };
+                    };
+                };
+                /** @description 入力エラー */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 未認証 */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description tier 表が見つからない（他人の表を含む） */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        /** tier 表の共有をやめる（共有トークンを失効） */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 共有をやめた */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                        };
+                    };
+                };
+                /** @description 入力エラー */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 未認証 */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description tier 表が見つからない（他人の表を含む） */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/work-lists": {
         parameters: {
             query?: never;
@@ -7309,6 +7915,464 @@ export interface paths {
                     };
                 };
                 /** @description 公開リストが見つからない（非公開・ブロック関係を含む） */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 通報の回数制限（Retry-After ヘッダ付き） */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            code?: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tier-lists/public": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 公開 tier 表の一覧（カーソルページング） */
+        get: {
+            parameters: {
+                query?: {
+                    sort?: "likes" | "new";
+                    cursor?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 公開 tier 表と次ページのカーソル */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                /** @enum {string} */
+                                kind: "season" | "character" | "custom";
+                                id: number;
+                                title: string;
+                                description: string | null;
+                                season: string | null;
+                                annictWorkId: number | null;
+                                workTitle: string | null;
+                                owner: {
+                                    userId: string;
+                                    username: string;
+                                    profileImageUrl: string | null;
+                                };
+                                itemCount: number;
+                                likeCount: number;
+                                likedByMe: boolean;
+                                createdAt: string;
+                                thumbnails: {
+                                    url: string;
+                                    label: string;
+                                    annictWorkId: number | null;
+                                }[];
+                            }[];
+                            nextCursor: string | null;
+                        };
+                    };
+                };
+                /** @description 入力エラー */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 未認証 */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tier-lists/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 公開 tier 表の詳細（閲覧専用）
+         * @description 公開範囲外（非公開・非公開オーナー・ブロック関係）は存在自体を隠して 404 を返す。
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 公開 tier 表と配置内容 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            kind: "season" | "character" | "custom";
+                            id: number;
+                            title: string;
+                            description: string | null;
+                            season: string | null;
+                            annictWorkId: number | null;
+                            workTitle: string | null;
+                            owner: {
+                                userId: string;
+                                username: string;
+                                profileImageUrl: string | null;
+                            };
+                            itemCount: number;
+                            likeCount: number;
+                            likedByMe: boolean;
+                            createdAt: string;
+                            tiers: {
+                                key: string;
+                                label: string;
+                                color: string;
+                            }[];
+                            items: ({
+                                /** @enum {string} */
+                                kind: "work";
+                                annictWorkId: number;
+                                tierKey: string;
+                                position: number;
+                                title: string;
+                                titleKana: string | null;
+                                titleEn: string | null;
+                                seasonName: string | null;
+                                seasonYear: number | null;
+                                imageUrl: string | null;
+                                resolvedImageUrl: string | null;
+                                imageSource: string | null;
+                                imageR2Key: string | null;
+                                watchersCount: number | null;
+                                hostedImageUrl: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "character";
+                                annictCharacterId: number;
+                                tierKey: string;
+                                position: number;
+                                name: string;
+                                nameKana: string | null;
+                                nameEn: string | null;
+                                imageUrl: string | null;
+                            })[];
+                        };
+                    };
+                };
+                /** @description 入力エラー */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 未認証 */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 公開範囲外・未作成の tier 表 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tier-lists/{id}/like": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 公開 tier 表にいいねする（冪等） */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description いいね後の件数 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            likeCount: number;
+                            likedByMe: boolean;
+                        };
+                    };
+                };
+                /** @description 自分の tier 表へのいいね */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 未認証 */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 公開範囲外・未作成の tier 表 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description レート制限 */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** 公開 tier 表のいいねを取り消す（冪等） */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 解除後の件数 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            likeCount: number;
+                            likedByMe: boolean;
+                        };
+                    };
+                };
+                /** @description 入力エラー */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 未認証 */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 公開範囲外・未作成の tier 表 */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description レート制限 */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tier-lists/{id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 公開 tier 表を通報する */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        reason: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description 通報を受け付けた */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                        };
+                    };
+                };
+                /** @description 自分の tier 表への通報・入力エラー */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 未認証 */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description 公開範囲外・未作成の tier 表 */
                 404: {
                     headers: {
                         [name: string]: unknown;

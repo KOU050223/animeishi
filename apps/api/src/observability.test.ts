@@ -3,12 +3,12 @@ import { Hono } from "hono";
 import { requestId } from "hono/request-id";
 import { HTTPException } from "hono/http-exception";
 import * as Sentry from "@sentry/cloudflare";
-import { AnnictApiError } from "#src/lib/annict/client/index";
-import { AnnictSharedTokenRejectedError } from "#src/lib/annict/workCatalog";
-import { DeletedUserError } from "#src/features/users/repository";
-import { buildSentryOptions, handleError } from "#src/observability";
-import { resetLocalSuppression } from "#src/lib/discordAlert";
-import { createOpenApiApp } from "#src/lib/openapi";
+import { AnnictApiError } from "@/lib/annict/client";
+import { AnnictSharedTokenRejectedError } from "@/lib/annict/workCatalog";
+import { DeletedUserError } from "@/features/users/repository";
+import { buildSentryOptions, handleError } from "@/observability";
+import { resetLocalSuppression } from "@/lib/discordAlert";
+import { createOpenApiApp } from "@/lib/openapi";
 
 vi.mock("@sentry/cloudflare", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@sentry/cloudflare")>();

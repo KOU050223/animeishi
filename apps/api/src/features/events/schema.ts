@@ -3,8 +3,8 @@ import {
   bearerAuth,
   errorResponseSchema,
   successResponseSchema,
-} from "#src/lib/openapi";
-import { EVENT_PARTICIPATION_VISIBILITIES } from "#src/db/schema";
+} from "@/lib/openapi";
+import { EVENT_PARTICIPATION_VISIBILITIES } from "@/db/schema";
 
 // 「参加する」の公開範囲（issue #440）。
 // public: 誰の参加者一覧にも出る / friends: フレンドにだけ出る /

@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
-import type { DrizzleDb } from "#src/db/client";
-import { analyses } from "#src/db/schema";
-import type { Analysis } from "#src/db/schema";
+import type { DrizzleDb } from "@/db/client";
+import { analyses } from "@/db/schema";
+import type { Analysis } from "@/db/schema";
 import { VALID_GENRES } from "../me/schema";
 import type { AnalysisSection } from "./report";
 

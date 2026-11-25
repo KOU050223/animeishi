@@ -1,4 +1,4 @@
-import { createDb } from "#src/db/client";
+import { createDb } from "@/db/client";
 import {
   findUserById,
   findUserGenres,
@@ -11,10 +11,10 @@ import {
   notFoundHtml,
   nowWatchingResponse,
 } from "./service";
-import { optionalAuth } from "#src/middleware/auth";
+import { optionalAuth } from "@/middleware/auth";
 import { socialLinksRepository } from "../social-links/repository";
-import type { Env } from "#src/db/client";
-import { createOpenApiApp } from "#src/lib/openapi";
+import type { Env } from "@/db/client";
+import { createOpenApiApp } from "@/lib/openapi";
 import { getPublicUserRoute } from "./schema";
 import {
   publicMeishiSnapshotKey,

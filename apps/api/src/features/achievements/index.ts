@@ -1,7 +1,7 @@
 import type { Context } from "hono";
-import { requireAuth } from "#src/middleware/auth";
-import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
-import { createDb } from "#src/db/client";
+import { requireAuth } from "@/middleware/auth";
+import type { AuthEnv, AuthVariables } from "@/middleware/auth";
+import { createDb } from "@/db/client";
 import { achievementsRepository } from "./repository";
 import {
   computeWeeklyStreak,
@@ -14,13 +14,15 @@ import {
 } from "./service";
 import { achievementId } from "./definitions";
 import { getAchievementsRoute } from "./schema";
-import { createOpenApiApp } from "#src/lib/openapi";
+import { createOpenApiApp } from "@/lib/openapi";
+// 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
+// features/watch-history/index.ts のコメント参照）。
 import {
   currentAnnictSeason,
   fetchAnnictWorkEpisodes,
   fetchAnnictWorksEpisodeIds,
-} from "#src/lib/annict/client/index";
-import { resolveAnnictToken } from "#src/lib/annict/middleware";
+} from "@/lib/annict/client";
+import { resolveAnnictToken } from "@/lib/annict/middleware";
 
 function getBindings(c: Context): Omit<AuthEnv["Bindings"], "DB"> & {
   DB: D1Database;

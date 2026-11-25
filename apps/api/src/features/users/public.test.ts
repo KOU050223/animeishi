@@ -4,8 +4,8 @@ import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { publicUsersRoute } from "#src/features/users/public";
-import { users, userGenres, userLikes, blocks } from "#src/db/schema";
+import { publicUsersRoute } from "@/features/users/public";
+import { users, userGenres, userLikes, blocks } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

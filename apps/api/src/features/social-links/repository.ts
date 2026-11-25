@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import type { DrizzleDb } from "#src/db/client";
-import { friends, socialLinks } from "#src/db/schema";
+import type { DrizzleDb } from "@/db/client";
+import { friends, socialLinks } from "@/db/schema";
 import type { SocialLinkInput } from "./schema";
 
 export function socialLinksRepository(db: DrizzleDb) {

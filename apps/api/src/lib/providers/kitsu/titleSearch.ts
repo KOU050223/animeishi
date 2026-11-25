@@ -29,8 +29,8 @@
 // Kitsu には AniList のような alias バッチが無いため、検索語ごとに
 // 1 リクエストを投げる（1 作品あたり title / titleEn で最大 2 本）。
 
-import type { DrizzleDb } from "#src/db/client";
-import { worksRepository } from "#src/features/works/repository";
+import type { DrizzleDb } from "@/db/client";
+import { worksRepository } from "@/features/works/repository";
 
 const KITSU_ANIME_ENDPOINT = "https://kitsu.io/api/edge/anime";
 const REMOTE_FETCH_TIMEOUT_MS = 6000;

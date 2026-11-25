@@ -9,12 +9,12 @@ import {
   kitsuRequestedMalIds,
   makeKitsuCharactersResponse,
   makeKitsuResponse,
-} from "#src/test-utils/kitsu";
-import { createDb } from "#src/db/client";
-import { annictCharacters, annictWorks } from "#src/db/schema";
-import { works } from "#src/features/works/index";
-import { currentAnnictSeason } from "#src/lib/annict/client/index";
-import { seasonWorksCacheUrl } from "#src/lib/catalog/seasonWorksCache";
+} from "@/test-utils/kitsu";
+import { createDb } from "@/db/client";
+import { annictCharacters, annictWorks } from "@/db/schema";
+import { works } from "@/features/works";
+import { currentAnnictSeason } from "@/lib/annict/client";
+import { seasonWorksCacheUrl } from "@/lib/catalog/seasonWorksCache";
 import { titleSearchCacheUrl } from "./service";
 
 vi.mock("@clerk/hono", () => ({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { routes } from "#src/index";
+import { routes } from "@/index";
 
 // 全ルートを OpenAPI（createRoute）にそろえる方針（issue #735）。
 // JSON を返さないルートだけをここに列挙して /doc から外す。

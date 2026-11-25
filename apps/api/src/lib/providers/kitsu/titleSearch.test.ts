@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
-import { setupTestDb } from "#src/test-utils/setup-db";
-import { annictWorks } from "#src/db/schema";
-import { worksRepository } from "#src/features/works/repository";
+import { setupTestDb } from "@/test-utils/setup-db";
+import { annictWorks } from "@/db/schema";
+import { worksRepository } from "@/features/works/repository";
 import {
   MAL_SEARCH_ATTEMPT_COOLDOWN_MS,
   normalizeTitle,

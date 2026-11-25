@@ -1,6 +1,6 @@
 import type { Context } from "hono";
-import { requireAuth } from "#src/middleware/auth";
-import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
+import { requireAuth } from "@/middleware/auth";
+import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { favoritesRepository } from "./repository";
 import { feedRepository } from "../feed/repository";
 import { worksRepository } from "../works/repository";
@@ -9,10 +9,11 @@ import {
   getFavoritesRoute,
   removeFavoriteRoute,
 } from "./schema";
-import { createDb } from "#src/db/client";
-import { workImageUrl } from "#src/lib/catalog/workImage";
-import { resolveAnnictWorkCatalog } from "#src/lib/annict/middleware";
-import { createOpenApiApp } from "#src/lib/openapi";
+import { createDb } from "@/db/client";
+// 注: barrel ではなくサブモジュール直接 import（理由は features/watch-history/index.ts 参照）。
+import { workImageUrl } from "@/lib/catalog/workImage";
+import { resolveAnnictWorkCatalog } from "@/lib/annict/middleware";
+import { createOpenApiApp } from "@/lib/openapi";
 
 function getBindings(
   c: Context,

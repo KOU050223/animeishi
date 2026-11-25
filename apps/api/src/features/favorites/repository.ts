@@ -1,7 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
-import type { DrizzleDb } from "#src/db/client";
-import { favorites, annictWorks } from "#src/db/schema";
-import type { Favorite } from "#src/db/schema";
+import type { DrizzleDb } from "@/db/client";
+import { favorites, annictWorks } from "@/db/schema";
+import type { Favorite } from "@/db/schema";
 import type { AnnictWorkMeta } from "../works/repository";
 
 /** お気に入りの 1 件（作品メタを含む）。 */

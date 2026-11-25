@@ -1,10 +1,10 @@
 import type { Context } from "hono";
-import { requireAuth } from "#src/middleware/auth";
-import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
+import { requireAuth } from "@/middleware/auth";
+import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { articlesRepository } from "./repository";
 import { getArticleRoute, listArticlesRoute } from "./schema";
-import { createDb } from "#src/db/client";
-import { createOpenApiApp } from "#src/lib/openapi";
+import { createDb } from "@/db/client";
+import { createOpenApiApp } from "@/lib/openapi";
 
 function getBindings(
   c: Context,

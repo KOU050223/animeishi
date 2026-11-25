@@ -1,9 +1,9 @@
 import type { Context } from "hono";
-import { requireAuth } from "#src/middleware/auth";
-import type { AuthVariables } from "#src/middleware/auth";
-import { createDb } from "#src/db/client";
-import { createOpenApiApp } from "#src/lib/openapi";
-import { reportApiFailure } from "#src/observability";
+import { requireAuth } from "@/middleware/auth";
+import type { AuthVariables } from "@/middleware/auth";
+import { createDb } from "@/db/client";
+import { createOpenApiApp } from "@/lib/openapi";
+import { reportApiFailure } from "@/observability";
 import { watchHistoryRepository } from "../watch-history/repository";
 import { workRatingsRepository } from "../work-ratings/repository";
 import { usersRepository } from "../users/repository";
@@ -33,9 +33,9 @@ import {
   getAnalysisRoute,
   getRecommendationsRoute,
 } from "./schema";
-import { resolveAnnictToken } from "#src/lib/annict/middleware";
-import { currentAnnictSeason } from "#src/lib/annict/client/index";
-import { workImageUrl } from "#src/lib/catalog/workImage";
+import { resolveAnnictToken } from "@/lib/annict/middleware";
+import { currentAnnictSeason } from "@/lib/annict/client";
+import { workImageUrl } from "@/lib/catalog/workImage";
 import { worksRepository } from "../works/repository";
 import { attachResolvedImages } from "../works/service";
 

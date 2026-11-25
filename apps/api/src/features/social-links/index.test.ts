@@ -3,8 +3,8 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { friends, users } from "#src/db/schema";
-import { createDb } from "#src/db/client";
+import { friends, users } from "@/db/schema";
+import { createDb } from "@/db/client";
 import { socialLinks } from "./index";
 import { user } from "../user";
 

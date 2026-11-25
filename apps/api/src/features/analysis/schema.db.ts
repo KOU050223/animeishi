@@ -1,5 +1,5 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { users } from "#src/features/users/schema.db";
+import { users } from "@/features/users/schema.db";
 
 // ---- analyses (Workers AI 視聴傾向分析のキャッシュ＋生成回数制限, issue #22) ----
 // user_id 1 行に「最新の分析結果」と「生成回数カウンタ」を同居させる。

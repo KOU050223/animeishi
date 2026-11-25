@@ -3,8 +3,8 @@ import {
   bearerAuth,
   errorResponseSchema,
   successResponseSchema,
-} from "#src/lib/openapi";
-import { userRateLimit } from "#src/middleware/rateLimit";
+} from "@/lib/openapi";
+import { userRateLimit } from "@/middleware/rateLimit";
 
 // POST /me/friend-requests のボディ。userId は申請先（addressee）の Clerk user ID。
 const friendRequestCreateSchema = z.object({

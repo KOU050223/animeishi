@@ -6,8 +6,8 @@ import { ClerkAPIResponseError } from "@clerk/backend/errors";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "../test-utils/setup-db";
 import { applyApiErrorHandling } from "../test-utils/apiApp";
-import { requireAuth, optionalAuth } from "#src/middleware/auth";
-import { deletedUsers, users } from "#src/db/schema";
+import { requireAuth, optionalAuth } from "@/middleware/auth";
+import { deletedUsers, users } from "@/db/schema";
 
 // clerkMiddleware に渡した options を捕捉するため、呼び出し引数を記録する。
 const clerkMiddlewareArgs = vi.hoisted(() => ({

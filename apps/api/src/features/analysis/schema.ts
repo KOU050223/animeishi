@@ -1,6 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { bearerAuth, errorResponseSchema } from "#src/lib/openapi";
-import { WATCH_STATES } from "#src/db/schema";
+import { bearerAuth, errorResponseSchema } from "@/lib/openapi";
+import { WATCH_STATES } from "@/db/schema";
 
 // レポートの 1 項目（issue #375）。facts・evidenceWorks はサーバー側で
 // 集計した確定値（AI の出力ではない）。insight は AI の解釈文で、

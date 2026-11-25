@@ -1,5 +1,5 @@
-import type { DrizzleDb } from "#src/db/client";
-import { worksRepository } from "#src/features/works/repository";
+import type { DrizzleDb } from "@/db/client";
+import { worksRepository } from "@/features/works/repository";
 import {
   IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS,
   resolveImagesForWorks,

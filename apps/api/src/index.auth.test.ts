@@ -3,8 +3,8 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "./test-utils/setup-db";
 import { applyApiErrorHandling } from "./test-utils/apiApp";
-import { requireAuth } from "#src/middleware/auth";
-import { users } from "#src/db/schema";
+import { requireAuth } from "@/middleware/auth";
+import { users } from "@/db/schema";
 
 // requireAuth の本体（Clerk 検証と D1 照会）の実行回数を数える（issue #710, #711）。
 const counts = vi.hoisted(() => ({
@@ -29,9 +29,9 @@ vi.mock("@clerk/hono", () => ({
   getAuth: () => ({ userId: USER_ID }),
 }));
 
-vi.mock("#src/features/users/repository", async (importOriginal) => {
+vi.mock("@/features/users/repository", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("#src/features/users/repository")>();
+    await importOriginal<typeof import("@/features/users/repository")>();
   return {
     ...actual,
     usersRepository: (...args: Parameters<typeof actual.usersRepository>) => {
@@ -61,7 +61,7 @@ vi.mock("@sentry/cloudflare", async (importOriginal) => {
   };
 });
 
-import handler from "#src/index";
+import handler from "@/index";
 
 const USER_ID = "user_authcount01";
 

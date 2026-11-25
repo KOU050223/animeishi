@@ -39,24 +39,24 @@ import type {
   WorkflowStepConfig,
 } from "cloudflare:workers";
 import { NonRetryableError } from "cloudflare:workflows";
-import { createDb } from "#src/db/client";
-import type { DrizzleDb } from "#src/db/client";
-import { annictRepository } from "#src/features/annict/repository";
-import { decryptToken } from "#src/lib/annict/crypto";
+import { createDb } from "@/db/client";
+import type { DrizzleDb } from "@/db/client";
+import { annictRepository } from "@/features/annict/repository";
+import { decryptToken } from "@/lib/annict/crypto";
 import {
   AnnictApiError,
   AnnictBudgetExhaustedError,
   createAnnictRecord,
   fetchAnnictWorkEpisodes,
   fetchAnnictWorksEpisodesBatch,
-} from "#src/lib/annict/client/index";
+} from "@/lib/annict/client";
 import type {
   AnnictWorkEpisode,
   AnnictWorkEpisodesBatch,
-} from "#src/lib/annict/client/index";
-import { worksRepository } from "#src/features/works/repository";
-import { episodeRecordsRepository } from "#src/features/episode-records/repository";
-import { ensureAnnictWork } from "#src/features/episode-records/index";
+} from "@/lib/annict/client";
+import { worksRepository } from "@/features/works/repository";
+import { episodeRecordsRepository } from "@/features/episode-records/repository";
+import { ensureAnnictWork } from "@/features/episode-records";
 import {
   matchDanimeWorkEpisodes,
   type DanimeExtractedEpisode,

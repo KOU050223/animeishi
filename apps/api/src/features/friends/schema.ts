@@ -3,7 +3,7 @@ import {
   bearerAuth,
   errorResponseSchema,
   successResponseSchema,
-} from "#src/lib/openapi";
+} from "@/lib/openapi";
 
 // POST /me/friends のボディ。friendId は相手の Clerk user ID。
 // qrToken は相手が画面に表示した対面交換 QR に埋め込まれた短期トークン

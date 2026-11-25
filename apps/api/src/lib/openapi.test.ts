@@ -5,7 +5,7 @@ import {
   createOpenApiApp,
   errorResponseSchema,
   registerOpenApiDocs,
-} from "#src/lib/openapi";
+} from "@/lib/openapi";
 
 type TestBindings = { Bindings: { ENVIRONMENT?: string } };
 

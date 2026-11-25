@@ -3,16 +3,16 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { friendThanks } from "#src/features/friend-thanks/index";
-import { friends as friendsRoute } from "#src/features/friends/index";
-import { usersRoute } from "#src/features/users/index";
-import { jstDayRange } from "#src/lib/jst";
+import { friendThanks } from "@/features/friend-thanks";
+import { friends as friendsRoute } from "@/features/friends";
+import { usersRoute } from "@/features/users";
+import { jstDayRange } from "@/lib/jst";
 import {
   users,
   friends as friendsTable,
   friendThanks as friendThanksTable,
-} from "#src/db/schema";
-import type { FriendThanksPresetKey } from "#src/db/schema";
+} from "@/db/schema";
+import type { FriendThanksPresetKey } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

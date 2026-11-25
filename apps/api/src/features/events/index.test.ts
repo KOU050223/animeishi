@@ -11,7 +11,7 @@ import {
   eventParticipations,
   friends,
   users,
-} from "#src/db/schema";
+} from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

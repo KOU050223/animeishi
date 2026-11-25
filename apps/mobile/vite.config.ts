@@ -64,8 +64,9 @@ export default defineConfig({
             "!node_modules",
             "!node_modules/**",
             { pattern: "pnpm-lock.yaml", base: "workspace" },
-            // @animeishi/api の types（./src/index.ts）で、apps/api の
-            // ソースを直接読む（AppType 参照は issue #725 段階④まで残す）
+            // tsconfig の paths（@/* → ../../apps/api/src/*）と @animeishi/api の
+            // types（./src/index.ts）で、apps/api のソースを直接読む
+            // （AppType 参照は issue #725 段階④まで残す）
             { pattern: "apps/api/src/**", base: "workspace" },
             { pattern: "apps/api/package.json", base: "workspace" },
             // @animeishi/api-contract の types（./schema.d.ts）はコミット済み

@@ -11,7 +11,7 @@ import {
   resetLocalSuppression,
   SUPPRESS_SECONDS,
   type ApiFailure,
-} from "#src/lib/discordAlert";
+} from "@/lib/discordAlert";
 
 const WEBHOOK = "https://discord.com/api/webhooks/1/secret-token";
 

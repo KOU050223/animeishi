@@ -4,13 +4,13 @@ import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { requestUrl } from "../../test-utils/fetch";
-import { annict } from "#src/features/annict/index";
-import { users, annictTokens } from "#src/db/schema";
+import { annict } from "@/features/annict";
+import { users, annictTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import {
   ANNICT_TOKEN_ENDPOINT,
   ANNICT_TOKEN_INFO_ENDPOINT,
-} from "#src/lib/annict/client/index";
+} from "@/lib/annict/client";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

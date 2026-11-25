@@ -7,7 +7,7 @@ import {
   uniqueIndex,
   check,
 } from "drizzle-orm/sqlite-core";
-import { users } from "#src/features/users/schema.db";
+import { users } from "@/features/users/schema.db";
 
 // ---- danime_episode_import_jobs (dアニメ話単位の記録ジョブ, issue #477) ----
 // レビュー画面の「登録」でジョブを登録して即座に返し、Annict createRecord の

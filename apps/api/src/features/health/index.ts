@@ -1,4 +1,4 @@
-import { createOpenApiApp } from "#src/lib/openapi";
+import { createOpenApiApp } from "@/lib/openapi";
 import { getHealthRoute } from "./schema";
 
 // /health が返すバージョン情報の取得元バインディング。

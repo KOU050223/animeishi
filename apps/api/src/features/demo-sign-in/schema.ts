@@ -1,5 +1,5 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { errorResponseSchema } from "#src/lib/openapi";
+import { errorResponseSchema } from "@/lib/openapi";
 
 const demoSignInSchema = z.object({
   email: z.email("メールアドレスの形式が正しくありません").max(320),

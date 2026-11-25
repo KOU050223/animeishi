@@ -5,7 +5,7 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { works } from "#src/features/works/index";
+import { works } from "@/features/works";
 import { sharedWorkDetailCacheUrl, titleSearchCacheUrl } from "./service";
 
 vi.mock("@clerk/hono", () => ({

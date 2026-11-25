@@ -1,6 +1,6 @@
 import type { Context } from "hono";
-import { AnnictApiError } from "#src/lib/annict/client/index";
-import { AnnictSharedTokenRejectedError } from "#src/lib/annict/workCatalog";
+import { AnnictApiError } from "@/lib/annict/client";
+import { AnnictSharedTokenRejectedError } from "@/lib/annict/workCatalog";
 
 // Annict 通信エラーをクライアント向けレスポンスへ変換する。
 // - 共用トークンの拒否（issue #561）は 503。利用者には本人の連携を促す

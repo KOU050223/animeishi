@@ -1,11 +1,11 @@
 import type { Context } from "hono";
-import { requireAuth } from "#src/middleware/auth";
-import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
+import { requireAuth } from "@/middleware/auth";
+import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { feedRepository } from "./repository";
 import { getFeedRoute, getWatchStoriesRoute } from "./schema";
-import { createDb } from "#src/db/client";
-import { workImageUrl } from "#src/lib/catalog/workImage";
-import { createOpenApiApp } from "#src/lib/openapi";
+import { createDb } from "@/db/client";
+import { workImageUrl } from "@/lib/catalog/workImage";
+import { createOpenApiApp } from "@/lib/openapi";
 
 function getBindings(
   c: Context,

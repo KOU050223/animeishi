@@ -10,15 +10,9 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import type { DrizzleDb } from "#src/db/client";
-import {
-  activities,
-  annictWorks,
-  blocks,
-  friends,
-  users,
-} from "#src/db/schema";
-import type { ActivityType } from "#src/db/schema";
+import type { DrizzleDb } from "@/db/client";
+import { activities, annictWorks, blocks, friends, users } from "@/db/schema";
+import type { ActivityType } from "@/db/schema";
 
 /** 活動の記録入力。annictWorkId / meta は活動の種類によってのみ使う。 */
 export type RecordActivityInput = {

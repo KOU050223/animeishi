@@ -1,6 +1,6 @@
 import type { Context } from "hono";
-import { requireAuth } from "#src/middleware/auth";
-import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
+import { requireAuth } from "@/middleware/auth";
+import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import {
   catalogStatusRoute,
   lookupWorksRoute,
@@ -9,16 +9,18 @@ import {
   workCharactersRoute,
   workDetailRoute,
 } from "./schema";
-import { createOpenApiApp } from "#src/lib/openapi";
-import { currentAnnictSeason } from "#src/lib/annict/client/index";
-import { sharedAnnictReadToken } from "#src/lib/annict/middleware";
-import { workImageUrl } from "#src/lib/catalog/workImage";
+import { createOpenApiApp } from "@/lib/openapi";
+// 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
+// features/watch-history/index.ts のコメント参照）。
+import { currentAnnictSeason } from "@/lib/annict/client";
+import { sharedAnnictReadToken } from "@/lib/annict/middleware";
+import { workImageUrl } from "@/lib/catalog/workImage";
 import {
   fetchKitsuCharacters,
   isAnilistImageUrl,
   isKitsuDerivativeImageUrl,
   matchCharacterImages,
-} from "#src/lib/catalog/characterImageFallback";
+} from "@/lib/catalog/characterImageFallback";
 import { worksRepository } from "./repository";
 import {
   attachResolvedImages,
@@ -27,7 +29,7 @@ import {
   searchTitleWorks,
   type SearchWorkWithResolved,
 } from "./service";
-import { createDb } from "#src/db/client";
+import { createDb } from "@/db/client";
 
 function getBindings(c: Context): AuthEnv["Bindings"] & {
   DB: D1Database;

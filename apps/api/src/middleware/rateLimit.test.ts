@@ -3,14 +3,14 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../test-utils/setup-db";
 import { applyApiErrorHandling } from "../test-utils/apiApp";
-import { usersRoute } from "#src/features/users/index";
-import { publicUsersRoute } from "#src/features/users/public";
-import { publicWorkListsRoute } from "#src/features/work-lists/public";
-import { publicTierListsRoute } from "#src/features/public-tier-lists/index";
-import { friendRequests } from "#src/features/friend-requests/index";
-import { feedbackRoute } from "#src/features/feedback/index";
-import { reports, users } from "#src/db/schema";
-import type { UserRateLimitBindings } from "#src/middleware/rateLimit";
+import { usersRoute } from "@/features/users";
+import { publicUsersRoute } from "@/features/users/public";
+import { publicWorkListsRoute } from "@/features/work-lists/public";
+import { publicTierListsRoute } from "@/features/public-tier-lists";
+import { friendRequests } from "@/features/friend-requests";
+import { feedbackRoute } from "@/features/feedback";
+import { reports, users } from "@/db/schema";
+import type { UserRateLimitBindings } from "@/middleware/rateLimit";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

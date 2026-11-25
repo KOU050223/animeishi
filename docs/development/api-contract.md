@@ -26,25 +26,17 @@ Sentry・Workflows 経由で `cloudflare:*` モジュールを import する Wor
 エントリであり、Node 上では評価できないため。API のルート組み立てを変えたら
 この分離が追従するか確認する。
 
-## apps/api の `#src/` エイリアス
+## API 内部の `@/` の解決
 
-API 内部の import は tsconfig の `paths` ではなく、apps/api/package.json の
-`imports` フィールド（`"#src/*": "./src/*.ts"`）を使う。package.json の
-imports はパッケージ自身の解決規則なので、apps/api のソースを tsc が直接読む
-消費側（mobile の `AppType` 参照など）が自分の tsconfig に API 向けの
-paths を持たなくて済む（mobile が `@/*` に `../../apps/api/src/*` を
-フォールバックさせていた構成の置き換え）。
+API のソースは内部 import に `@/`（apps/api/tsconfig.json の `paths`）を
+使う。スクリプトは tsx で動き、tsx はこのパッケージの tsconfig で specifier
+を解決するため、packages/api-contract/tsconfig.json にも
+`"@/*": ["../../apps/api/src/*"]` を持たせて API の import 表記は
+変えずに解決している。同じ paths が typecheck タスク（tsc）にも効く。
 
-運用ルール:
-
-- **プレフィックスは `#/` ではなく `#src/`。** Node の imports specifier は
-  `#` 直後に `/` を置けないため
-- **ディレクトリ import は `#src/features/foo/index` のように `index` まで
-  書く。** imports ターゲットは明示パスのみ解決し、ファイルが無いときの
-  フォールバック（tsc なら index.ts を探す）は効かない。`tsc` は配列
-  ターゲットを存在確認付きで辿るが、Node / tsx / vitest の module-runner は
-  先頭要素で確定するため、単一ターゲット + 明示 index に揃えている。
-  ディレクトリ指定で書くと typecheck がすぐ落ちるので気付ける
+mobile の tsconfig の `@/*` が持つ `../../apps/api/src/*` へのフォールバック
+（`AppType` 経由で API ソースを読むためのもの）は段階②では残し、段階④で
+`AppType` 参照を消すときに一緒に外す（issue #725）。
 
 ## このパッケージだけ typescript@5.9.3 を持つ
 

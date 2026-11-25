@@ -4,8 +4,8 @@ import {
   codedErrorResponseSchema,
   errorResponseSchema,
   successResponseSchema,
-} from "#src/lib/openapi";
-import { userRateLimit } from "#src/middleware/rateLimit";
+} from "@/lib/openapi";
+import { userRateLimit } from "@/middleware/rateLimit";
 
 // オリジナル作品リストの保存入力。custom_tier_lists（issue #348）と違い
 // tier 配置を持たず、説明文を持つ。position はサーバが配列順から採番する

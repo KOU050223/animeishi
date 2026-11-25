@@ -1,15 +1,15 @@
 import type { Context } from "hono";
 import { blockUserRoute, reportUserRoute, unblockUserRoute } from "./schema";
-import { requireAuth } from "#src/middleware/auth";
-import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
+import { requireAuth } from "@/middleware/auth";
+import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import {
   usersRepository,
   ReportRateLimitError,
   UserNotFoundError,
 } from "./repository";
-import { createDb } from "#src/db/client";
-import { notifyUserReport } from "#src/observability";
-import { createOpenApiApp } from "#src/lib/openapi";
+import { createDb } from "@/db/client";
+import { notifyUserReport } from "@/observability";
+import { createOpenApiApp } from "@/lib/openapi";
 import { listCardSnapshotKeysBetween } from "../exchange-records/repository";
 
 function getBindings(

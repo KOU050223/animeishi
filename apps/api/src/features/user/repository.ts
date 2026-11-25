@@ -1,12 +1,12 @@
 import { and, desc, eq, gt, sql } from "drizzle-orm";
-import type { DrizzleDb } from "#src/db/client";
+import type { DrizzleDb } from "@/db/client";
 import {
   annictWorks,
   episodeRecords,
   favorites,
   watchHistory,
-} from "#src/db/schema";
-import type { WatchHistory } from "#src/db/schema";
+} from "@/db/schema";
+import type { WatchHistory } from "@/db/schema";
 
 /** 公開名刺（/user/:uid の OGP / JSON）に載せる視聴サマリ。 */
 export type UserWatchSummary = {

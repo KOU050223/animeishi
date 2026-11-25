@@ -1,10 +1,10 @@
 import type { Context } from "hono";
-import { requireAuth } from "#src/middleware/auth";
-import type { AuthEnv, AuthVariables } from "#src/middleware/auth";
+import { requireAuth } from "@/middleware/auth";
+import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { watchHistoryRepository } from "./repository";
 import { feedRepository } from "../feed/repository";
 import { worksRepository } from "../works/repository";
-import { createDb } from "#src/db/client";
+import { createDb } from "@/db/client";
 import {
   bulkWatchHistoryRoute,
   deleteWatchHistoryRoute,
@@ -14,24 +14,25 @@ import {
   unshareWatchHistoryRoute,
   upsertWatchHistoryRoute,
 } from "./schema";
-import { createOpenApiApp } from "#src/lib/openapi";
+import { createOpenApiApp } from "@/lib/openapi";
+// 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する。
+// モバイルの tsconfig は AppType 推論のため API ソースを読み込むが、その paths
+// （@/* → apps/mobile/* を優先）が API 側の `@/lib/annict`(index) を
+// モバイルの同名ディレクトリへ誤解決してしまう。モバイルに存在しない深いパスを
+// 指すことで、この衝突を避けつつ API 単体の解決はそのまま通る。
 import {
   AnnictApiError,
   fetchAnnictLibraryEntries,
   fetchAnnictViewerStatusStates,
   fetchAnnictWorkByAnnictId,
   updateAnnictStatus,
-} from "#src/lib/annict/client/index";
-import { isPersistableState } from "#src/lib/annict/statusState";
-import { workImageUrl } from "#src/lib/catalog/workImage";
-import { withAnnictRetry } from "#src/lib/annict/retry";
+} from "@/lib/annict/client";
+import { isPersistableState } from "@/lib/annict/statusState";
+import { workImageUrl } from "@/lib/catalog/workImage";
+import { withAnnictRetry } from "@/lib/annict/retry";
 import { decideDanimeImport, mapWithConcurrency } from "@animeishi/danime-core";
-import { reportApiFailure } from "#src/observability";
-import type {
-  AnnictWork,
-  NewAnnictWork,
-  NewWatchHistory,
-} from "#src/db/schema";
+import { reportApiFailure } from "../../observability";
+import type { AnnictWork, NewAnnictWork, NewWatchHistory } from "@/db/schema";
 
 function getBindings(c: Context): Omit<AuthEnv["Bindings"], "DB"> & {
   DB: D1Database;

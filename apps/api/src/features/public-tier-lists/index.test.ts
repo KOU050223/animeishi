@@ -4,8 +4,8 @@ import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { publicTierListsRoute } from "#src/features/public-tier-lists/index";
-import { usersRoute } from "#src/features/users/index";
+import { publicTierListsRoute } from "@/features/public-tier-lists";
+import { usersRoute } from "@/features/users";
 import {
   users,
   annictWorks,
@@ -14,8 +14,8 @@ import {
   tierListItems,
   tierListLikes,
   blocks,
-} from "#src/db/schema";
-import type { TierListKind } from "#src/db/schema";
+} from "@/db/schema";
+import type { TierListKind } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

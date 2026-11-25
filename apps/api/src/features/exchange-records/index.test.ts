@@ -10,7 +10,7 @@ import {
   friends,
   events as eventsTable,
   exchangeRecords as exchangeRecordsTable,
-} from "#src/db/schema";
+} from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

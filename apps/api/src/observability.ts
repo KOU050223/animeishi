@@ -8,10 +8,10 @@ import {
 } from "@animeishi/observability";
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { AnnictApiError } from "#src/lib/annict/client/index";
-import { annictErrorResponse } from "#src/lib/annict/errors";
-import { AnnictSharedTokenRejectedError } from "#src/lib/annict/workCatalog";
-import { DeletedUserError } from "#src/features/users/repository";
+import { AnnictApiError } from "@/lib/annict/client";
+import { annictErrorResponse } from "@/lib/annict/errors";
+import { AnnictSharedTokenRejectedError } from "@/lib/annict/workCatalog";
+import { DeletedUserError } from "@/features/users/repository";
 import {
   clearCronFailures,
   notifyApiFailures,
@@ -19,7 +19,7 @@ import {
   notifyFeedback as sendFeedbackAlert,
   notifyUserReport as sendUserReportAlert,
   type AlertBindings,
-} from "#src/lib/discordAlert";
+} from "@/lib/discordAlert";
 
 // Sentry 初期化と障害通知に必要なバインディング。
 // SENTRY_DSN は Workers Secret、ENVIRONMENT は wrangler.toml [vars]、

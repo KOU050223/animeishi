@@ -1,49 +1,44 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
-import { parseAllowedOrigins, resolveAllowedOrigin } from "#src/cors";
-import { securityHeaders } from "#src/securityHeaders";
-import type { Env } from "#src/db/client";
-import { registerOpenApiDocs } from "#src/lib/openapi";
-import { handleError, type ObservabilityBindings } from "#src/observability";
-import { achievements } from "#src/features/achievements/index";
-import { analysis } from "#src/features/analysis/index";
-import { annict } from "#src/features/annict/index";
-import { articles } from "#src/features/articles/index";
-import { characterTierLists } from "#src/features/character-tier-lists/index";
-import { common } from "#src/features/common/index";
-import { customTierLists } from "#src/features/custom-tier-lists/index";
-import { elections } from "#src/features/elections/index";
-import {
-  episodeRecords,
-  workEpisodes,
-} from "#src/features/episode-records/index";
-import { events } from "#src/features/events/index";
-import { workRatings } from "#src/features/work-ratings/index";
-import { favorites } from "#src/features/favorites/index";
-import { feed } from "#src/features/feed/index";
-import { exchangeRecords } from "#src/features/exchange-records/index";
-import { friendRequests } from "#src/features/friend-requests/index";
-import { friendThanks } from "#src/features/friend-thanks/index";
-import { friends } from "#src/features/friends/index";
-import { socialLinks } from "#src/features/social-links/index";
-import { health } from "#src/features/health/index";
-import { images } from "#src/features/images/index";
-import { importRoute } from "#src/features/import/index";
-import { avatar, me, meishiAssets } from "#src/features/me/index";
-import { pass } from "#src/features/pass/index";
-import { publicTierListsRoute } from "#src/features/public-tier-lists/index";
-import { share } from "#src/features/share/index";
-import { tierLists } from "#src/features/tier-lists/index";
-import { user } from "#src/features/user/index";
-import { usersRoute } from "#src/features/users/index";
-import { demoSignIn } from "#src/features/demo-sign-in/index";
-import { feedbackRoute } from "#src/features/feedback/index";
-import { publicUsersRoute } from "#src/features/users/public";
-import { watchHistory } from "#src/features/watch-history/index";
-import { workListsRoute } from "#src/features/work-lists/index";
-import { publicWorkListsRoute } from "#src/features/work-lists/public";
-import { works } from "#src/features/works/index";
+import { parseAllowedOrigins, resolveAllowedOrigin } from "./cors";
+import { securityHeaders } from "./securityHeaders";
+import type { Env } from "./db/client";
+import { registerOpenApiDocs } from "./lib/openapi";
+import { handleError, type ObservabilityBindings } from "./observability";
+import { achievements } from "./features/achievements";
+import { analysis } from "./features/analysis";
+import { annict } from "./features/annict";
+import { articles } from "./features/articles";
+import { common } from "./features/common";
+import { elections } from "./features/elections";
+import { episodeRecords, workEpisodes } from "./features/episode-records";
+import { events } from "./features/events";
+import { workRatings } from "./features/work-ratings";
+import { favorites } from "./features/favorites";
+import { feed } from "./features/feed";
+import { exchangeRecords } from "./features/exchange-records";
+import { friendRequests } from "./features/friend-requests";
+import { friendThanks } from "./features/friend-thanks";
+import { friends } from "./features/friends";
+import { socialLinks } from "./features/social-links";
+import { health } from "./features/health";
+import { images } from "./features/images";
+import { importRoute } from "./features/import";
+import { avatar, me, meishiAssets } from "./features/me";
+import { pass } from "./features/pass";
+import { publicTierListsRoute } from "./features/public-tier-lists";
+import { share } from "./features/share";
+import { tierListsRoute } from "./features/tier-lists";
+import { user } from "./features/user";
+import { usersRoute } from "./features/users";
+import { demoSignIn } from "./features/demo-sign-in";
+import { feedbackRoute } from "./features/feedback";
+import { publicUsersRoute } from "./features/users/public";
+import { watchHistory } from "./features/watch-history";
+import { workListsRoute } from "./features/work-lists";
+import { publicWorkListsRoute } from "./features/work-lists/public";
+import { works } from "./features/works";
 
 export type AppBindings = Env &
   ObservabilityBindings & {
@@ -125,9 +120,7 @@ const routes = app
   .route("/events", events)
   .route("/elections", elections)
   .route("/me/pass", pass)
-  .route("/me/tier-lists", tierLists)
-  .route("/me/character-tier-lists", characterTierLists)
-  .route("/me/custom-tier-lists", customTierLists)
+  .route("/me/tier-lists", tierListsRoute)
   .route("/me/work-lists", workListsRoute)
   .route("/work-lists", publicWorkListsRoute)
   .route("/tier-lists", publicTierListsRoute)

@@ -1,7 +1,7 @@
 import { and, desc, eq, gt, isNull, lte, or } from "drizzle-orm";
-import type { DrizzleDb } from "#src/db/client";
-import { articles } from "#src/db/schema";
-import type { Article } from "#src/db/schema";
+import type { DrizzleDb } from "@/db/client";
+import { articles } from "@/db/schema";
+import type { Article } from "@/db/schema";
 
 /**
  * articlesRepository: 特集記事（issue #437）の読み取り専用リポジトリ。

@@ -3,14 +3,9 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { achievements } from "#src/features/achievements/index";
-import {
-  users,
-  annictWorks,
-  watchHistory,
-  episodeRecords,
-} from "#src/db/schema";
-import { currentAnnictSeason } from "#src/lib/annict/client/index";
+import { achievements } from "@/features/achievements";
+import { users, annictWorks, watchHistory, episodeRecords } from "@/db/schema";
+import { currentAnnictSeason } from "@/lib/annict/client";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

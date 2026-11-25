@@ -3,7 +3,7 @@ import {
   bearerAuth,
   errorResponseSchema,
   successResponseSchema,
-} from "#src/lib/openapi";
+} from "@/lib/openapi";
 
 // favorites 行（Drizzle Favorite 型の JSON 表現）。createdAt は ISO 文字列。
 const favoriteSchema = z.object({

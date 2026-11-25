@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ANNICT_STATUS_STATES } from "#src/lib/annict/statusState";
+import { ANNICT_STATUS_STATES } from "@/lib/annict/statusState";
 import { watchHistoryUpsertSchema } from "./schema";
 
 describe("watchHistoryUpsertSchema", () => {

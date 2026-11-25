@@ -11719,6 +11719,1578 @@
         }
       }
     },
+    "/me/tier-lists": {
+      "get": {
+        "tags": [
+          "tier-lists"
+        ],
+        "summary": "自分の tier 表一覧を取得する",
+        "description": "kind で種別（season / character / custom）を、season / annictWorkId で対象スコープを絞れる。内容（items）は含まない。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "season",
+                "character",
+                "custom"
+              ]
+            },
+            "required": false,
+            "name": "kind",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(winter|spring|summer|autumn)$"
+            },
+            "required": false,
+            "name": "season",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "required": false,
+            "name": "annictWorkId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "tier 表（内容は含まない）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "userId": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "season",
+                          "character",
+                          "custom"
+                        ]
+                      },
+                      "season": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "annictWorkId": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "tiersJson": {
+                        "type": "string"
+                      },
+                      "shareToken": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "isPublic": {
+                        "type": "boolean"
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "updatedAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "userId",
+                      "kind",
+                      "season",
+                      "annictWorkId",
+                      "title",
+                      "description",
+                      "tiersJson",
+                      "shareToken",
+                      "isPublic",
+                      "createdAt",
+                      "updatedAt"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "入力エラー",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未認証",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "tier-lists"
+        ],
+        "summary": "tier 表を作成する",
+        "description": "season / character はスコープキー（1 ユーザー 1 シーズン / 1 作品）で upsert され、既存があれば全置換する。custom は常に新規作成。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 500
+                  },
+                  "isPublic": {
+                    "type": "boolean"
+                  },
+                  "tiers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 24
+                        },
+                        "color": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "color"
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 12
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "annictWorkId": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "annictCharacterId": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "tierKey": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "tierKey"
+                      ]
+                    },
+                    "maxItems": 500
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "season",
+                      "character",
+                      "custom"
+                    ]
+                  },
+                  "season": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-(winter|spring|summer|autumn)$"
+                  },
+                  "annictWorkId": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "title",
+                  "tiers",
+                  "items",
+                  "kind"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "作成・置き換え後の tier 表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number"
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "season",
+                        "character",
+                        "custom"
+                      ]
+                    },
+                    "season": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "annictWorkId": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "tiersJson": {
+                      "type": "string"
+                    },
+                    "shareToken": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "isPublic": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "work"
+                                ]
+                              },
+                              "annictWorkId": {
+                                "type": "number"
+                              },
+                              "tierKey": {
+                                "type": "string"
+                              },
+                              "position": {
+                                "type": "number"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "titleKana": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "titleEn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "seasonName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "seasonYear": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "imageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "resolvedImageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "imageSource": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "imageR2Key": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "watchersCount": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "hostedImageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "annictWorkId",
+                              "tierKey",
+                              "position",
+                              "title",
+                              "titleKana",
+                              "titleEn",
+                              "seasonName",
+                              "seasonYear",
+                              "imageUrl",
+                              "resolvedImageUrl",
+                              "imageSource",
+                              "imageR2Key",
+                              "watchersCount",
+                              "hostedImageUrl"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "character"
+                                ]
+                              },
+                              "annictCharacterId": {
+                                "type": "number"
+                              },
+                              "tierKey": {
+                                "type": "string"
+                              },
+                              "position": {
+                                "type": "number"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "nameKana": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "nameEn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "imageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "annictCharacterId",
+                              "tierKey",
+                              "position",
+                              "name",
+                              "nameKana",
+                              "nameEn",
+                              "imageUrl"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "userId",
+                    "kind",
+                    "season",
+                    "annictWorkId",
+                    "title",
+                    "description",
+                    "tiersJson",
+                    "shareToken",
+                    "isPublic",
+                    "createdAt",
+                    "updatedAt",
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "入力エラー・未キャッシュの作品/キャラクター（annictWorkIds / annictCharacterIds に列挙）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未認証",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/tier-lists/{id}": {
+      "get": {
+        "tags": [
+          "tier-lists"
+        ],
+        "summary": "自分の tier 表を取得する",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "example": 1
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "tier 表と配置内容",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number"
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "season",
+                        "character",
+                        "custom"
+                      ]
+                    },
+                    "season": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "annictWorkId": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "tiersJson": {
+                      "type": "string"
+                    },
+                    "shareToken": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "isPublic": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "work"
+                                ]
+                              },
+                              "annictWorkId": {
+                                "type": "number"
+                              },
+                              "tierKey": {
+                                "type": "string"
+                              },
+                              "position": {
+                                "type": "number"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "titleKana": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "titleEn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "seasonName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "seasonYear": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "imageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "resolvedImageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "imageSource": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "imageR2Key": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "watchersCount": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "hostedImageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "annictWorkId",
+                              "tierKey",
+                              "position",
+                              "title",
+                              "titleKana",
+                              "titleEn",
+                              "seasonName",
+                              "seasonYear",
+                              "imageUrl",
+                              "resolvedImageUrl",
+                              "imageSource",
+                              "imageR2Key",
+                              "watchersCount",
+                              "hostedImageUrl"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "character"
+                                ]
+                              },
+                              "annictCharacterId": {
+                                "type": "number"
+                              },
+                              "tierKey": {
+                                "type": "string"
+                              },
+                              "position": {
+                                "type": "number"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "nameKana": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "nameEn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "imageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "annictCharacterId",
+                              "tierKey",
+                              "position",
+                              "name",
+                              "nameKana",
+                              "nameEn",
+                              "imageUrl"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "userId",
+                    "kind",
+                    "season",
+                    "annictWorkId",
+                    "title",
+                    "description",
+                    "tiersJson",
+                    "shareToken",
+                    "isPublic",
+                    "createdAt",
+                    "updatedAt",
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "入力エラー",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未認証",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "tier 表が見つからない（他人の表を含む）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "tier-lists"
+        ],
+        "summary": "tier 表を丸ごと置き換える",
+        "description": "kind と対象スコープ（season / annictWorkId）は作成時に決まるため変更できない。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "example": 1
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 500
+                  },
+                  "isPublic": {
+                    "type": "boolean"
+                  },
+                  "tiers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 24
+                        },
+                        "color": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "color"
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 12
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "annictWorkId": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "annictCharacterId": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "tierKey": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "tierKey"
+                      ]
+                    },
+                    "maxItems": 500
+                  }
+                },
+                "required": [
+                  "title",
+                  "tiers",
+                  "items"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "置き換え後の tier 表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number"
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "season",
+                        "character",
+                        "custom"
+                      ]
+                    },
+                    "season": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "annictWorkId": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "tiersJson": {
+                      "type": "string"
+                    },
+                    "shareToken": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "isPublic": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "work"
+                                ]
+                              },
+                              "annictWorkId": {
+                                "type": "number"
+                              },
+                              "tierKey": {
+                                "type": "string"
+                              },
+                              "position": {
+                                "type": "number"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "titleKana": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "titleEn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "seasonName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "seasonYear": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "imageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "resolvedImageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "imageSource": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "imageR2Key": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "watchersCount": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "hostedImageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "annictWorkId",
+                              "tierKey",
+                              "position",
+                              "title",
+                              "titleKana",
+                              "titleEn",
+                              "seasonName",
+                              "seasonYear",
+                              "imageUrl",
+                              "resolvedImageUrl",
+                              "imageSource",
+                              "imageR2Key",
+                              "watchersCount",
+                              "hostedImageUrl"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "character"
+                                ]
+                              },
+                              "annictCharacterId": {
+                                "type": "number"
+                              },
+                              "tierKey": {
+                                "type": "string"
+                              },
+                              "position": {
+                                "type": "number"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "nameKana": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "nameEn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "imageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "annictCharacterId",
+                              "tierKey",
+                              "position",
+                              "name",
+                              "nameKana",
+                              "nameEn",
+                              "imageUrl"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "userId",
+                    "kind",
+                    "season",
+                    "annictWorkId",
+                    "title",
+                    "description",
+                    "tiersJson",
+                    "shareToken",
+                    "isPublic",
+                    "createdAt",
+                    "updatedAt",
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "入力エラー・未キャッシュの作品/キャラクター",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未認証",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "tier 表が見つからない（他人の表を含む）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "tier-lists"
+        ],
+        "summary": "tier 表を削除する",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "example": 1
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "削除した",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "入力エラー",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未認証",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "tier 表が見つからない（他人の表を含む）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/tier-lists/{id}/share": {
+      "post": {
+        "tags": [
+          "tier-lists"
+        ],
+        "summary": "tier 表を共有する（共有トークンを発行。発行済みなら同じものを返す）",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "example": 1
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "共有トークン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "shareToken": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "shareToken"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "入力エラー",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未認証",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "tier 表が見つからない（他人の表を含む）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "tier-lists"
+        ],
+        "summary": "tier 表の共有をやめる（共有トークンを失効）",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "example": 1
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "共有をやめた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "入力エラー",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未認証",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "tier 表が見つからない（他人の表を含む）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/me/work-lists": {
       "get": {
         "tags": [
@@ -13916,6 +15488,978 @@
           },
           "404": {
             "description": "公開リストが見つからない（非公開・ブロック関係を含む）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "通報の回数制限（Retry-After ヘッダ付き）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tier-lists/public": {
+      "get": {
+        "tags": [
+          "tier-lists"
+        ],
+        "summary": "公開 tier 表の一覧（カーソルページング）",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "likes",
+                "new"
+              ]
+            },
+            "required": false,
+            "name": "sort",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+(_\\d+)?$"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "公開 tier 表と次ページのカーソル",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "season",
+                              "character",
+                              "custom"
+                            ]
+                          },
+                          "id": {
+                            "type": "number"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "season": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "annictWorkId": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "workTitle": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "owner": {
+                            "type": "object",
+                            "properties": {
+                              "userId": {
+                                "type": "string"
+                              },
+                              "username": {
+                                "type": "string"
+                              },
+                              "profileImageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "userId",
+                              "username",
+                              "profileImageUrl"
+                            ]
+                          },
+                          "itemCount": {
+                            "type": "number"
+                          },
+                          "likeCount": {
+                            "type": "number"
+                          },
+                          "likedByMe": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "thumbnails": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "url": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "annictWorkId": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "url",
+                                "label",
+                                "annictWorkId"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id",
+                          "title",
+                          "description",
+                          "season",
+                          "annictWorkId",
+                          "workTitle",
+                          "owner",
+                          "itemCount",
+                          "likeCount",
+                          "likedByMe",
+                          "createdAt",
+                          "thumbnails"
+                        ]
+                      }
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "nextCursor"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "入力エラー",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未認証",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tier-lists/{id}": {
+      "get": {
+        "tags": [
+          "tier-lists"
+        ],
+        "summary": "公開 tier 表の詳細（閲覧専用）",
+        "description": "公開範囲外（非公開・非公開オーナー・ブロック関係）は存在自体を隠して 404 を返す。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "example": 1
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "公開 tier 表と配置内容",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "season",
+                        "character",
+                        "custom"
+                      ]
+                    },
+                    "id": {
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "season": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "annictWorkId": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "workTitle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "owner": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "string"
+                        },
+                        "username": {
+                          "type": "string"
+                        },
+                        "profileImageUrl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "userId",
+                        "username",
+                        "profileImageUrl"
+                      ]
+                    },
+                    "itemCount": {
+                      "type": "number"
+                    },
+                    "likeCount": {
+                      "type": "number"
+                    },
+                    "likedByMe": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "tiers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 24
+                          },
+                          "color": {
+                            "type": "string",
+                            "pattern": "^#[0-9a-fA-F]{6}$"
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "label",
+                          "color"
+                        ]
+                      }
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "work"
+                                ]
+                              },
+                              "annictWorkId": {
+                                "type": "number"
+                              },
+                              "tierKey": {
+                                "type": "string"
+                              },
+                              "position": {
+                                "type": "number"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "titleKana": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "titleEn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "seasonName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "seasonYear": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "imageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "resolvedImageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "imageSource": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "imageR2Key": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "watchersCount": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "hostedImageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "annictWorkId",
+                              "tierKey",
+                              "position",
+                              "title",
+                              "titleKana",
+                              "titleEn",
+                              "seasonName",
+                              "seasonYear",
+                              "imageUrl",
+                              "resolvedImageUrl",
+                              "imageSource",
+                              "imageR2Key",
+                              "watchersCount",
+                              "hostedImageUrl"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "character"
+                                ]
+                              },
+                              "annictCharacterId": {
+                                "type": "number"
+                              },
+                              "tierKey": {
+                                "type": "string"
+                              },
+                              "position": {
+                                "type": "number"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "nameKana": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "nameEn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "imageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "annictCharacterId",
+                              "tierKey",
+                              "position",
+                              "name",
+                              "nameKana",
+                              "nameEn",
+                              "imageUrl"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "id",
+                    "title",
+                    "description",
+                    "season",
+                    "annictWorkId",
+                    "workTitle",
+                    "owner",
+                    "itemCount",
+                    "likeCount",
+                    "likedByMe",
+                    "createdAt",
+                    "tiers",
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "入力エラー",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未認証",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "公開範囲外・未作成の tier 表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tier-lists/{id}/like": {
+      "put": {
+        "tags": [
+          "tier-lists"
+        ],
+        "summary": "公開 tier 表にいいねする（冪等）",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "example": 1
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "いいね後の件数",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "likeCount": {
+                      "type": "number"
+                    },
+                    "likedByMe": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "likeCount",
+                    "likedByMe"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "自分の tier 表へのいいね",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未認証",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "公開範囲外・未作成の tier 表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "レート制限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "tier-lists"
+        ],
+        "summary": "公開 tier 表のいいねを取り消す（冪等）",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "example": 1
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "解除後の件数",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "likeCount": {
+                      "type": "number"
+                    },
+                    "likedByMe": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "likeCount",
+                    "likedByMe"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "入力エラー",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未認証",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "公開範囲外・未作成の tier 表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "レート制限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tier-lists/{id}/report": {
+      "post": {
+        "tags": [
+          "tier-lists"
+        ],
+        "summary": "公開 tier 表を通報する",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "example": 1
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "通報を受け付けた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "自分の tier 表への通報・入力エラー",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未認証",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "公開範囲外・未作成の tier 表",
             "content": {
               "application/json": {
                 "schema": {

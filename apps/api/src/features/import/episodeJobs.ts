@@ -5,16 +5,16 @@
 // 返す。ユーザーはそのまま画面を閉じてよい（書き込みはバックグラウンド）。
 // Annict トークンは Workflow 側でユーザー ID から復号するため、ここでは
 // Web 連携（D1 保存トークン）の有無だけを確認する。
-import { createDb } from "#src/db/client";
-import { requireAuth } from "#src/middleware/auth";
-import type { AuthVariables } from "#src/middleware/auth";
+import { createDb } from "@/db/client";
+import { requireAuth } from "@/middleware/auth";
+import type { AuthVariables } from "@/middleware/auth";
 import { annictRepository } from "../annict/repository";
-import type { DanimeEpisodeImportJob } from "#src/db/schema";
+import type { DanimeEpisodeImportJob } from "@/db/schema";
 import {
   createDanimeEpisodeJobRoute,
   getCurrentDanimeEpisodeJobRoute,
 } from "./schema";
-import { createOpenApiApp } from "#src/lib/openapi";
+import { createOpenApiApp } from "@/lib/openapi";
 import { episodeImportJobRepository, RUNNING_JOB_STATUSES } from "./repository";
 import type { DanimeEpisodeImportParams } from "./episodeImportWorkflow";
 

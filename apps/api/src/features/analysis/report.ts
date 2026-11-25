@@ -1,4 +1,4 @@
-import { WATCH_STATES } from "#src/db/schema";
+import { WATCH_STATES } from "@/db/schema";
 import type { WatchHistoryWithWork } from "../watch-history/repository";
 import { sanitizeTitle } from "./service";
 

@@ -12,7 +12,14 @@
     "exactOptionalPropertyTypes": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    // scripts が読む apps/api のソースは内部 import に `@/` を使う
+    // （apps/api/tsconfig.json の paths）。tsx / tsc がこのパッケージの
+    // tsconfig で解決するため、こちらにも同じ先を指す paths を持つ。
+    // このパッケージ自身は `@/` を使わない。
+    "paths": {
+      "@/*": ["../../apps/api/src/*"]
+    }
   },
   "include": ["scripts/**/*", "vite.config.ts"],
   "exclude": ["node_modules"]

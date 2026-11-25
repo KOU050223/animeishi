@@ -1,5 +1,5 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { bearerAuth, errorResponseSchema } from "#src/lib/openapi";
+import { bearerAuth, errorResponseSchema } from "@/lib/openapi";
 
 const INAPPROPRIATE_PATTERNS = [/死ね|殺す|バカ|アホ/, /https?:\/\/[^\s]+/];
 

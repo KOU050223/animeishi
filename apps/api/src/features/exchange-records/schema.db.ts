@@ -1,6 +1,6 @@
 import { integer, sqliteTable, text, index } from "drizzle-orm/sqlite-core";
-import { events } from "#src/features/events/schema.db";
-import { users } from "#src/features/users/schema.db";
+import { events } from "@/features/events/schema.db";
+import { users } from "@/features/users/schema.db";
 
 // ---- exchange_records (交換記録。issue #661、#662 の土台) ----
 // 「いつ・どこで・どのイベントで」名刺を交換したかを本人の名刺帳にだけ残す。

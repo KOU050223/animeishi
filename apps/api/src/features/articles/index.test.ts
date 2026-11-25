@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { articles } from "./index";
-import { articles as articlesTable, users } from "#src/db/schema";
+import { articles as articlesTable, users } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

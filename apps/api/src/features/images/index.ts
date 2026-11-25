@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { createDb } from "#src/db/client";
-import { serveWorkImage } from "#src/lib/catalog/workImage";
+import { createDb } from "@/db/client";
+import { serveWorkImage } from "@/lib/catalog/workImage";
 
 /**
  * ?r= で受け付けるリトライ番号の上限。WorkImage（apps/mobile）の

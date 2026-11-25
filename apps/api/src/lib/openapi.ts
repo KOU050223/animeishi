@@ -2,7 +2,7 @@ import { swaggerUI } from "@hono/swagger-ui";
 import { z, OpenAPIHono } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import type { Context, Env } from "hono";
-import { handleError, reportApiFailure } from "#src/observability";
+import { handleError, reportApiFailure } from "@/observability";
 
 // OpenAPI ドキュメント生成の基盤（issue #14）。
 // 各 feature の schema.ts で使う共通スキーマ・security 要件と、

@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import type { DrizzleDb } from "#src/db/client";
-import { currentAnnictSeason } from "#src/lib/annict/client/index";
+import type { DrizzleDb } from "@/db/client";
+import { currentAnnictSeason } from "@/lib/annict/client";
 
 type WorkRow = { annictWorkId: number; title: string };
 

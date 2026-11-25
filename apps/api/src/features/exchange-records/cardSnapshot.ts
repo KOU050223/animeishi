@@ -1,4 +1,4 @@
-import type { DrizzleDb } from "#src/db/client";
+import type { DrizzleDb } from "@/db/client";
 import { publicMeishiSnapshotKey } from "../me/service";
 import { findUserById } from "../users/repository";
 

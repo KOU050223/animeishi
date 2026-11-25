@@ -3,8 +3,8 @@ import {
   bearerAuth,
   errorResponseSchema,
   successResponseSchema,
-} from "#src/lib/openapi";
-import { userRateLimit } from "#src/middleware/rateLimit";
+} from "@/lib/openapi";
+import { userRateLimit } from "@/middleware/rateLimit";
 
 // POST /users/:id/report のボディ。reason はプリセット理由ラベル or 自由入力を
 // そのまま受ける（UGC モデレーション用の通報理由）。

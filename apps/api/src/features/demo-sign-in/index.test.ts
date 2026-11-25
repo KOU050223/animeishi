@@ -23,10 +23,7 @@ vi.mock("@clerk/backend/errors", () => ({
     typeof e === "object" && e !== null && "clerkError" in e,
 }));
 
-import {
-  demoSignIn,
-  REVIEW_DEMO_ACCOUNT_ROLE,
-} from "#src/features/demo-sign-in/index";
+import { demoSignIn, REVIEW_DEMO_ACCOUNT_ROLE } from "@/features/demo-sign-in";
 
 const DEMO_EMAIL = "review@example.com";
 

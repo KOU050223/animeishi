@@ -1,8 +1,8 @@
 import { and, desc, eq, gte, isNull, lt, lte, or, sql } from "drizzle-orm";
-import type { DrizzleDb } from "#src/db/client";
-import { events, exchangeRecords } from "#src/db/schema";
-import type { ExchangeRecord, ExchangeRecordSource } from "#src/db/schema";
-import { jstDayRange } from "#src/lib/jst";
+import type { DrizzleDb } from "@/db/client";
+import { events, exchangeRecords } from "@/db/schema";
+import type { ExchangeRecord, ExchangeRecordSource } from "@/db/schema";
+import { jstDayRange } from "@/lib/jst";
 import { copyPublicCardSnapshot } from "./cardSnapshot";
 
 /** 記録が存在しない、または呼び出し側の記録ではないときに投げる。ルート層で 404 に変換する。 */

@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import type { Context } from "hono";
-import { createDb } from "#src/db/client";
-import { annictRepository } from "#src/features/annict/repository";
+import { createDb } from "@/db/client";
+import { annictRepository } from "@/features/annict/repository";
 import { decryptToken, assertEncryptionKey } from "./crypto";
 import { createAnnictWorkCatalog, type AnnictWorkCatalog } from "./workCatalog";
 

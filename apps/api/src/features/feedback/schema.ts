@@ -1,11 +1,11 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { FEEDBACK_CATEGORIES } from "#src/db/schema";
+import { FEEDBACK_CATEGORIES } from "@/db/schema";
 import {
   bearerAuth,
   errorResponseSchema,
   successResponseSchema,
-} from "#src/lib/openapi";
-import { userRateLimit } from "#src/middleware/rateLimit";
+} from "@/lib/openapi";
+import { userRateLimit } from "@/middleware/rateLimit";
 
 const FEEDBACK_BODY_MAX_LENGTH = 2000;
 

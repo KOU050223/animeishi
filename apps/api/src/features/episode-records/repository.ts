@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
-import type { DrizzleDb } from "#src/db/client";
-import { episodeRecords } from "#src/db/schema";
-import type { EpisodeRecord, NewEpisodeRecord } from "#src/db/schema";
+import type { DrizzleDb } from "@/db/client";
+import { episodeRecords } from "@/db/schema";
+import type { EpisodeRecord, NewEpisodeRecord } from "@/db/schema";
 
 /** Annict viewer.records から取り込む 1 件分の形（同期の入力）。 */
 export type AnnictRecordLogEntry = {
