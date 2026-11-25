@@ -70,6 +70,10 @@ jobs:
       # binding ではなく公開 fetch を使うよう切り替える（issue #408、
       # worker/index.ts 参照）。CSP の許可先・レポート先も同様に --var で渡す
       # （issue #714、worker/securityHeaders.ts 参照）。
+      # --compatibility-flags global_fetch_strictly_public は転送 fetch が
+      # エイリアス URL へ届くために必要（issue #762、worker/index.ts 参照）。
+      # 本番 deploy には付けない: 本番は Service Binding で転送するため不要で、
+      # 本番側の compat flags を変えないため。
       - name: Upload preview version
         id: deploy
         env:
@@ -89,7 +93,7 @@ jobs:
           [ -n "$SENTRY_DSN" ] && csp_vars+=(--var "SENTRY_DSN:${SENTRY_DSN}")
           [ -n "$POSTHOG_KEY" ] && csp_vars+=(--var "POSTHOG_HOST:${POSTHOG_HOST}")
 
-          deploy_output="$(pnpm --filter @animeishi/mobile exec wrangler versions upload --env production --preview-alias "$PREVIEW_ALIAS" --var "API_ORIGIN:${API_PREVIEW_URL}" --var "SHARE_FORWARD_VIA_FETCH:true" "${csp_vars[@]}" 2>&1)"
+          deploy_output="$(pnpm --filter @animeishi/mobile exec wrangler versions upload --env production --preview-alias "$PREVIEW_ALIAS" --compatibility-flags global_fetch_strictly_public --var "API_ORIGIN:${API_PREVIEW_URL}" --var "SHARE_FORWARD_VIA_FETCH:true" "${csp_vars[@]}" 2>&1)"
           printf '%s\n' "$deploy_output"
 
           preview_url="$(printf '%s\n' "$deploy_output" | sed -nE "s#.*(https://[a-z0-9-]+-${WORKER_NAME}\.[a-z0-9-]+\.workers\.dev).*#\1#p" | tail -n 1)"

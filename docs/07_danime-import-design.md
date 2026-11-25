@@ -2,9 +2,14 @@
 
 Issue: https://github.com/KOU050223/animeishi/issues/83
 
-> **提供範囲（v1.0 時点）**: ネイティブ（iOS/Android）では `featureFlags.danimeImport`
-> で無効化されており Web 版のみ提供（#158。App Store 審査 5.2.2 リスク回避）。
-> 再有効化は `EXPO_PUBLIC_FEATURE_DANIME_IMPORT_NATIVE=true` で行う。
+> **提供範囲**: Web・ネイティブ（iOS/Android）の両方で提供（#751 で #158 の
+> 無効化を戻した）。審査 5.2.2 で指摘された場合は
+> `EXPO_PUBLIC_FEATURE_DANIME_IMPORT_NATIVE=false` で切り戻して再提出する。
+> ネイティブ側の WebView は遷移先を dアニメストアと dアカウント認証
+> （`*.smt.docomo.ne.jp`）に限定し、それ以外のドメインは外部ブラウザで開く
+> （`apps/mobile/lib/danime/webviewAllowlist.ts`）。なお話数記録
+> （バックグラウンドジョブ）はサーバー保存トークン前提のため Web 版のみで、
+> ネイティブではジョブ登録を送らない（`lib/danime/episodeJobSupported`）。
 
 ## 目的
 

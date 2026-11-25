@@ -1,5 +1,5 @@
 // dアニメインポート レビュー画面のテスト。
-// ネイティブでは featureFlags.danimeImport が無効（#158）のため、
+// featureFlags.danimeImport が無効（env 切り戻し・停止スイッチ）の場合は、
 // 直接遷移されても視聴履歴タブへリダイレクトされることを検証する。
 import React from "react";
 import {
@@ -47,6 +47,15 @@ jest.mock("@/lib/featureFlags", () => ({
     get danimeImport() {
       return mockFeatureFlags.danimeImport;
     },
+  },
+}));
+
+// 話数記録のプラットフォーム可否もテストごとに切り替える（jest は iOS 解決
+// のため既定値は native の false。Web 版の振る舞いもここで検証する）。
+const mockEpisodeJobSupported = { value: true };
+jest.mock("@/lib/danime/episodeJobSupported", () => ({
+  get episodeJobSupported() {
+    return mockEpisodeJobSupported.value;
   },
 }));
 
@@ -103,6 +112,7 @@ function setStoreLists(
 beforeEach(async () => {
   jest.clearAllMocks();
   mockFeatureFlags.danimeImport = false;
+  mockEpisodeJobSupported.value = true;
   mockUseDanimeMatch.mockReturnValue({
     isPending: false,
     error: null,
@@ -302,6 +312,39 @@ describe("DanimeImportReviewScreen（既存ステータスの保護）", () => {
         ],
       }),
     );
+    expect(mockBulkMutate).not.toHaveBeenCalled();
+  });
+
+  it("話数記録非対応（ネイティブ）ではジョブを送らず Web 版への案内を出す", async () => {
+    // ネイティブでは SecureStore のみのトークンで D1 保存トークン前提の
+    // ジョブを作れず、Web 連携が別アカウントだと誤った先に記録されるため、
+    // ジョブ登録自体を送らない（episodeJobSupported = false）。
+    mockEpisodeJobSupported.value = false;
+    setStoreLists({
+      w1: [{ partId: "p1", watched: true, label: "第1話", subtitle: "始まり" }],
+    });
+    mockHistories.data = [{ annictWorkId: 1, state: "WATCHED" }];
+    stubMatchSuccess([matchItem("w1", "登録済み作品", 1)]);
+
+    await render(<DanimeImportReviewScreen />);
+    expect(
+      screen.getByText(
+        "視聴済み 1 話の記録はアプリ版では利用できません（Web 版の取り込みで記録できます）",
+      ),
+    ).toBeTruthy();
+
+    await act(async () =>
+      fireEvent.press(screen.getByTestId("danime-register-button")),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          "話数の記録はアプリ版では利用できません。Web 版で取り込みを実行すると記録できます。",
+        ),
+      ).toBeTruthy(),
+    );
+    expect(mockCreateEpisodeJobMutateAsync).not.toHaveBeenCalled();
     expect(mockBulkMutate).not.toHaveBeenCalled();
   });
 

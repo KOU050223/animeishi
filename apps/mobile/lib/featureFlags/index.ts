@@ -11,9 +11,9 @@ export const featureFlags = {
   // Apple Wallet への名刺追加。pkpass 署名が未実装（#103）のため v1.0 では
   // 既定非表示。実装完了後に EXPO_PUBLIC_FEATURE_WALLET=true で有効化する。
   wallet: process.env.EXPO_PUBLIC_FEATURE_WALLET === "true",
-  // dアニメ取り込み。App Store 審査 5.2.2（第三者サービスの利用許諾）リスク
-  // 回避のため v1.0 では Web 版のみ提供（#158）。ネイティブで再有効化する
-  // 場合は EXPO_PUBLIC_FEATURE_DANIME_IMPORT_NATIVE=true を設定する。
+  // dアニメ取り込み（#751 でネイティブでも有効化）。App Store 審査 5.2.2 で
+  // 指摘された場合は EXPO_PUBLIC_FEATURE_DANIME_IMPORT_NATIVE=false で
+  // ビルドし直して再提出する。
   danimeImport,
   // 総選挙・イベント・特集記事。公開作業が本番 D1 の手作業に頼っている
   // （#743）ため v1.0 では既定非表示（#746）。Web も同じ扱い。

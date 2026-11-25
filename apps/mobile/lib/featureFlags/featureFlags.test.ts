@@ -1,24 +1,24 @@
-// featureFlags.danimeImport（#158）の既定値テスト。
+// featureFlags.danimeImport（#751）の既定値テスト。
 // jest-expo は iOS プラットフォームで解決するため、@/lib/featureFlags 経由の
 // 値は danimeImport.native.ts のものになる。
 import { featureFlags } from "@/lib/featureFlags";
 import { danimeImport as danimeImportWeb } from "./danimeImport.web";
 
 describe("featureFlags.danimeImport", () => {
-  it("ネイティブでは既定で無効（Web 版限定機能）", () => {
-    expect(featureFlags.danimeImport).toBe(false);
+  it("ネイティブでは既定で有効（#751）", () => {
+    expect(featureFlags.danimeImport).toBe(true);
   });
 
   it("Web 版では常に有効", () => {
     expect(danimeImportWeb).toBe(true);
   });
 
-  it("EXPO_PUBLIC_FEATURE_DANIME_IMPORT_NATIVE=true でネイティブ再有効化できる", () => {
+  it("EXPO_PUBLIC_FEATURE_DANIME_IMPORT_NATIVE=false でネイティブを無効化できる（審査 5.2.2 指摘時の切り戻し）", () => {
     jest.resetModules();
-    process.env.EXPO_PUBLIC_FEATURE_DANIME_IMPORT_NATIVE = "true";
+    process.env.EXPO_PUBLIC_FEATURE_DANIME_IMPORT_NATIVE = "false";
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { danimeImport } = require("./danimeImport.native");
-    expect(danimeImport).toBe(true);
+    expect(danimeImport).toBe(false);
     delete process.env.EXPO_PUBLIC_FEATURE_DANIME_IMPORT_NATIVE;
   });
 });

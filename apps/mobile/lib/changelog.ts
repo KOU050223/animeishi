@@ -92,7 +92,7 @@ export const FEATURES: FeatureItem[] = [
       "名刺の公開 URL から、自分のプロフィールページを共有できます。",
   },
   {
-    title: "dアニメストアの視聴履歴取り込み（Web 版）",
+    title: "dアニメストアの視聴履歴取り込み",
     description:
       "dアニメストアの視聴履歴を取り込み、Annict の視聴ステータスに反映できます。",
   },
@@ -110,6 +110,11 @@ export const FEATURES: FeatureItem[] = [
 // 更新履歴。日付単位でまとめ、新しいものを先頭に追加する。
 // 内部的な変更（CI・リファクタ等）はユーザーに関係しないため含めない。
 export const UPDATES: ChangelogEntry[] = [
+  {
+    date: "2026年11月25日",
+    title:
+      "dアニメストアの視聴履歴取り込みがアプリ版でも使えるようになりました",
+  },
   {
     date: "2026年11月19日",
     title: "イベント・特集記事・総選挙の一覧ページを追加しました",

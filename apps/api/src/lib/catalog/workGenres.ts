@@ -62,11 +62,56 @@ export type WorkGenreInput = {
 };
 
 /**
+ * 一過性の D1 internal error（"D1_ERROR: internal error; reference = ..."）
+ * かどうか。drizzle が包む DrizzleQueryError の cause もたどって判定する。
+ */
+export function isD1InternalError(err: unknown): boolean {
+  for (let cur: unknown = err; cur instanceof Error; cur = cur.cause) {
+    if (/d1_error:?\s*internal error/i.test(cur.message)) return true;
+  }
+  return false;
+}
+
+/**
+ * 一過性の D1 internal error で失敗したら 1 回だけ実行し直す。
+ * それ以外のエラーはそのまま投げる（D1 のガイドでも internal error は
+ * リトライ可・それ以外はリトライしても直らない前提のため）。
+ */
+export async function withD1InternalErrorRetry<T>(
+  task: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await task();
+  } catch (err) {
+    if (!isD1InternalError(err)) throw err;
+    return task();
+  }
+}
+
+// D1 internal error が 2 回続いたときの warn ログ。ログだけ残して
+// ジョブは次回 cron に回す（Sentry に送り続けない。issue #783）。
+function warnGenreFetchDeferred(stage: string, err: unknown): void {
+  console.error(
+    JSON.stringify({
+      level: "warn",
+      event: "work_genres_deferred",
+      stage,
+      error: err instanceof Error ? err.message : String(err),
+    }),
+  );
+}
+
+/**
  * genres 未取得・stale の作品を少量ずつ Kitsu（無ければ MAL API）で
  * 解決・永続化する。cron ハンドラから定期実行される。戻り値は書き込んだ件数。
  *
  * 試行前に genres_attempted_at を立ててクールダウンを適用する（取得成功時は
  * genres が立つため pending から自然に外れる）。
+ *
+ * D1 の internal error はストレージ層の一過性エラーが大半なので、D1 呼び出しは
+ * 1 回だけ実行し直す。それでも失敗した場合はこの実行を諦めて次回 cron に回す
+ * （ジャンルはキャッシュ的な補完データで、1 回分の遅延で済むため。issue #783）。
+ * internal error 以外の失敗は握らず投げ、runCronJob 経由で Sentry に送る。
  */
 export async function resolvePendingWorkGenres(
   db: DrizzleDb,
@@ -75,19 +120,36 @@ export async function resolvePendingWorkGenres(
 ): Promise<number> {
   const repo = worksRepository(db);
   const now = new Date();
-  const targets = await repo.getPendingGenreWorks(
-    limit,
-    new Date(now.getTime() - GENRE_FETCH_ATTEMPT_COOLDOWN_MS),
-    new Date(now.getTime() - GENRE_EMPTY_REFETCH_AFTER_MS),
-  );
+  let targets: Awaited<ReturnType<typeof repo.getPendingGenreWorks>>;
+  try {
+    targets = await withD1InternalErrorRetry(() =>
+      repo.getPendingGenreWorks(
+        limit,
+        new Date(now.getTime() - GENRE_FETCH_ATTEMPT_COOLDOWN_MS),
+        new Date(now.getTime() - GENRE_EMPTY_REFETCH_AFTER_MS),
+      ),
+    );
+  } catch (err) {
+    if (!isD1InternalError(err)) throw err;
+    warnGenreFetchDeferred("get_pending_genre_works", err);
+    return 0;
+  }
   if (targets.length === 0) return 0;
 
   // 実行中の中断や取得失敗が次回実行での即時リトライにならないよう、
   // 試行前に時刻を立てる（クールダウン）。
-  await repo.markGenreFetchAttempted(
-    targets.map((t) => t.annictWorkId),
-    now,
-  );
+  try {
+    await withD1InternalErrorRetry(() =>
+      repo.markGenreFetchAttempted(
+        targets.map((t) => t.annictWorkId),
+        now,
+      ),
+    );
+  } catch (err) {
+    if (!isD1InternalError(err)) throw err;
+    warnGenreFetchDeferred("mark_genre_fetch_attempted", err);
+    return 0;
+  }
 
   let results: Map<number, string[]>;
   try {
@@ -110,7 +172,9 @@ export async function resolvePendingWorkGenres(
   let persisted = 0;
   for (const [annictWorkId, genres] of results) {
     try {
-      await repo.updateWorkGenres(annictWorkId, genres, resolvedAt);
+      await withD1InternalErrorRetry(() =>
+        repo.updateWorkGenres(annictWorkId, genres, resolvedAt),
+      );
       persisted++;
     } catch (err) {
       console.error(
