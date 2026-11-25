@@ -27,6 +27,8 @@ jest.mock("@/lib/featureFlags", () => ({
       debugPanel: false,
       wallet: false,
       danimeImport: mockDanimeImport,
+      characterTierList: true,
+      customTierList: true,
     };
   },
 }));
@@ -509,8 +511,8 @@ describe("WatchHistorySection", () => {
       await fireEvent.press(screen.getByTestId("work-detail-open-tier"));
 
       expect(mockPush).toHaveBeenCalledWith({
-        pathname: "/character-tier-list",
-        params: { workId: "1", workTitle: "テスト作品" },
+        pathname: "/tier-list",
+        params: { kind: "character", workId: "1", workTitle: "テスト作品" },
       });
     });
   });

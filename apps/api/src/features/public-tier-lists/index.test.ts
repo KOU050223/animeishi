@@ -12,10 +12,6 @@ import {
   annictCharacters,
   tierLists,
   tierListItems,
-  characterTierLists,
-  characterTierListItems,
-  customTierLists,
-  customTierListItems,
   tierListLikes,
   blocks,
 } from "#src/db/schema";
@@ -83,15 +79,21 @@ function asUser(userId: string) {
 
 type Db = Awaited<ReturnType<typeof setupTestDb>>;
 
-async function insertSeasonList(
+async function insertTierList(
   db: Db,
   input: {
+    kind: TierListKind;
     userId: string;
     title: string;
     isPublic?: boolean;
     season?: string;
+    annictWorkId?: number;
     createdAt?: Date;
-    items?: { annictWorkId: number; tierKey?: string }[];
+    items?: {
+      annictWorkId?: number;
+      annictCharacterId?: number;
+      tierKey?: string;
+    }[];
   },
 ) {
   const now = input.createdAt ?? new Date();
@@ -99,7 +101,10 @@ async function insertSeasonList(
     .insert(tierLists)
     .values({
       userId: input.userId,
-      season: input.season ?? "2026-spring",
+      kind: input.kind,
+      season: input.kind === "season" ? (input.season ?? "2026-spring") : null,
+      annictWorkId:
+        input.kind === "character" ? (input.annictWorkId ?? WORK_A) : null,
       title: input.title,
       tiersJson: TIERS_JSON,
       isPublic: input.isPublic ?? true,
@@ -110,80 +115,34 @@ async function insertSeasonList(
   for (const [i, item] of (input.items ?? []).entries()) {
     await db.insert(tierListItems).values({
       tierListId: row!.id,
-      annictWorkId: item.annictWorkId,
+      annictWorkId: item.annictWorkId ?? null,
+      annictCharacterId: item.annictCharacterId ?? null,
       tierKey: item.tierKey ?? "s",
       position: i,
     });
   }
   return row!.id;
+}
+
+async function insertSeasonList(
+  db: Db,
+  input: Omit<Parameters<typeof insertTierList>[1], "kind">,
+) {
+  return insertTierList(db, { ...input, kind: "season" });
 }
 
 async function insertCharacterList(
   db: Db,
-  input: {
-    userId: string;
-    title: string;
-    isPublic?: boolean;
-    annictWorkId?: number;
-    createdAt?: Date;
-    items?: { annictCharacterId: number; tierKey?: string }[];
-  },
+  input: Omit<Parameters<typeof insertTierList>[1], "kind">,
 ) {
-  const now = input.createdAt ?? new Date();
-  const [row] = await db
-    .insert(characterTierLists)
-    .values({
-      userId: input.userId,
-      annictWorkId: input.annictWorkId ?? WORK_A,
-      title: input.title,
-      tiersJson: TIERS_JSON,
-      isPublic: input.isPublic ?? true,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning({ id: characterTierLists.id });
-  for (const [i, item] of (input.items ?? []).entries()) {
-    await db.insert(characterTierListItems).values({
-      characterTierListId: row!.id,
-      annictCharacterId: item.annictCharacterId,
-      tierKey: item.tierKey ?? "s",
-      position: i,
-    });
-  }
-  return row!.id;
+  return insertTierList(db, { ...input, kind: "character" });
 }
 
 async function insertCustomList(
   db: Db,
-  input: {
-    userId: string;
-    title: string;
-    isPublic?: boolean;
-    createdAt?: Date;
-    items?: { annictWorkId: number; tierKey?: string }[];
-  },
+  input: Omit<Parameters<typeof insertTierList>[1], "kind">,
 ) {
-  const now = input.createdAt ?? new Date();
-  const [row] = await db
-    .insert(customTierLists)
-    .values({
-      userId: input.userId,
-      title: input.title,
-      tiersJson: TIERS_JSON,
-      isPublic: input.isPublic ?? true,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning({ id: customTierLists.id });
-  for (const [i, item] of (input.items ?? []).entries()) {
-    await db.insert(customTierListItems).values({
-      customTierListId: row!.id,
-      annictWorkId: item.annictWorkId,
-      tierKey: item.tierKey ?? "s",
-      position: i,
-    });
-  }
-  return row!.id;
+  return insertTierList(db, { ...input, kind: "custom" });
 }
 
 async function getPublic(app: ReturnType<typeof buildApp>, query = "") {
@@ -392,7 +351,7 @@ describe("公開 Tier 表 API", () => {
       // 除外は一覧への露出だけ（unlisted 扱い）。デモアカウントの
       // Explore リンク等、id 指定の直接参照は残す（issue #580）。
       const detail = await app.request(
-        `/tier-lists/season/${excludedId}`,
+        `/tier-lists/${excludedId}`,
         {},
         TEST_BINDINGS,
       );
@@ -426,7 +385,7 @@ describe("公開 Tier 表 API", () => {
       expect(body.items).toHaveLength(0);
     });
 
-    it("sort=likes: いいね数の多い順。同数は kind→id の決定的な順でカーソルが回る", async () => {
+    it("sort=likes: いいね数の多い順。同数は id 降順の決定的な順でカーソルが回る", async () => {
       const app = buildApp();
       const seasonId = await insertSeasonList(db, {
         userId: OTHER_USER_ID,
@@ -444,8 +403,7 @@ describe("公開 Tier 表 API", () => {
       // シーズンに 1 いいね。キャラ・自由は 0 で同率。
       await db.insert(tierListLikes).values({
         userId: USER_ID,
-        listKind: "season",
-        listId: seasonId,
+        tierListId: seasonId,
         createdAt: now,
       });
 
@@ -454,7 +412,7 @@ describe("公開 Tier 表 API", () => {
         items: PublicListItem[];
         nextCursor: string | null;
       };
-      // season(1 いいね) → custom → character（0 同率は rank 降順）
+      // season(1 いいね) → custom → character（0 同率は id 降順）
       expect(body1.items.map((i) => [i.kind, i.id] as const)).toEqual([
         ["season", seasonId],
         ["custom", customId],
@@ -525,12 +483,12 @@ describe("公開 Tier 表 API", () => {
       const app = buildApp();
       expect((await getPublic(app, "?sort=popular")).status).toBe(400);
       expect((await getPublic(app, "?cursor=abc")).status).toBe(400);
-      // kind 順位なしの 2 連 cursor も受け付けない
-      expect((await getPublic(app, "?cursor=1_2")).status).toBe(400);
+      // sort=new の cursor は "<createdAt>_<id>"（3 連以上は合わない）ので 400
+      expect((await getPublic(app, "?sort=new&cursor=1_2_3")).status).toBe(400);
     });
   });
 
-  describe("GET /tier-lists/:kind/:id", () => {
+  describe("GET /tier-lists/:id", () => {
     beforeEach(() => asUser(USER_ID));
 
     it("シーズン表の詳細を tiers と配置作品つきで返す", async () => {
@@ -545,14 +503,14 @@ describe("公開 Tier 表 API", () => {
       });
       asUser(THIRD_USER_ID);
       await app.request(
-        `/tier-lists/season/${id}/like`,
+        `/tier-lists/${id}/like`,
         { method: "PUT" },
         TEST_BINDINGS,
       );
       asUser(USER_ID);
 
       const res = await app.request(
-        `/tier-lists/season/${id}`,
+        `/tier-lists/${id}`,
         { method: "GET" },
         TEST_BINDINGS,
       );
@@ -595,7 +553,7 @@ describe("公開 Tier 表 API", () => {
       });
 
       const res = await app.request(
-        `/tier-lists/character/${id}`,
+        `/tier-lists/${id}`,
         { method: "GET" },
         TEST_BINDINGS,
       );
@@ -617,7 +575,7 @@ describe("公開 Tier 表 API", () => {
       expect(body.items[0]?.imageUrl).toBe("https://example.com/char-a.png");
     });
 
-    it("未公開・ブロック関係・非公開オーナー・未存在・不正 kind は 404/400", async () => {
+    it("未公開・ブロック関係・非公開オーナー・未存在は 404", async () => {
       const app = buildApp();
       const privateId = await insertSeasonList(db, {
         userId: OTHER_USER_ID,
@@ -633,7 +591,7 @@ describe("公開 Tier 表 API", () => {
       expect(
         (
           await app.request(
-            `/tier-lists/season/${privateId}`,
+            `/tier-lists/${privateId}`,
             { method: "GET" },
             TEST_BINDINGS,
           )
@@ -642,22 +600,12 @@ describe("公開 Tier 表 API", () => {
       expect(
         (
           await app.request(
-            `/tier-lists/custom/99999`,
+            `/tier-lists/99999`,
             { method: "GET" },
             TEST_BINDINGS,
           )
         ).status,
       ).toBe(404);
-      // 不正 kind
-      expect(
-        (
-          await app.request(
-            `/tier-lists/unknown/${publicId}`,
-            { method: "GET" },
-            TEST_BINDINGS,
-          )
-        ).status,
-      ).toBe(400);
 
       // ブロック関係
       await db.insert(blocks).values({
@@ -668,7 +616,7 @@ describe("公開 Tier 表 API", () => {
       expect(
         (
           await app.request(
-            `/tier-lists/season/${publicId}`,
+            `/tier-lists/${publicId}`,
             { method: "GET" },
             TEST_BINDINGS,
           )
@@ -684,7 +632,7 @@ describe("公開 Tier 表 API", () => {
       expect(
         (
           await app.request(
-            `/tier-lists/season/${publicId}`,
+            `/tier-lists/${publicId}`,
             { method: "GET" },
             TEST_BINDINGS,
           )
@@ -696,7 +644,7 @@ describe("公開 Tier 表 API", () => {
   describe("いいね", () => {
     beforeEach(() => asUser(USER_ID));
 
-    it("PUT /:kind/:id/like: 公開リストにいいねでき、likeCount が増える", async () => {
+    it("PUT /:id/like: 公開リストにいいねでき、likeCount が増える", async () => {
       const app = buildApp();
       const id = await insertCustomList(db, {
         userId: OTHER_USER_ID,
@@ -704,7 +652,7 @@ describe("公開 Tier 表 API", () => {
       });
 
       const res = await app.request(
-        `/tier-lists/custom/${id}/like`,
+        `/tier-lists/${id}/like`,
         { method: "PUT" },
         TEST_BINDINGS,
       );
@@ -712,7 +660,7 @@ describe("公開 Tier 表 API", () => {
       expect(await res.json()).toEqual({ likeCount: 1, likedByMe: true });
     });
 
-    it("PUT /:kind/:id/like: 同じリストへの再いいねは no-op（冪等）", async () => {
+    it("PUT /:id/like: 同じリストへの再いいねは no-op（冪等）", async () => {
       const app = buildApp();
       const id = await insertSeasonList(db, {
         userId: OTHER_USER_ID,
@@ -720,12 +668,12 @@ describe("公開 Tier 表 API", () => {
       });
 
       await app.request(
-        `/tier-lists/season/${id}/like`,
+        `/tier-lists/${id}/like`,
         { method: "PUT" },
         TEST_BINDINGS,
       );
       const res = await app.request(
-        `/tier-lists/season/${id}/like`,
+        `/tier-lists/${id}/like`,
         { method: "PUT" },
         TEST_BINDINGS,
       );
@@ -733,7 +681,7 @@ describe("公開 Tier 表 API", () => {
       expect(await res.json()).toEqual({ likeCount: 1, likedByMe: true });
     });
 
-    it("PUT /:kind/:id/like: 自分のリストにはいいねできない（400）", async () => {
+    it("PUT /:id/like: 自分のリストにはいいねできない（400）", async () => {
       const app = buildApp();
       const id = await insertSeasonList(db, {
         userId: USER_ID,
@@ -741,14 +689,14 @@ describe("公開 Tier 表 API", () => {
       });
 
       const res = await app.request(
-        `/tier-lists/season/${id}/like`,
+        `/tier-lists/${id}/like`,
         { method: "PUT" },
         TEST_BINDINGS,
       );
       expect(res.status).toBe(400);
     });
 
-    it("PUT /:kind/:id/like: 未公開・ブロック関係・未存在は 404", async () => {
+    it("PUT /:id/like: 未公開・ブロック関係・未存在は 404", async () => {
       const app = buildApp();
       const privateId = await insertSeasonList(db, {
         userId: OTHER_USER_ID,
@@ -768,7 +716,7 @@ describe("公開 Tier 表 API", () => {
       expect(
         (
           await app.request(
-            `/tier-lists/season/${privateId}/like`,
+            `/tier-lists/${privateId}/like`,
             { method: "PUT" },
             TEST_BINDINGS,
           )
@@ -777,7 +725,7 @@ describe("公開 Tier 表 API", () => {
       expect(
         (
           await app.request(
-            `/tier-lists/character/${publicId}/like`,
+            `/tier-lists/${publicId}/like`,
             { method: "PUT" },
             TEST_BINDINGS,
           )
@@ -786,7 +734,7 @@ describe("公開 Tier 表 API", () => {
       expect(
         (
           await app.request(
-            `/tier-lists/season/99999/like`,
+            `/tier-lists/99999/like`,
             { method: "PUT" },
             TEST_BINDINGS,
           )
@@ -794,7 +742,7 @@ describe("公開 Tier 表 API", () => {
       ).toBe(404);
     });
 
-    it("DELETE /:kind/:id/like: いいねを取り消せ、未いいねでも成功する（冪等）", async () => {
+    it("DELETE /:id/like: いいねを取り消せ、未いいねでも成功する（冪等）", async () => {
       const app = buildApp();
       const id = await insertCharacterList(db, {
         userId: OTHER_USER_ID,
@@ -802,12 +750,12 @@ describe("公開 Tier 表 API", () => {
       });
 
       await app.request(
-        `/tier-lists/character/${id}/like`,
+        `/tier-lists/${id}/like`,
         { method: "PUT" },
         TEST_BINDINGS,
       );
       const res = await app.request(
-        `/tier-lists/character/${id}/like`,
+        `/tier-lists/${id}/like`,
         { method: "DELETE" },
         TEST_BINDINGS,
       );
@@ -815,14 +763,14 @@ describe("公開 Tier 表 API", () => {
       expect(await res.json()).toEqual({ likeCount: 0, likedByMe: false });
 
       const again = await app.request(
-        `/tier-lists/character/${id}/like`,
+        `/tier-lists/${id}/like`,
         { method: "DELETE" },
         TEST_BINDINGS,
       );
       expect(again.status).toBe(200);
     });
 
-    it("DELETE /:kind/:id/like: 見えないリストは 404（いいね数を漏らさない）", async () => {
+    it("DELETE /:id/like: 見えないリストは 404（いいね数を漏らさない）", async () => {
       const app = buildApp();
       const id = await insertSeasonList(db, {
         userId: OTHER_USER_ID,
@@ -838,7 +786,7 @@ describe("公開 Tier 表 API", () => {
       expect(
         (
           await app.request(
-            `/tier-lists/season/${privateId}/like`,
+            `/tier-lists/${privateId}/like`,
             { method: "DELETE" },
             TEST_BINDINGS,
           )
@@ -847,7 +795,7 @@ describe("公開 Tier 表 API", () => {
 
       // 公開時にいいねしたあとで非公開化されても 404。
       await app.request(
-        `/tier-lists/season/${id}/like`,
+        `/tier-lists/${id}/like`,
         { method: "PUT" },
         TEST_BINDINGS,
       );
@@ -858,7 +806,7 @@ describe("公開 Tier 表 API", () => {
       expect(
         (
           await app.request(
-            `/tier-lists/season/${id}/like`,
+            `/tier-lists/${id}/like`,
             { method: "DELETE" },
             TEST_BINDINGS,
           )
@@ -870,7 +818,7 @@ describe("公開 Tier 表 API", () => {
   describe("Tier 表の通報", () => {
     beforeEach(() => asUser(USER_ID));
 
-    it("POST /:kind/:id/report: 公開リストを通報でき、kind と id が記録される", async () => {
+    it("POST /:id/report: 公開リストを通報でき、対象リストの id が記録される", async () => {
       const app = buildApp();
       const id = await insertCharacterList(db, {
         userId: OTHER_USER_ID,
@@ -878,7 +826,7 @@ describe("公開 Tier 表 API", () => {
       });
 
       const res = await app.request(
-        `/tier-lists/character/${id}/report`,
+        `/tier-lists/${id}/report`,
         jsonBody("POST", { reason: "不適切なコンテンツ" }),
         TEST_BINDINGS,
       );
@@ -888,11 +836,10 @@ describe("公開 Tier 表 API", () => {
         where: (t, { eq: eq_ }) => eq_(t.reporterId, USER_ID),
       });
       expect(stored?.reportedUserId).toBe(OTHER_USER_ID);
-      expect(stored?.reportedTierListKind).toBe("character");
       expect(stored?.reportedTierListId).toBe(id);
     });
 
-    it("POST /:kind/:id/report: 自分のリストは通報できない（400）", async () => {
+    it("POST /:id/report: 自分のリストは通報できない（400）", async () => {
       const app = buildApp();
       const id = await insertCustomList(db, {
         userId: USER_ID,
@@ -900,14 +847,14 @@ describe("公開 Tier 表 API", () => {
       });
 
       const res = await app.request(
-        `/tier-lists/custom/${id}/report`,
+        `/tier-lists/${id}/report`,
         jsonBody("POST", { reason: "理由" }),
         TEST_BINDINGS,
       );
       expect(res.status).toBe(400);
     });
 
-    it("POST /:kind/:id/report: 未公開リストは 404", async () => {
+    it("POST /:id/report: 未公開リストは 404", async () => {
       const app = buildApp();
       const id = await insertSeasonList(db, {
         userId: OTHER_USER_ID,
@@ -916,34 +863,34 @@ describe("公開 Tier 表 API", () => {
       });
 
       const res = await app.request(
-        `/tier-lists/season/${id}/report`,
+        `/tier-lists/${id}/report`,
         jsonBody("POST", { reason: "理由" }),
         TEST_BINDINGS,
       );
       expect(res.status).toBe(404);
     });
 
-    it("POST /:kind/:id/report: 同じリストへの再通報は 429（重複抑止）", async () => {
+    it("POST /:id/report: 同じリストへの再通報は 429（重複抑止）", async () => {
       const app = buildApp();
       const id = await insertSeasonList(db, {
         userId: OTHER_USER_ID,
         title: "表",
       });
-      // 別種別のリストを同時に通報しても同ターゲット重複にならない
+      // 別のリストを同時に通報しても同ターゲット重複にならない
       const customId = await insertCustomList(db, {
         userId: OTHER_USER_ID,
         title: "自由表",
       });
 
       const first = await app.request(
-        `/tier-lists/season/${id}/report`,
+        `/tier-lists/${id}/report`,
         jsonBody("POST", { reason: "理由" }),
         TEST_BINDINGS,
       );
       expect(first.status).toBe(201);
 
       const second = await app.request(
-        `/tier-lists/season/${id}/report`,
+        `/tier-lists/${id}/report`,
         jsonBody("POST", { reason: "理由" }),
         TEST_BINDINGS,
       );
@@ -959,7 +906,7 @@ describe("公開 Tier 表 API", () => {
       );
       expect(userReport.status).toBe(201);
       const otherReport = await app.request(
-        `/tier-lists/custom/${customId}/report`,
+        `/tier-lists/${customId}/report`,
         jsonBody("POST", { reason: "理由" }),
         TEST_BINDINGS,
       );

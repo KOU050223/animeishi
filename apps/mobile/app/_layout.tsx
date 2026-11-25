@@ -166,17 +166,11 @@ function AuthGuard() {
       {/* 名刺のデッキ一覧と全画面表示（issue #427。カスタムクロム維持） */}
       <Stack.Screen name="meishi/index" options={{ headerShown: false }} />
       <Stack.Screen name="meishi/[id]" options={{ headerShown: false }} />
-      {/* tier 表の作成導線と自由作成一覧（issue #348） */}
+      {/* tier 表の作成導線と作成済み一覧（issue #348） */}
       <Stack.Screen name="tier-lists" />
-      {/* シーズンごとのアニメ tier 表（没入型。以下 2 画面も同様） */}
+      {/* tier 表の編集（season / character / custom を 1 画面に統合。
+          issue #724。没入型ツール画面のためカスタムクロム維持） */}
       <Stack.Screen name="tier-list" options={{ headerShown: false }} />
-      {/* 作品ごとのキャラクター tier 表（issue #169） */}
-      <Stack.Screen
-        name="character-tier-list"
-        options={{ headerShown: false }}
-      />
-      {/* テーマを決めて自由に作る tier 表（issue #348） */}
-      <Stack.Screen name="custom-tier-list" options={{ headerShown: false }} />
       {/* オリジナル作品リストの一覧と編集（issue #349） */}
       <Stack.Screen name="work-lists" />
       <Stack.Screen name="work-list" />

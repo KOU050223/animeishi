@@ -95,7 +95,14 @@ export default function SocialLinksScreen() {
           </Text>
         </Pressable>
       ) : (
-        <ScrollView contentContainerClassName="px-4 py-6 pb-12 gap-4">
+        // 項目が増えると下側の入力欄がキーボードに隠れるため、iOS に
+        // キーボード分の inset 調整とフォーカス入力欄への自動スクロールを
+        // 任せる（issue #462）。
+        <ScrollView
+          contentContainerClassName="px-4 py-6 pb-12 gap-4"
+          automaticallyAdjustKeyboardInsets
+          keyboardShouldPersistTaps="handled"
+        >
           <Text className="text-sm text-secondary">
             {t("リンクごとに公開範囲を選べます。既定は交換した相手だけです。")}
           </Text>

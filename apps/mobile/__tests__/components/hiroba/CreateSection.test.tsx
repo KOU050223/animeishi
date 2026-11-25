@@ -5,6 +5,7 @@ import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { CreateSection } from "@/components/hiroba/CreateSection";
 import type { MergedTierListItem } from "@/lib/tierList/useMergedTierLists";
+import { featureFlags } from "@/lib/featureFlags";
 
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
@@ -54,6 +55,10 @@ jest.mock("@/components/tier-list/CharacterTierWorkPicker", () => ({
 
 beforeEach(async () => {
   jest.clearAllMocks();
+  // 作成導線は機能フラグで段階公開（issue #724）。3 択を検証する
+  // テストのためここでは両方有効にする。
+  Object.defineProperty(featureFlags, "characterTierList", { value: true });
+  Object.defineProperty(featureFlags, "customTierList", { value: true });
   mockTierItems = [];
   mockWorkLists = [];
   mockPickerProps = null;
@@ -67,7 +72,10 @@ describe("CreateSection", () => {
     expect(mockPush).toHaveBeenCalledWith("/tier-list");
 
     await fireEvent.press(screen.getByTestId("hiroba-create-custom-tier"));
-    expect(mockPush).toHaveBeenCalledWith("/custom-tier-list");
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/tier-list",
+      params: { kind: "custom" },
+    });
 
     await fireEvent.press(screen.getByTestId("hiroba-create-work-list"));
     expect(mockPush).toHaveBeenCalledWith("/work-list");
@@ -81,8 +89,8 @@ describe("CreateSection", () => {
 
     await act(() => mockPickerProps?.onSelect({ id: 99, title: "選んだ作品" }));
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/character-tier-list",
-      params: { workId: "99", workTitle: "選んだ作品" },
+      pathname: "/tier-list",
+      params: { kind: "character", workId: "99", workTitle: "選んだ作品" },
     });
     expect(mockPickerProps?.visible).toBe(false);
   });
@@ -107,18 +115,22 @@ describe("CreateSection", () => {
   it("Tier 表の横スクロールの各カードが種類に応じた編集画面を開く", async () => {
     mockTierItems = [
       {
-        key: "season-2026-spring",
+        key: "season-11",
         kind: "season",
-        id: "2026-spring",
+        id: 11,
+        season: "2026-spring",
+        annictWorkId: null,
         title: "春の表",
         shared: false,
         isPublic: false,
         updatedAt: "2026-05-01T00:00:00Z",
       },
       {
-        key: "character-42",
+        key: "character-12",
         kind: "character",
-        id: "42",
+        id: 12,
+        season: null,
+        annictWorkId: 42,
         title: "キャラの表",
         shared: false,
         isPublic: false,
@@ -127,7 +139,9 @@ describe("CreateSection", () => {
       {
         key: "custom-5",
         kind: "custom",
-        id: "5",
+        id: 5,
+        season: null,
+        annictWorkId: null,
         title: "自由の表",
         shared: false,
         isPublic: false,
@@ -136,24 +150,22 @@ describe("CreateSection", () => {
     ];
     await render(<CreateSection />);
 
-    await fireEvent.press(
-      screen.getByTestId("hiroba-tier-item-season-2026-spring"),
-    );
+    await fireEvent.press(screen.getByTestId("hiroba-tier-item-season-11"));
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/tier-list",
       params: { season: "2026-spring" },
     });
 
-    await fireEvent.press(screen.getByTestId("hiroba-tier-item-character-42"));
+    await fireEvent.press(screen.getByTestId("hiroba-tier-item-character-12"));
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/character-tier-list",
-      params: { workId: "42" },
+      pathname: "/tier-list",
+      params: { kind: "character", workId: "42" },
     });
 
     await fireEvent.press(screen.getByTestId("hiroba-tier-item-custom-5"));
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/custom-tier-list",
-      params: { id: "5" },
+      pathname: "/tier-list",
+      params: { kind: "custom", id: "5" },
     });
   });
 
@@ -174,18 +186,22 @@ describe("CreateSection", () => {
   it("3 種の Tier 表でリンク共有とひろば公開を別々に表示する", async () => {
     mockTierItems = [
       {
-        key: "season-2026-fall",
+        key: "season-11",
         kind: "season",
-        id: "2026-fall",
+        id: 11,
+        season: "2026-fall",
+        annictWorkId: null,
         title: "作品",
         shared: true,
         isPublic: false,
         updatedAt: "2026-11-01",
       },
       {
-        key: "character-42",
+        key: "character-12",
         kind: "character",
-        id: "42",
+        id: 12,
+        season: null,
+        annictWorkId: 42,
         title: "キャラ",
         shared: false,
         isPublic: true,
@@ -194,7 +210,9 @@ describe("CreateSection", () => {
       {
         key: "custom-5",
         kind: "custom",
-        id: "5",
+        id: 5,
+        season: null,
+        annictWorkId: null,
         title: "自由",
         shared: true,
         isPublic: true,

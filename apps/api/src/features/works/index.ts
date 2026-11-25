@@ -231,7 +231,7 @@ const works = app
     const db = createDb(getBindings(c).DB);
     const repo = worksRepository(db);
 
-    // キャラクター tier 表（character_tier_lists）の FK 先となる作品行と
+    // キャラクター tier 表（tier_lists, kind=character）の FK 先となる作品行と
     // キャラクター行をここでキャッシュする。作品自体は /works/search の
     // read-through でキャッシュ済みのことが多いが、キャラ一覧が保存の
     // 前提を満たすようこの経路でも upsert する。

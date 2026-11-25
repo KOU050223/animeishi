@@ -231,8 +231,12 @@ export function WatchHistorySection() {
     // キャラクター tier 表を開く操作を計測する（issue #214）。
     trackEvent("character_tier_open");
     router.push({
-      pathname: "/character-tier-list",
-      params: { workId: String(work.annictWorkId), workTitle: work.title },
+      pathname: "/tier-list",
+      params: {
+        kind: "character",
+        workId: String(work.annictWorkId),
+        workTitle: work.title,
+      },
     });
   };
 
@@ -600,7 +604,8 @@ export function WatchHistorySection() {
           position: "absolute",
           left: 0,
           right: 0,
-          bottom: 0,
+          // タブバーの下に潜らないよう safe area 分だけ持ち上げる（issue #462）
+          bottom: insets.bottom,
           zIndex: 20,
         }}
       >

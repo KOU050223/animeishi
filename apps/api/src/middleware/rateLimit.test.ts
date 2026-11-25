@@ -176,12 +176,12 @@ describe("ユーザー単位の流量制限（issue #715）", () => {
       expect(res.status).toBe(429);
     });
 
-    it("POST /tier-lists/:kind/:id/report", async () => {
+    it("POST /tier-lists/:id/report", async () => {
       signInAs(USER_A);
       const app = buildApp();
       const res = await postJson(
         app,
-        "/tier-lists/season/1/report",
+        "/tier-lists/1/report",
         { reason: "不適切なコンテンツ" },
         bindingsWith("REPORT_RATE_LIMITER", limiter(false)),
       );
@@ -217,8 +217,8 @@ describe("ユーザー単位の流量制限（issue #715）", () => {
       ["DELETE", `/users/${USER_B}/like`],
       ["PUT", "/work-lists/1/like"],
       ["DELETE", "/work-lists/1/like"],
-      ["PUT", "/tier-lists/season/1/like"],
-      ["DELETE", "/tier-lists/custom/1/like"],
+      ["PUT", "/tier-lists/1/like"],
+      ["DELETE", "/tier-lists/1/like"],
     ])("%s %s", async (method, path) => {
       signInAs(USER_A);
       const app = buildApp();

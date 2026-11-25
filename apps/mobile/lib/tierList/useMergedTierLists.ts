@@ -1,10 +1,10 @@
-import { useTierLists } from "./useTierList";
-import { useCharacterTierLists } from "./useCharacterTierList";
-import { useCustomTierLists } from "./useCustomTierList";
+import { featureFlags } from "@/lib/featureFlags";
+import { useMyTierLists } from "./useTierList";
 
 // tier 表 3 種類（シーズン・キャラ・自由）を 1 つの一覧として扱うための
-// 共通型とフック（issue #352）。ひろばの横スクロールとハブ画面
-// （/tier-lists）で同じ並びを出すためにまとめている。
+// 共通型とフック（issue #352、#724 で API を 1 モデルに統合）。
+// ひろばの横スクロールとハブ画面（/tier-lists）で同じ並びを出すために
+// まとめている。
 import type { TranslationKey } from "@/lib/i18n/keys";
 
 export type TierListKind = "season" | "character" | "custom";
@@ -15,12 +15,26 @@ export const TIER_KIND_LABELS: Record<TierListKind, TranslationKey> = {
   custom: "自由",
 };
 
+/**
+ * 機能フラグで有効な kind か（issue #724）。
+ * 無効な kind は作成選択肢にも一覧にも出さない（シーズン版のみが
+ * 既定の公開範囲。character / custom は機能フラグで段階的に開く）。
+ */
+export function isTierListKindEnabled(kind: TierListKind): boolean {
+  if (kind === "character") return featureFlags.characterTierList;
+  if (kind === "custom") return featureFlags.customTierList;
+  return true;
+}
+
 export type MergedTierListItem = {
   key: string;
   kind: TierListKind;
-  /** 編集画面へ渡す識別子。season は "2026-spring"、character は
-      annictWorkId、custom は id（いずれも文字列化）。 */
-  id: string;
+  /** tier_lists.id。編集画面・削除・共有の対象指定に使う。 */
+  id: number;
+  /** 編集画面へ渡すスコープ値。season は "2026-spring"、character は
+      annictWorkId。custom はスコープを持たず null。 */
+  season: string | null;
+  annictWorkId: number | null;
   title: string;
   shared: boolean;
   /** ひろばの公開一覧に載せる設定（issue #476）。一覧の「公開中」表示に使う。 */
@@ -29,57 +43,27 @@ export type MergedTierListItem = {
 };
 
 /**
- * 自分の tier 表 3 種類を更新日時の新しい順に混ぜた一覧。
- * 各一覧クエリの isLoading / isError は「どれか 1 つでも」で合成する
- * （部分的に表示すると更新日時順が崩れて見えるため）。
+ * 自分の tier 表を更新日時の新しい順に並べた一覧。
+ * 機能フラグで無効な kind は混ぜない（既定ではシーズン版だけが見える）。
  */
 export function useMergedTierLists() {
-  const seasonLists = useTierLists();
-  const characterLists = useCharacterTierLists();
-  const customLists = useCustomTierLists();
+  const lists = useMyTierLists();
 
-  const items: MergedTierListItem[] = (() => {
-    const merged: MergedTierListItem[] = [
-      ...(seasonLists.data ?? []).map((l) => ({
-        key: `season-${l.season}`,
-        kind: "season" as const,
-        id: l.season,
-        title: l.title,
-        shared: l.shareToken != null,
-        isPublic: l.isPublic,
-        // API の updatedAt は ISO 8601 文字列。文字列比較で新旧順になる。
-        updatedAt: String(l.updatedAt),
-      })),
-      ...(characterLists.data ?? []).map((l) => ({
-        key: `character-${l.annictWorkId}`,
-        kind: "character" as const,
-        id: String(l.annictWorkId),
-        title: l.title,
-        shared: l.shareToken != null,
-        isPublic: l.isPublic,
-        updatedAt: String(l.updatedAt),
-      })),
-      ...(customLists.data ?? []).map((l) => ({
-        key: `custom-${l.id}`,
-        kind: "custom" as const,
-        id: String(l.id),
-        title: l.title,
-        shared: l.shareToken != null,
-        isPublic: l.isPublic,
-        updatedAt: String(l.updatedAt),
-      })),
-    ];
-    merged.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
-    return merged;
-  })();
+  const items: MergedTierListItem[] = (lists.data ?? [])
+    .filter((l) => isTierListKindEnabled(l.kind))
+    .map((l) => ({
+      key: `${l.kind}-${l.id}`,
+      kind: l.kind,
+      id: l.id,
+      season: l.season,
+      annictWorkId: l.annictWorkId,
+      title: l.title,
+      shared: l.shareToken != null,
+      isPublic: l.isPublic,
+      // API の updatedAt は ISO 8601 文字列。文字列比較で新旧順になる。
+      updatedAt: String(l.updatedAt),
+    }))
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
 
-  return {
-    items,
-    isLoading:
-      seasonLists.isLoading ||
-      characterLists.isLoading ||
-      customLists.isLoading,
-    isError:
-      seasonLists.isError || characterLists.isError || customLists.isError,
-  };
+  return { items, isLoading: lists.isLoading, isError: lists.isError };
 }

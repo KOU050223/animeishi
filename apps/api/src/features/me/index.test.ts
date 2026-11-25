@@ -10,8 +10,6 @@ import {
   annictTokens,
   annictWorks,
   blocks,
-  characterTierLists,
-  customTierLists,
   deletedUsers,
   deletionFeedbacks,
   feedbacks,
@@ -1158,6 +1156,7 @@ describe("DELETE /me（アカウント削除）", () => {
     await db.insert(tierLists).values([
       {
         userId: USER_ID,
+        kind: "season",
         season: "2026-spring",
         title: "自分の tier 表",
         tiersJson: "[]",
@@ -1166,6 +1165,7 @@ describe("DELETE /me（アカウント削除）", () => {
       },
       {
         userId: OTHER_ID,
+        kind: "season",
         season: "2026-spring",
         title: "他人の tier 表",
         tiersJson: "[]",
@@ -1636,6 +1636,7 @@ describe("GET /me/deletion-summary（削除対象データの件数）", () => {
     await db.insert(tierLists).values([
       {
         userId: USER_ID,
+        kind: "season",
         season: "2026-spring",
         title: "シーズン tier",
         tiersJson: "[]",
@@ -1644,6 +1645,7 @@ describe("GET /me/deletion-summary（削除対象データの件数）", () => {
       },
       {
         userId: OTHER_ID,
+        kind: "season",
         season: "2026-spring",
         title: "他人の tier",
         tiersJson: "[]",
@@ -1651,19 +1653,19 @@ describe("GET /me/deletion-summary（削除対象データの件数）", () => {
         updatedAt: now,
       },
     ]);
-    await db.insert(characterTierLists).values([
+    await db.insert(tierLists).values([
       {
         userId: USER_ID,
+        kind: "character",
         annictWorkId: 100,
         title: "キャラ tier",
         tiersJson: "[]",
         createdAt: now,
         updatedAt: now,
       },
-    ]);
-    await db.insert(customTierLists).values([
       {
         userId: USER_ID,
+        kind: "custom",
         title: "自由 tier",
         tiersJson: "[]",
         createdAt: now,

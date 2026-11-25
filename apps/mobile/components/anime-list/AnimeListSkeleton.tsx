@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
+import { Skeleton, SkeletonGroup } from "@/components/ui/Skeleton";
 import { useAnimeListStyles } from "./animeListStyles";
 
 // スケルトンカードの最低表示数。1 列表示でもグリッドの面積が分かる程度に出す。
@@ -27,11 +28,9 @@ export function AnimeListSkeleton({
   const styles = useAnimeListStyles();
   const count = Math.max(numColumns * 3, SKELETON_MIN_COUNT);
   return (
-    <View
+    <SkeletonGroup
       style={[styles.skeletonContainer, { width: contentWidth }]}
-      accessible
       accessibilityLabel={t("作品を読み込んでいます")}
-      accessibilityState={{ busy: true }}
       testID="anime-list-skeleton"
     >
       {Array.from({ length: count }, (_, i) => (
@@ -40,13 +39,16 @@ export function AnimeListSkeleton({
           style={[styles.card, { width: cardWidth }]}
           testID="anime-list-skeleton-card"
         >
-          <View style={styles.skeletonPoster} />
+          <Skeleton style={styles.skeletonPoster} />
           <View style={styles.skeletonBody}>
-            <View style={styles.skeletonLine} />
-            <View style={[styles.skeletonLine, styles.skeletonLineShort]} />
+            <Skeleton style={styles.skeletonLine} />
+            <Skeleton
+              style={[styles.skeletonLine, styles.skeletonLineShort]}
+              muted
+            />
           </View>
         </View>
       ))}
-    </View>
+    </SkeletonGroup>
   );
 }

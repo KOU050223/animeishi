@@ -197,7 +197,7 @@ export async function fetchWorkListTopWorks(
  * workListsRepository: 認証済みユーザーIDを束縛した
  * work_lists ドメインのリポジトリ層。
  * 1 人で複数作れるためスコープキーを持たず、すべて id 指定で操作する
- * （customTierListsRepository と同じ構造）。
+ * （tierListsRepository と同じ構造）。
  */
 export function workListsRepository(db: DrizzleDb, currentUserId: string) {
   // id 指定の操作はすべて「自分のリストか」の確認を兼ねるため、

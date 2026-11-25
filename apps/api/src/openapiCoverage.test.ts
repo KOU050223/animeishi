@@ -17,15 +17,7 @@ const NON_JSON_ROUTES = [
   /^GET \/ui$/,
 ];
 
-// Tier 表 3 系統は #724 で作り直すため一時的に外す。#724 で消す。
-const PENDING_TIER_LIST_ROUTES = [
-  /^\w+ \/me\/tier-lists(\/|$)/,
-  /^\w+ \/me\/character-tier-lists(\/|$)/,
-  /^\w+ \/me\/custom-tier-lists(\/|$)/,
-  /^\w+ \/tier-lists\//,
-];
-
-const ALLOWLIST = [...NON_JSON_ROUTES, ...PENDING_TIER_LIST_ROUTES];
+const ALLOWLIST = [...NON_JSON_ROUTES];
 
 // Hono のパス（`:id`・`:id{[0-9]+}`）を OpenAPI のパス（`{id}`）にそろえる。
 function toOpenApiPath(path: string): string {

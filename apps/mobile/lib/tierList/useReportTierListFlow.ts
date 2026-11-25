@@ -3,7 +3,6 @@ import { useAuth } from "@clerk/expo";
 import { alert, confirm } from "@/lib/dialog";
 import { useBlockUser } from "@/lib/useModeration";
 import { useReportTierList } from "./usePublicTierLists";
-import type { TierListKind } from "./useMergedTierLists";
 
 /**
  * 公開 tier 表の通報フロー（issue #418）。
@@ -18,14 +17,13 @@ export function useReportTierListFlow() {
   const blockUser = useBlockUser();
 
   const submit = (input: {
-    kind: TierListKind;
     id: number;
     ownerUserId: string;
     ownerUsername: string;
     reason: string;
   }) => {
     reportTierList.mutate(
-      { kind: input.kind, id: input.id, reason: input.reason },
+      { id: input.id, reason: input.reason },
       {
         onSuccess: () => {
           // 自分のリストは API 側でも 400 にするが、UI 上は通報導線を

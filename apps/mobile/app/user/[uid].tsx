@@ -832,8 +832,9 @@ function ProfileWorkDetailSheet({
       onOpenCharacterTierList={(target) => {
         trackEvent("character_tier_open");
         router.push({
-          pathname: "/character-tier-list",
+          pathname: "/tier-list",
           params: {
+            kind: "character",
             workId: String(target.annictWorkId),
             workTitle: target.title,
           },

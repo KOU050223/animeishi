@@ -6,18 +6,17 @@ import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { requestUrl } from "../../test-utils/fetch";
-import { tierLists } from "#src/features/tier-lists/index";
-import { customTierLists } from "#src/features/custom-tier-lists/index";
-import { watchHistory } from "#src/features/watch-history/index";
-import { workListsRoute } from "#src/features/work-lists/index";
-import { share } from "#src/features/share/index";
-import { workImageKey } from "#src/lib/catalog/workImage";
+import { tierListsRoute } from "@/features/tier-lists";
+import { watchHistory } from "@/features/watch-history";
+import { workListsRoute } from "@/features/work-lists";
+import { share } from "@/features/share";
+import { workImageKey } from "@/lib/catalog/workImage";
 import {
   users,
   annictWorks,
   watchHistory as watchHistoryTable,
-} from "#src/db/schema";
-import * as schema from "#src/db/schema";
+} from "@/db/schema";
+import * as schema from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -60,24 +59,24 @@ const TIERS = [
 function buildApp() {
   const app = applyApiErrorHandling(new Hono<TestEnv>());
   app.route("/share", share);
-  app.route("/me/tier-lists", tierLists);
-  app.route("/me/custom-tier-lists", customTierLists);
+  app.route("/me/tier-lists", tierListsRoute);
   app.route("/me/work-lists", workListsRoute);
   return app;
 }
 
-function putBody(body: unknown) {
+function postBody(body: unknown) {
   return {
-    method: "PUT",
+    method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   };
 }
 
 async function seedTierList(app: ReturnType<typeof buildApp>) {
-  return app.request(
+  const res = await app.request(
     "/me/tier-lists",
-    putBody({
+    postBody({
+      kind: "season",
       season: SEASON,
       title: "2026春のTier表",
       tiers: TIERS,
@@ -88,6 +87,8 @@ async function seedTierList(app: ReturnType<typeof buildApp>) {
     }),
     TEST_BINDINGS,
   );
+  const { id } = (await res.json()) as { id: number };
+  return id;
 }
 
 describe("tier 表の共有", () => {
@@ -117,22 +118,22 @@ describe("tier 表の共有", () => {
     ]);
   });
 
-  it("POST /:season/share: そのシーズンの表が未作成なら 404 を返す", async () => {
+  it("POST /:id/share: 表が未作成なら 404 を返す", async () => {
     const app = buildApp();
     const res = await app.request(
-      `/me/tier-lists/${SEASON}/share`,
+      `/me/tier-lists/99999/share`,
       { method: "POST" },
       TEST_BINDINGS,
     );
     expect(res.status).toBe(404);
   });
 
-  it("POST /:season/share: トークンを発行し、再発行は同じトークンを返す", async () => {
+  it("POST /:id/share: トークンを発行し、再発行は同じトークンを返す", async () => {
     const app = buildApp();
-    await seedTierList(app);
+    const listId = await seedTierList(app);
 
     const res1 = await app.request(
-      `/me/tier-lists/${SEASON}/share`,
+      `/me/tier-lists/${listId}/share`,
       { method: "POST" },
       TEST_BINDINGS,
     );
@@ -143,7 +144,7 @@ describe("tier 表の共有", () => {
     expect(token1).toBeTruthy();
 
     const res2 = await app.request(
-      `/me/tier-lists/${SEASON}/share`,
+      `/me/tier-lists/${listId}/share`,
       { method: "POST" },
       TEST_BINDINGS,
     );
@@ -154,7 +155,7 @@ describe("tier 表の共有", () => {
 
     // GET /:season のレスポンスにも shareToken が含まれ、共有中か判別できる
     const getRes = await app.request(
-      `/me/tier-lists/${SEASON}`,
+      `/me/tier-lists/${listId}`,
       { method: "GET" },
       TEST_BINDINGS,
     );
@@ -162,21 +163,21 @@ describe("tier 表の共有", () => {
     expect(saved.shareToken).toBe(token1);
   });
 
-  it("POST /:season/share: 並行リクエストでも双方に同じトークンを返す", async () => {
+  it("POST /:id/share: 並行リクエストでも双方に同じトークンを返す", async () => {
     const app = buildApp();
-    await seedTierList(app);
+    const listId = await seedTierList(app);
 
     // 双方が share_token = null を読んでから UPDATE する競合を再現する。
     // 条件付き UPDATE + 読み直しで、先に書いた側のトークンが後から
     // 上書きされてリンク切れになることを防ぐ。
     const [res1, res2] = await Promise.all([
       app.request(
-        `/me/tier-lists/${SEASON}/share`,
+        `/me/tier-lists/${listId}/share`,
         { method: "POST" },
         TEST_BINDINGS,
       ),
       app.request(
-        `/me/tier-lists/${SEASON}/share`,
+        `/me/tier-lists/${listId}/share`,
         { method: "POST" },
         TEST_BINDINGS,
       ),
@@ -201,9 +202,9 @@ describe("tier 表の共有", () => {
 
   it("GET /share/tier-lists/:token: 認証なしで作品メタ付きの表を JSON 取得できる", async () => {
     const app = buildApp();
-    await seedTierList(app);
+    const listId = await seedTierList(app);
     const shareRes = await app.request(
-      `/me/tier-lists/${SEASON}/share`,
+      `/me/tier-lists/${listId}/share`,
       { method: "POST" },
       TEST_BINDINGS,
     );
@@ -239,19 +240,23 @@ describe("tier 表の共有", () => {
 
   it("GET /share/tier-lists/:token: 説明文が JSON と HTML に出る（issue #476）", async () => {
     const app = buildApp();
-    await app.request(
-      "/me/tier-lists",
-      putBody({
-        season: SEASON,
-        title: "2026春のTier表",
-        description: "このシーズンの推し",
-        tiers: TIERS,
-        items: [{ annictWorkId: WORK_A, tierKey: "s" }],
-      }),
-      TEST_BINDINGS,
-    );
+    const created = (await (
+      await app.request(
+        "/me/tier-lists",
+        postBody({
+          kind: "season",
+          season: SEASON,
+          title: "2026春のTier表",
+          description: "このシーズンの推し",
+          tiers: TIERS,
+          items: [{ annictWorkId: WORK_A, tierKey: "s" }],
+        }),
+        TEST_BINDINGS,
+      )
+    ).json()) as { id: number };
+    const listId = created.id;
     const shareRes = await app.request(
-      `/me/tier-lists/${SEASON}/share`,
+      `/me/tier-lists/${listId}/share`,
       { method: "POST" },
       TEST_BINDINGS,
     );
@@ -284,11 +289,11 @@ describe("tier 表の共有", () => {
     expect(res.status).toBe(404);
   });
 
-  it("DELETE /:season/share: 解除すると公開取得が 404 になり、再発行で別トークンになる", async () => {
+  it("DELETE /:id/share: 解除すると公開取得が 404 になり、再発行で別トークンになる", async () => {
     const app = buildApp();
-    await seedTierList(app);
+    const listId = await seedTierList(app);
     const shareRes = await app.request(
-      `/me/tier-lists/${SEASON}/share`,
+      `/me/tier-lists/${listId}/share`,
       { method: "POST" },
       TEST_BINDINGS,
     );
@@ -297,7 +302,7 @@ describe("tier 表の共有", () => {
     };
 
     const delRes = await app.request(
-      `/me/tier-lists/${SEASON}/share`,
+      `/me/tier-lists/${listId}/share`,
       { method: "DELETE" },
       TEST_BINDINGS,
     );
@@ -311,7 +316,7 @@ describe("tier 表の共有", () => {
     expect(publicRes.status).toBe(404);
 
     const reshare = await app.request(
-      `/me/tier-lists/${SEASON}/share`,
+      `/me/tier-lists/${listId}/share`,
       { method: "POST" },
       TEST_BINDINGS,
     );
@@ -323,9 +328,9 @@ describe("tier 表の共有", () => {
 
   it("GET /share/tier-lists/:token: Accept: text/html で OGP 付きの共有ページを返す", async () => {
     const app = buildApp();
-    await seedTierList(app);
+    const listId = await seedTierList(app);
     const shareRes = await app.request(
-      `/me/tier-lists/${SEASON}/share`,
+      `/me/tier-lists/${listId}/share`,
       { method: "POST" },
       TEST_BINDINGS,
     );
@@ -368,9 +373,9 @@ describe("tier 表の共有", () => {
 
   it("GET /share/tier-lists/:token: 作品画像プロキシの URL が JSON/HTML に載る", async () => {
     const app = buildApp();
-    await seedTierList(app);
+    const listId = await seedTierList(app);
     const shareRes = await app.request(
-      `/me/tier-lists/${SEASON}/share`,
+      `/me/tier-lists/${listId}/share`,
       { method: "POST" },
       TEST_BINDINGS,
     );
@@ -417,18 +422,22 @@ describe("tier 表の共有", () => {
       resolvedImageUrl: "javascript:alert(1)",
       updatedAt: new Date(),
     });
-    await app.request(
-      "/me/tier-lists",
-      putBody({
-        season: SEASON,
-        title: "2026春のTier表",
-        tiers: TIERS,
-        items: [{ annictWorkId: WORK_EVIL, tierKey: "s" }],
-      }),
-      TEST_BINDINGS,
-    );
+    const created = (await (
+      await app.request(
+        "/me/tier-lists",
+        postBody({
+          kind: "season",
+          season: SEASON,
+          title: "2026春のTier表",
+          tiers: TIERS,
+          items: [{ annictWorkId: WORK_EVIL, tierKey: "s" }],
+        }),
+        TEST_BINDINGS,
+      )
+    ).json()) as { id: number };
+    const listId = created.id;
     const shareRes = await app.request(
-      `/me/tier-lists/${SEASON}/share`,
+      `/me/tier-lists/${listId}/share`,
       { method: "POST" },
       TEST_BINDINGS,
     );
@@ -457,18 +466,22 @@ describe("tier 表の共有", () => {
       imageUrl: "https://cdn.example.com/poster.png",
       updatedAt: new Date(),
     });
-    await app.request(
-      "/me/tier-lists",
-      putBody({
-        season: SEASON,
-        title: "2026春のTier表",
-        tiers: TIERS,
-        items: [{ annictWorkId: WORK_EVIL, tierKey: "s" }],
-      }),
-      TEST_BINDINGS,
-    );
+    const created = (await (
+      await app.request(
+        "/me/tier-lists",
+        postBody({
+          kind: "season",
+          season: SEASON,
+          title: "2026春のTier表",
+          tiers: TIERS,
+          items: [{ annictWorkId: WORK_EVIL, tierKey: "s" }],
+        }),
+        TEST_BINDINGS,
+      )
+    ).json()) as { id: number };
+    const listId = created.id;
     const shareRes = await app.request(
-      `/me/tier-lists/${SEASON}/share`,
+      `/me/tier-lists/${listId}/share`,
       { method: "POST" },
       TEST_BINDINGS,
     );
@@ -522,11 +535,12 @@ describe("自由作成 tier 表の共有（issue #348）", () => {
 
   async function seedCustomTierList(app: ReturnType<typeof buildApp>) {
     const res = await app.request(
-      "/me/custom-tier-lists",
+      "/me/tier-lists",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          kind: "custom",
           title: "歴代で好きなアニメ",
           tiers: TIERS,
           items: [
@@ -543,7 +557,7 @@ describe("自由作成 tier 表の共有（issue #348）", () => {
 
   async function issueShareToken(app: ReturnType<typeof buildApp>, id: number) {
     const res = await app.request(
-      `/me/custom-tier-lists/${id}/share`,
+      `/me/tier-lists/${id}/share`,
       { method: "POST" },
       TEST_BINDINGS,
     );
@@ -551,7 +565,7 @@ describe("自由作成 tier 表の共有（issue #348）", () => {
     return shareToken;
   }
 
-  it("GET /share/custom-tier-lists/:token: 認証なしで作品メタ付きの表を JSON 取得できる", async () => {
+  it("GET /share/tier-lists/:token: 認証なしで作品メタ付きの表を JSON 取得できる", async () => {
     const app = buildApp();
     const id = await seedCustomTierList(app);
     const shareToken = await issueShareToken(app, id);
@@ -561,13 +575,14 @@ describe("自由作成 tier 表の共有（issue #348）", () => {
     );
 
     const res = await app.request(
-      `/share/custom-tier-lists/${shareToken}`,
+      `/share/tier-lists/${shareToken}`,
       { method: "GET", headers: { Accept: "application/json" } },
       TEST_BINDINGS,
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       title: string;
+      season: string | null;
       tiers: { key: string; label: string; color: string }[];
       owner: { username: string };
       items: {
@@ -588,18 +603,19 @@ describe("自由作成 tier 表の共有（issue #348）", () => {
     expect(body.items[0]?.hostedImageUrl).toBe(
       `http://localhost/images/works/${WORK_A}`,
     );
-    // シーズン版と違い season キーは出さない
-    expect("season" in body).toBe(false);
+    // シーズンを持たない custom では season は null
+    expect(body.season).toBeNull();
   });
 
-  it("GET /share/custom-tier-lists/:token: 説明文が JSON と HTML に出る（issue #476）", async () => {
+  it("GET /share/tier-lists/:token: 説明文が JSON と HTML に出る（issue #476）", async () => {
     const app = buildApp();
     const res = await app.request(
-      "/me/custom-tier-lists",
+      "/me/tier-lists",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          kind: "custom",
           title: "歴代で好きなアニメ",
           description: "このジャンルのベスト",
           tiers: TIERS,
@@ -612,7 +628,7 @@ describe("自由作成 tier 表の共有（issue #348）", () => {
     const shareToken = await issueShareToken(app, id);
 
     const jsonRes = await app.request(
-      `/share/custom-tier-lists/${shareToken}`,
+      `/share/tier-lists/${shareToken}`,
       { method: "GET", headers: { Accept: "application/json" } },
       TEST_BINDINGS,
     );
@@ -620,7 +636,7 @@ describe("自由作成 tier 表の共有（issue #348）", () => {
     expect(body.description).toBe("このジャンルのベスト");
 
     const htmlRes = await app.request(
-      `/share/custom-tier-lists/${shareToken}`,
+      `/share/tier-lists/${shareToken}`,
       { method: "GET", headers: { Accept: "text/html" } },
       TEST_BINDINGS,
     );
@@ -628,23 +644,23 @@ describe("自由作成 tier 表の共有（issue #348）", () => {
     expect(html).toContain("このジャンルのベスト");
   });
 
-  it("GET /share/custom-tier-lists/:token: 不明なトークンは 404 を返す", async () => {
+  it("GET /share/tier-lists/:token: 不明なトークンは 404 を返す", async () => {
     const app = buildApp();
     const res = await app.request(
-      "/share/custom-tier-lists/no-such-token",
+      "/share/tier-lists/no-such-token",
       { method: "GET" },
       TEST_BINDINGS,
     );
     expect(res.status).toBe(404);
   });
 
-  it("GET /share/custom-tier-lists/:token: Accept: text/html で OGP 付きの共有ページを返す", async () => {
+  it("GET /share/tier-lists/:token: Accept: text/html で OGP 付きの共有ページを返す", async () => {
     const app = buildApp();
     const id = await seedCustomTierList(app);
     const shareToken = await issueShareToken(app, id);
 
     const res = await app.request(
-      `/share/custom-tier-lists/${shareToken}`,
+      `/share/tier-lists/${shareToken}`,
       { method: "GET", headers: { Accept: "text/html" } },
       TEST_BINDINGS,
     );
@@ -671,14 +687,14 @@ describe("自由作成 tier 表の共有（issue #348）", () => {
     const shareToken = await issueShareToken(app, id);
 
     const delRes = await app.request(
-      `/me/custom-tier-lists/${id}/share`,
+      `/me/tier-lists/${id}/share`,
       { method: "DELETE" },
       TEST_BINDINGS,
     );
     expect(delRes.status).toBe(200);
 
     const publicRes = await app.request(
-      `/share/custom-tier-lists/${shareToken}`,
+      `/share/tier-lists/${shareToken}`,
       { method: "GET" },
       TEST_BINDINGS,
     );
@@ -1639,9 +1655,9 @@ describe("共有ページの og:url / canonical（issue #408）", () => {
   });
 
   async function issueTierListToken(app: ReturnType<typeof buildApp>) {
-    await seedTierList(app);
+    const listId = await seedTierList(app);
     const shareRes = await app.request(
-      `/me/tier-lists/${SEASON}/share`,
+      `/me/tier-lists/${listId}/share`,
       { method: "POST" },
       TEST_BINDINGS,
     );

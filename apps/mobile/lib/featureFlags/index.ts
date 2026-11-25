@@ -21,6 +21,12 @@ export const featureFlags = {
   elections: process.env.EXPO_PUBLIC_FEATURE_ELECTIONS === "true",
   events: process.env.EXPO_PUBLIC_FEATURE_EVENTS === "true",
   articles: process.env.EXPO_PUBLIC_FEATURE_ARTICLES === "true",
+  // キャラクター・自由作成 tier 表（#724）。v1.0 ではシーズン版のみ公開
+  // するため既定非表示。有効化は
+  // EXPO_PUBLIC_FEATURE_CHARACTER_TIER_LIST / _CUSTOM_TIER_LIST=true。
+  characterTierList:
+    process.env.EXPO_PUBLIC_FEATURE_CHARACTER_TIER_LIST === "true",
+  customTierList: process.env.EXPO_PUBLIC_FEATURE_CUSTOM_TIER_LIST === "true",
   // Google ログイン（#89）。開発インスタンス（pk_test_）のみ既定 ON。
   googleSignIn,
   // パスキー（#181）。Web のみ。ネイティブは #107 待ちのため常に無効。

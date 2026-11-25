@@ -2,6 +2,7 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import AnalysisScreen from "@/app/analysis";
 import { ApiRequestError } from "@/lib/apiError";
+import { featureFlags } from "@/lib/featureFlags";
 
 // おすすめカードの詳細導線（issue #347）を検証する画面テスト。
 // 分析・おすすめの生成ロジックは各フックのテストに任せ、ここでは
@@ -304,6 +305,8 @@ describe("AnalysisScreen のおすすめカード", () => {
   });
 
   it("シートの「キャラ Tier 表を作る」から対象作品を渡して遷移する", async () => {
+    // キャラ Tier は機能フラグで段階公開（#724）。ボタンを出すため有効化。
+    Object.defineProperty(featureFlags, "characterTierList", { value: true });
     await render(<AnalysisScreen />);
 
     await fireEvent.press(screen.getByTestId("recommendation-detail-42"));
@@ -312,8 +315,8 @@ describe("AnalysisScreen のおすすめカード", () => {
     );
 
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/character-tier-list",
-      params: { workId: "42", workTitle: "おすすめアニメ" },
+      pathname: "/tier-list",
+      params: { kind: "character", workId: "42", workTitle: "おすすめアニメ" },
     });
     expect(screen.queryByTestId("anime-work-detail-sheet")).toBeNull();
   });

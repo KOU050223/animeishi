@@ -13,7 +13,6 @@ import type {
   PublicTierListsSort,
   TierListLikeResponse,
 } from "@/lib/queries/tierLists";
-import type { TierListKind } from "./useMergedTierLists";
 
 // 公開 tier 表（ひろば「みつける」タブ, issue #418）。sort ごとに
 // キャッシュを分ける。先頭 2 要素が共通プレフィックスなので、
@@ -48,11 +47,11 @@ export function usePublicTierLists(sort: PublicTierListsSort) {
  * みつけるカードの遷移先画面が読む。一覧と同じ可視条件なので、
  * 見えないリストは 404（data undefined・isError）になる。
  */
-export function usePublicTierList(kind: TierListKind, id: number | null) {
+export function usePublicTierList(id: number | null) {
   const { isSignedIn } = useAuth();
 
   return useQuery({
-    ...tierListQueries.public.detail.query({ kind, id: id ?? 0 }),
+    ...tierListQueries.public.detail.query({ id: id ?? 0 }),
     enabled: !!isSignedIn && id !== null,
   });
 }
@@ -66,11 +65,7 @@ export function useToggleTierListLike() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: {
-      kind: TierListKind;
-      id: number;
-      like: boolean;
-    }) => {
+    mutationFn: async (input: { id: number; like: boolean }) => {
       // 流量制限ミドルウェアの 429 は {error} に理由が入るため、
       // 標準の ApiRequestError 化ではなく応答の文言を拾う。
       const fetch = apiFetch({
@@ -90,13 +85,10 @@ export function useToggleTierListLike() {
           );
         },
       });
-      const param = { kind: input.kind, id: String(input.id) };
+      const param = { id: String(input.id) };
       const res = input.like
-        ? await apiClient["tier-lists"][":kind"][":id"].like.$put(
-            { param },
-            { fetch },
-          )
-        : await apiClient["tier-lists"][":kind"][":id"].like.$delete(
+        ? await apiClient["tier-lists"][":id"].like.$put({ param }, { fetch })
+        : await apiClient["tier-lists"][":id"].like.$delete(
             { param },
             { fetch },
           );
@@ -113,7 +105,7 @@ export function useToggleTierListLike() {
                   pages: prev.pages.map((page) => ({
                     ...page,
                     items: page.items.map((item) =>
-                      item.kind === input.kind && item.id === input.id
+                      item.id === input.id
                         ? {
                             ...item,
                             likeCount: data.likeCount,
@@ -128,7 +120,7 @@ export function useToggleTierListLike() {
       }
       // 詳細画面のキャッシュも同じ応答で更新する。
       queryClient.setQueryData(
-        publicTierListQueryKey(input.kind, input.id),
+        publicTierListQueryKey(input.id),
         (prev: { likeCount: number; likedByMe: boolean } | undefined) =>
           prev
             ? {
@@ -150,14 +142,10 @@ export function useReportTierList() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: {
-      kind: TierListKind;
-      id: number;
-      reason: string;
-    }) => {
-      const res = await apiClient["tier-lists"][":kind"][":id"].report.$post(
+    mutationFn: async (input: { id: number; reason: string }) => {
+      const res = await apiClient["tier-lists"][":id"].report.$post(
         {
-          param: { kind: input.kind, id: String(input.id) },
+          param: { id: String(input.id) },
           json: { reason: input.reason },
         },
         {

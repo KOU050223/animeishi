@@ -67,8 +67,6 @@ export type AnimeListPalette = {
   errorIcon: string;
   /** 空状態の中性アイコン。 */
   stateIcon: string;
-  /** ローディング中のスピナー（loadingMark 内）。 */
-  spinner: string;
   /** 画面の主ボタン（再試行）。反転した塗りにする。 */
   primaryButtonBg: string;
   primaryButtonText: string;
@@ -114,7 +112,6 @@ const lightPalette: AnimeListPalette = {
   errorBoxBorder: "#fecdd3",
   errorIcon: "#b42318",
   stateIcon: "#475569",
-  spinner: "#0f172a",
   primaryButtonBg: "#0f172a",
   primaryButtonText: "#ffffff",
 };
@@ -159,7 +156,6 @@ const darkPalette: AnimeListPalette = {
   errorBoxBorder: "#9f1239",
   errorIcon: "#f87171",
   stateIcon: "#a8a29e",
-  spinner: "#e7e5e4",
   primaryButtonBg: "#e7e5e4",
   primaryButtonText: "#1c1917",
 };
@@ -441,7 +437,8 @@ function createStyles(p: AnimeListPalette) {
       borderColor: p.favoriteActiveBorder,
     },
     // 作品一覧のローディングスケルトン（AnimeListSkeleton）。実カードと同じ
-    // 行方向レイアウト（ポスター + テキスト行）を muted 色で敷く。
+    // 行方向レイアウト（ポスター + テキスト行）で敷く。骨の色は
+    // Skeleton 側のテーマトークンが決めるため、ここには寸法だけ定義する。
     skeletonContainer: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -452,7 +449,6 @@ function createStyles(p: AnimeListPalette) {
       width: 68,
       height: 92,
       borderRadius: 6,
-      backgroundColor: p.skeleton,
     },
     skeletonBody: {
       flex: 1,
@@ -464,7 +460,6 @@ function createStyles(p: AnimeListPalette) {
       width: "100%",
       height: 12,
       borderRadius: 6,
-      backgroundColor: p.skeleton,
     },
     skeletonLineShort: {
       width: "55%",
@@ -474,16 +469,6 @@ function createStyles(p: AnimeListPalette) {
       justifyContent: "center",
       paddingHorizontal: 30,
       paddingVertical: 54,
-    },
-    loadingMark: {
-      width: 56,
-      height: 56,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: 8,
-      backgroundColor: p.iconBoxBg,
-      borderWidth: 1,
-      borderColor: p.iconBoxBorder,
     },
     stateIcon: {
       width: 56,

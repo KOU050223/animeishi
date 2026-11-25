@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Text,
   TouchableOpacity,
@@ -237,8 +236,12 @@ export function AnimeListContent({
     // キャラクター tier 表を開く操作を計測する（issue #214）。
     trackEvent("character_tier_open");
     router.push({
-      pathname: "/character-tier-list",
-      params: { workId: String(work.annictWorkId), workTitle: work.title },
+      pathname: "/tier-list",
+      params: {
+        kind: "character",
+        workId: String(work.annictWorkId),
+        workTitle: work.title,
+      },
     });
   };
 
@@ -496,13 +499,12 @@ export function AnimeListContent({
           isAccessLoading ? (
             // 連携状態（SecureStore）・共用トークン有無の確認中は canBrowseWorks=false になるため、
             // 連携済みユーザーに一瞬ソフトゲートを見せて誤って OAuth を再開させないよう、
-            // 確定するまではローディング表示にとどめる（watch-history と挙動を揃える）。
-            <View style={styles.emptyState}>
-              <View style={styles.loadingMark}>
-                <ActivityIndicator size="small" color={palette.spinner} />
-              </View>
-              <Text style={styles.emptyTitle}>{t("読み込んでいます")}</Text>
-            </View>
+            // 確定するまではローディング表示（スケルトン）にとどめる（watch-history と挙動を揃える）。
+            <AnimeListSkeleton
+              cardWidth={cardWidth}
+              contentWidth={contentWidth}
+              numColumns={numColumns}
+            />
           ) : needsAnnictLink ? (
             // 未連携でも共用トークンで検索できる（issue #561）。共用トークンが無い・
             // 使えないときだけ、検索結果ではなく連携誘導を出す。ソフトゲートからその場で連携できる。

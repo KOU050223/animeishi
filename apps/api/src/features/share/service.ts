@@ -10,13 +10,11 @@ import { serveWorkImage, workImageUrl } from "#src/lib/catalog/workImage";
 import type { GuestCtaSource } from "@animeishi/observability";
 import { renderSharePage, statsHtml } from "./layout";
 import { isKnownImageUrl } from "./repository";
+import type { SharedWatchHistory, SharedWorkList } from "./repository";
 import type {
-  SharedCharacterTierList,
-  SharedCustomTierList,
-  SharedTierList,
-  SharedWatchHistory,
-  SharedWorkList,
-} from "./repository";
+  TierListItemWithCharacter,
+  TierListItemWithWork,
+} from "../tier-lists/repository";
 
 export type TierRow = { key: string; label: string; color: string };
 
@@ -356,8 +354,34 @@ function tierLabelHtml(tier: TierRow): HtmlEscapedString {
   return html`<div class="tier-label" style="background-color: ${color}; color: ${tierLabelTextColor(color)}">${tier.label}</div>`;
 }
 
+// HTML ビルダーに渡す形。SharedTierList（repository.ts）の items は
+// kind 別の union なので、呼び出し側（share/index.ts）で kind ごとに
+// 絞ってから渡す。
+export type WorkTierListPageInput = {
+  title: string;
+  /** 表の説明文。未設定なら null。 */
+  description: string | null;
+  tiersJson: string;
+  ownerUsername: string;
+  items: TierListItemWithWork[];
+};
+export type SeasonTierListPageInput = WorkTierListPageInput & {
+  season: string;
+};
+export type CharacterTierListPageInput = {
+  annictWorkId: number;
+  /** 表の対象作品のタイトル（共有ページの見出し・OGP 用）。 */
+  workTitle: string;
+  title: string;
+  /** 表の説明文。未設定なら null。 */
+  description: string | null;
+  tiersJson: string;
+  ownerUsername: string;
+  items: TierListItemWithCharacter[];
+};
+
 export function buildSharedTierListHtml(
-  list: SharedTierList,
+  list: SeasonTierListPageInput,
   requestUrl: string,
   canonicalUrl: string,
 ): string {
@@ -381,7 +405,7 @@ export function buildSharedTierListHtml(
  * ため、所有者行は「の Tier 表」だけにする（issue #348）。
  */
 export function buildSharedCustomTierListHtml(
-  list: SharedCustomTierList,
+  list: WorkTierListPageInput,
   requestUrl: string,
   canonicalUrl: string,
 ): string {
@@ -409,7 +433,7 @@ function buildWorkTierListHtml(input: {
     // （work-list の共有ページと同じ扱い）。
     description?: string | null;
     tiersJson: string;
-    items: SharedTierList["items"];
+    items: TierListItemWithWork[];
   };
   ownerLine: string;
   ownerUsername: string;
@@ -418,7 +442,7 @@ function buildWorkTierListHtml(input: {
   ctaSource: GuestCtaSource;
 }): string {
   const tiers = parseTiersJson(input.list.tiersJson);
-  const itemsByTier = new Map<string, SharedTierList["items"]>();
+  const itemsByTier = new Map<string, TierListItemWithWork[]>();
   for (const item of input.list.items) {
     const arr = itemsByTier.get(item.tierKey) ?? [];
     arr.push(item);
@@ -540,7 +564,7 @@ export function workListNotFoundHtml(): string {
 }
 
 function characterImageHtml(
-  item: SharedCharacterTierList["items"][number],
+  item: TierListItemWithCharacter,
 ): HtmlEscapedString {
   const src = item.imageUrl;
   if (!src || !isSafeImageUrl(src)) return html``;
@@ -548,11 +572,11 @@ function characterImageHtml(
 }
 
 export function buildSharedCharacterTierListHtml(
-  list: SharedCharacterTierList,
+  list: CharacterTierListPageInput,
   canonicalUrl: string,
 ): string {
   const tiers = parseTiersJson(list.tiersJson);
-  const itemsByTier = new Map<string, SharedCharacterTierList["items"]>();
+  const itemsByTier = new Map<string, TierListItemWithCharacter[]>();
   for (const item of list.items) {
     const arr = itemsByTier.get(item.tierKey) ?? [];
     arr.push(item);

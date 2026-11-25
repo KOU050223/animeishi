@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Linking,
   ScrollView,
   Text,
@@ -49,7 +48,9 @@ import { alert } from "@/lib/dialog";
 import { useAnnictConnection, useAnnictTokenErrorPrompt } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { trackEvent } from "@/lib/events";
+import { featureFlags } from "@/lib/featureFlags";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
+import { Skeleton, SkeletonGroup } from "@/components/ui/Skeleton";
 import { AddToWorkListSheet } from "@/components/work-list";
 import { buildDanimeWorkSearchUrl } from "@/lib/danime/workSearchUrl";
 import {
@@ -107,7 +108,6 @@ export function AnimeWorkDetailSheet({
   const router = useRouter();
   const { userId } = useAuth();
   const { height } = useWindowDimensions();
-  const palette = useAnimeListPalette();
   const colors = useThemeColors();
   const { t } = useTranslation();
   const detail = useWorkDetail(work?.annictWorkId ?? null);
@@ -350,10 +350,24 @@ export function AnimeWorkDetailSheet({
               {isConnectionLoading ? (
                 // 連携状態が確定するまでチップ/ゲートのどちらも出さない
                 // （連携済みユーザーに一瞬ゲートを見せないため。一覧と同じ扱い）。
+                // ラベルは付けない: 読み上げは詳細情報側のスケルトンが担う。
                 <StatusSectionFrame>
-                  <View className="items-center py-4">
-                    <ActivityIndicator size="small" color={palette.spinner} />
-                  </View>
+                  {/* 実側のチップ列と同じく横スクロール枠に入れる
+                    （5 枚並ぶと狭い画面で幅をはみ出すため）。
+                    骨は muted にしない: シートの面は surface で、
+                    dark では skeletonMuted と同色になり消えてしまう。 */}
+                  <SkeletonGroup testID="work-detail-status-skeleton">
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                    >
+                      <View className="flex-row gap-2">
+                        {WATCH_STATUSES.map((s) => (
+                          <Skeleton key={s} className="h-9 w-16 rounded-full" />
+                        ))}
+                      </View>
+                    </ScrollView>
+                  </SkeletonGroup>
                 </StatusSectionFrame>
               ) : !isConnected ? (
                 // 未連携でステータスを選んでも API が必ず失敗するため、
@@ -573,7 +587,6 @@ function RatingSection({
   work: WorkDetailSheetTarget;
   isWatched: boolean;
 }) {
-  const palette = useAnimeListPalette();
   const { t } = useTranslation();
   const ratingQuery = useWorkRating(work.annictWorkId);
   const upsert = useUpsertWorkRating(work.annictWorkId);
@@ -683,9 +696,11 @@ function RatingSection({
         </Text>
       ) : null}
       {ratingQuery.isLoading ? (
-        <View className="items-center py-4">
-          <ActivityIndicator size="small" color={palette.spinner} />
-        </View>
+        <SkeletonGroup className="flex-row gap-2" testID="work-rating-skeleton">
+          {WORK_RATINGS.map((r) => (
+            <Skeleton key={r} className="h-9 flex-1 rounded-full" />
+          ))}
+        </SkeletonGroup>
       ) : ratingQuery.isError ? (
         <View className="items-center py-2 gap-2">
           <Text className="text-xs text-muted">
@@ -866,7 +881,6 @@ function EpisodeSection({
   onTokenError: (error: unknown) => boolean;
   onEpisodesRecorded: (annictWorkId: number, allWatched: boolean) => void;
 }) {
-  const palette = useAnimeListPalette();
   const { t } = useTranslation();
   const episodesQuery = useWorkEpisodes(work.annictWorkId);
   const episodes = [...(episodesQuery.data?.episodes ?? [])].sort(
@@ -880,10 +894,16 @@ function EpisodeSection({
   });
 
   if (episodesQuery.isLoading) {
+    // セクションの見出し・記録ボタン・チェック行の並びを骨で敷く。
+    // ラベルは付けない: 読み上げは詳細情報側のスケルトンが担う。
     return (
-      <View className="items-center py-4">
-        <ActivityIndicator size="small" color={palette.spinner} />
-      </View>
+      <SkeletonGroup className="gap-2" testID="episode-list-skeleton">
+        <Skeleton className="h-4 w-16 rounded" />
+        <Skeleton className="mb-1 h-9 w-full rounded-lg" />
+        <Skeleton className="h-6 w-3/4 rounded" />
+        <Skeleton className="h-6 w-2/3 rounded" />
+        <Skeleton className="h-6 w-5/6 rounded" />
+      </SkeletonGroup>
     );
   }
   if (episodesQuery.isError) {
@@ -1091,19 +1111,23 @@ function ActionRow({
           {isFavorite ? t("推し登録を解除") : t("推しに登録")}
         </Text>
       </TouchableOpacity>
-      <TouchableOpacity
-        className="flex-1 items-center rounded-lg bg-indigo-50 py-2.5 dark:bg-indigo-950"
-        onPress={onOpenCharacterTierList}
-        accessibilityRole="button"
-        accessibilityLabel={t("{{title}} のキャラクター Tier 表を作る", {
-          title,
-        })}
-        testID="work-detail-character-tier-list"
-      >
-        <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-          {t("キャラ Tier 表を作る")}
-        </Text>
-      </TouchableOpacity>
+      {/* キャラ版は機能フラグで段階公開（issue #724）。既定の
+          Release ビルドではシーズン版だけが作れる。 */}
+      {featureFlags.characterTierList ? (
+        <TouchableOpacity
+          className="flex-1 items-center rounded-lg bg-indigo-50 py-2.5 dark:bg-indigo-950"
+          onPress={onOpenCharacterTierList}
+          accessibilityRole="button"
+          accessibilityLabel={t("{{title}} のキャラクター Tier 表を作る", {
+            title,
+          })}
+          testID="work-detail-character-tier-list"
+        >
+          <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+            {t("キャラ Tier 表を作る")}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
