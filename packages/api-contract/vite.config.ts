@@ -1,7 +1,7 @@
 import { defineConfig } from "vite-plus";
 
-// API の OpenAPI 仕様（openapi.json）とそこから生成した型（schema.d.ts）を
-// コミット済みファイルと照合するパッケージ（issue #725）。
+// API の OpenAPI 仕様（openapi.json）をコミット済みファイルと照合する
+// パッケージ（issue #725）。
 // check は CI で実行され、API 側のルート・スキーマ変更に追従していない
 // 生成物のずれを検出する。ずれたときは `vp run @animeishi/api-contract#generate`
 // で書き直す。
@@ -9,12 +9,7 @@ export default defineConfig({
   run: {
     tasks: {
       typecheck: {
-        // openapi-typescript が peer に typescript@^5 を要求するため、この
-        // パッケージだけは typescript@5.9.3 を devDependency に持ち、
-        // node_modules/.bin/tsc が TypeScript 5 を指す。型チェックは
-        // ワークスペースと同じ TypeScript 7 で行いたいので、ルートの
-        // @typescript/native が提供する tsc を明示パスで呼ぶ。
-        command: "../../node_modules/.bin/tsc --noEmit --checkers 1",
+        command: "tsc --noEmit --checkers 1",
         cache: {
           // tsc はネイティブバイナリで自動追跡に載らないため入力を明示する
           // （issue #806。詳細は docs/development/toolchain.md の
@@ -94,8 +89,7 @@ export default defineConfig({
           output: [],
         },
       },
-      // 追跡対象のファイル（openapi.json / schema.d.ts）を書き換える副作用が
-      // あるためキャッシュしない。
+      // 追跡対象の openapi.json を書き換える副作用があるためキャッシュしない。
       generate: {
         command: "tsx scripts/generate.mts",
         cache: false,

@@ -1,0 +1,13 @@
+# post-checkout / post-merge から呼ばれる。Hono RPC の型はエディタが直接読むが、
+# Git 操作を型生成の失敗で止めないよう、このスクリプトは常に成功で終わる。
+
+# git worktree add / orca worktree create では vp install より先に post-checkout が
+# 走る。依存がまだ無い worktree ではグローバルの vp を拾って時間を使わないよう、
+# ローカルの依存があるときだけ実行する。
+[ -x node_modules/.bin/vp ] || exit 0
+[ -e packages/api-contract/node_modules/@animeishi/api ] || exit 0
+
+if ! VP_RUN_CONCURRENCY_LIMIT=1 vp run @animeishi/api-contract#typegen; then
+  echo "warning: Hono RPC の型生成に失敗しました。vp run @animeishi/api-contract#typegen を実行してください。" >&2
+fi
+exit 0

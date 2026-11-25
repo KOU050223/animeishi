@@ -188,6 +188,13 @@ tsc が他の拡張子を読む構成
   ルート直下とパッケージ外のファイルも、TS / JS は Oxlint と Oxfmt、
   それ以外（json / yml 等）は Oxfmt だけをかける
 - pre-push: `vp run typecheck` と `vp run test`
+- post-checkout: ブランチ切り替え時だけ `@animeishi/api-contract#typegen`
+- post-merge: `@animeishi/api-contract#typegen`
+
+post-checkout / post-merge の typegen はエディタが読む
+`packages/api-contract/generated/rpcSchema.d.ts` を更新するためのもので、
+依存未インストールの worktree では何もしない。失敗しても Git 操作は成功する
+（詳細は `docs/development/api-contract.md`）。
 
 > `core.hooksPath` は main チェックアウトと全 worktree で共有される `.git/config` に書かれる。
 > フックのディスパッチャ（`.vite-hooks/_`、gitignore 済み）は worktree ごとに `vp install`

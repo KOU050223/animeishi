@@ -124,7 +124,7 @@ jobs:
       - name: Oxlint check
         run: vp run lint
 
-      # コミット済みの openapi.json / schema.d.ts が API の OpenAPI 定義と
+      # コミット済みの openapi.json が API の OpenAPI 定義と
       # 一致するか照合する（issue #725）。ずれていたら
       # `vp run @animeishi/api-contract#generate` で再生成してコミットする。
       - name: API contract check
