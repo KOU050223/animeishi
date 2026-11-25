@@ -8,10 +8,12 @@ import { buildAnnictAuthHeader } from "@/lib/annict/buildAnnictAuthHeader";
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
 // X-Annict-Token を付ける操作。openapi.json の security に annictToken を
-// 含む操作を method と schemaPath の組で転記したもの。サーバーはヘッダの
-// 有無で Annict 解決を分岐するため、対象外のルートに付けると挙動が変わる
-// （apiFetch の annict オプションと同じ契約）。API 側で Annict 認可を
-// 受ける操作が増減したらこの一覧も合わせる。
+// 含む操作に加え、schema が bearerAuth のみを宣言していてもサーバーが
+// resolveAnnictToken / resolveAnnictWorkCatalog でヘッダを読む操作
+// （favorites 登録・おすすめ生成）を現行フックの apiFetch({ annict: true })
+// と同じ対象になるよう列挙した。サーバーはヘッダの有無で Annict 解決を
+// 分岐するため、対象外のルートに付けると挙動が変わる。API 側で Annict
+// 認可を受ける操作が増減したらこの一覧も合わせる。
 const ANNICT_OPERATIONS = new Set(
   (
     [
@@ -26,6 +28,8 @@ const ANNICT_OPERATIONS = new Set(
       ["GET", "/works/{annictWorkId}"],
       ["GET", "/works/{annictWorkId}/characters"],
       ["GET", "/works/{annictWorkId}/episodes"],
+      ["POST", "/me/analysis/recommendations"],
+      ["POST", "/me/favorites/{annictWorkId}"],
       ["POST", "/me/import/danime/match"],
       ["POST", "/me/watch-histories/bulk"],
       ["PUT", "/me/episode-records/{annictEpisodeId}"],

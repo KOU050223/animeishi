@@ -28,6 +28,15 @@ export default defineConfig({
             // scripts が import する apps/api のソースも tsc が読む
             { pattern: "apps/api/src/**", base: "workspace" },
             { pattern: "apps/api/package.json", base: "workspace" },
+            // workspace の内部パッケージは exports/types が ./src/index.ts で、
+            // tsc が依存先のソースを直接読む
+            { pattern: "packages/danime-core/src/**", base: "workspace" },
+            { pattern: "packages/danime-core/package.json", base: "workspace" },
+            { pattern: "packages/observability/src/**", base: "workspace" },
+            {
+              pattern: "packages/observability/package.json",
+              base: "workspace",
+            },
           ],
           output: [],
         },
@@ -44,6 +53,14 @@ export default defineConfig({
             // 仕様の生成元は API のルート定義
             { pattern: "apps/api/src/**", base: "workspace" },
             { pattern: "apps/api/package.json", base: "workspace" },
+            // API ソースが import する内部パッケージも生成結果に影響しうる
+            { pattern: "packages/danime-core/src/**", base: "workspace" },
+            { pattern: "packages/danime-core/package.json", base: "workspace" },
+            { pattern: "packages/observability/src/**", base: "workspace" },
+            {
+              pattern: "packages/observability/package.json",
+              base: "workspace",
+            },
           ],
           output: [],
         },
