@@ -12,7 +12,13 @@ import nativePreset from "oxlint-config-universe/native";
 // `vp lint` は Vite+ モードではネストした oxlint 設定（oxlint.config.ts /
 // .oxlintrc.json）を読まず、ルートの vite.config.ts の lint ブロックだけを見るため、
 // パッケージ別のルールは lint.overrides で表す（issue #267）。
-const PACKAGES = ["apps/mobile", "apps/api", "packages/danime-core", "packages/observability"];
+const PACKAGES = [
+  "apps/mobile",
+  "apps/api",
+  "packages/danime-core",
+  "packages/observability",
+  "packages/api-contract",
+];
 
 // oxlint-config-universe のプリセットは extends で共有設定（core・typescript・react）を
 // 参照している。overrides の各エントリ（OxlintOverride）は extends を持てないため、

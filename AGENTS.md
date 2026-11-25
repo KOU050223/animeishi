@@ -10,6 +10,7 @@
 | Web バンドルサイズの計測・上限の変更 | `docs/development/web-bundle-size.md` |
 | 未使用コード・依存の検出（knip）と検出結果への対処 | `docs/development/knip.md` |
 | Annict GraphQL のスキーマ更新・クエリの型付け | `docs/development/annict-graphql.md` |
+| API のルート・スキーマ変更（openapi.json / schema.d.ts の再生成） | `docs/development/api-contract.md` |
 | D1 マイグレーションの追加（schema.db.ts の変更・`migrations/meta` の扱い） | `docs/development/migrations.md` |
 | 本番・プレビューの手動操作（マイグレーション・通報対応・画像削除） | `docs/runbook/production-tasks.md` |
 | PostHog の初期設定・運営 AI（MCP）の登録・停止スイッチの操作 | `docs/runbook/posthog.md` |

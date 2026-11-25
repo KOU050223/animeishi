@@ -66,8 +66,16 @@ export default defineConfig({
             { pattern: "pnpm-lock.yaml", base: "workspace" },
             // tsconfig の paths（@/* → ../../apps/api/src/*）と @animeishi/api の
             // types（./src/index.ts）で、apps/api のソースを直接読む
+            // （AppType 参照は issue #725 段階④まで残す）
             { pattern: "apps/api/src/**", base: "workspace" },
             { pattern: "apps/api/package.json", base: "workspace" },
+            // @animeishi/api-contract の types（./schema.d.ts）はコミット済み
+            // の生成物なのでファイル単位で入力にする
+            { pattern: "packages/api-contract/schema.d.ts", base: "workspace" },
+            {
+              pattern: "packages/api-contract/package.json",
+              base: "workspace",
+            },
             // workspace の内部パッケージは exports/types が ./src/index.ts で、
             // tsc が依存先のソースを直接読む
             { pattern: "packages/danime-core/src/**", base: "workspace" },

@@ -75,7 +75,9 @@ export function createOpenApiApp<E extends Env>() {
   return app;
 }
 
-const openApiDocumentConfig = {
+// /doc が返す OpenAPI 3.0 ドキュメントの設定。info は packages/api-contract の
+// 書き出しスクリプト（OpenAPI 3.1 ドキュメント）でも共用する。
+export const openApiDocumentConfig = {
   openapi: "3.0.0",
   info: {
     title: "Animeishi API",

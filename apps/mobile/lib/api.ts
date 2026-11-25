@@ -3,7 +3,11 @@ import type { AppType } from "@animeishi/api";
 import { getClerkInstance } from "@clerk/expo";
 import i18next from "i18next";
 import { apiUrl } from "@/lib/apiUrl";
-import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
+import {
+  ApiRequestError,
+  readApiErrorCode,
+  readRetryAfterSeconds,
+} from "@/lib/apiError";
 import { buildAnnictAuthHeader } from "@/lib/annict/buildAnnictAuthHeader";
 import type { TranslationKey } from "@/lib/i18n/keys";
 
@@ -103,6 +107,7 @@ export function apiFetch(options: ApiFetchOptions): typeof fetch {
         res.status,
         i18next.t(options.errorMessage),
         await readApiErrorCode(res),
+        readRetryAfterSeconds(res),
       );
     }
     return res;
