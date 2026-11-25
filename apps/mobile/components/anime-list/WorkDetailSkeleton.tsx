@@ -7,8 +7,15 @@ import { Skeleton, SkeletonGroup } from "@/components/ui/Skeleton";
 const DETAIL_ROW_WIDTHS = ["w-20", "w-14", "w-16"] as const;
 
 // スタッフ・キャストのチップ群の骨。実側は可変幅の pill が折り返すため、
-// 幅をばらけさせておく。
-const CREDIT_CHIP_WIDTHS = ["w-24", "w-32", "w-20", "w-28", "w-16", "w-24"];
+// 幅をばらけさせておく（同じ幅が重複するため key を別途持つ）。
+const CREDIT_CHIP_WIDTHS = [
+  { key: "a", width: "w-24" },
+  { key: "b", width: "w-32" },
+  { key: "c", width: "w-20" },
+  { key: "d", width: "w-28" },
+  { key: "e", width: "w-16" },
+  { key: "f", width: "w-24" },
+] as const;
 
 /**
  * 作品ページ（/work/[id]）の読み込み中スケルトン。WorkDetailHeader と
@@ -58,29 +65,33 @@ export function WorkDetailInfoSkeleton() {
   );
 }
 
-/** 詳細行・チップ群・リンク行の骨。WorkDetailSection の並びに合わせる。 */
+/**
+ * 詳細行・チップ群・リンク行の骨。WorkDetailSection の並びに合わせる。
+ * 骨は muted にしない: 詳細シート内（surface 面）でも使われ、
+ * dark では skeletonMuted が surface と同色で消えてしまうため。
+ */
 function WorkDetailInfoSkeletonBody() {
   return (
     <View className="gap-3">
       <View className="gap-2">
-        {DETAIL_ROW_WIDTHS.map((valueWidth, i) => (
-          <View key={i} className="flex-row justify-between gap-4">
+        {DETAIL_ROW_WIDTHS.map((valueWidth) => (
+          <View key={valueWidth} className="flex-row justify-between gap-4">
             <Skeleton className="h-3.5 w-16 rounded" />
-            <Skeleton className={`h-3.5 rounded ${valueWidth}`} muted />
+            <Skeleton className={`h-3.5 rounded ${valueWidth}`} />
           </View>
         ))}
       </View>
       <View className="gap-2">
-        <Skeleton className="h-4 w-32 rounded" muted />
+        <Skeleton className="h-4 w-32 rounded" />
         <View className="flex-row flex-wrap gap-1.5">
-          {CREDIT_CHIP_WIDTHS.map((width, i) => (
-            <Skeleton key={i} className={`h-6 rounded-full ${width}`} muted />
+          {CREDIT_CHIP_WIDTHS.map(({ key, width }) => (
+            <Skeleton key={key} className={`h-6 rounded-full ${width}`} />
           ))}
         </View>
       </View>
       <View className="flex-row gap-4">
-        <Skeleton className="h-4 w-20 rounded" muted />
-        <Skeleton className="h-4 w-24 rounded" muted />
+        <Skeleton className="h-4 w-20 rounded" />
+        <Skeleton className="h-4 w-24 rounded" />
       </View>
     </View>
   );

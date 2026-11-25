@@ -102,7 +102,10 @@ export const colors = {
     tierCardLabel: "#ffffff",
     /** スケルトン画面の骨（slate-200 / slate-700）。 */
     skeleton: "#e2e8f0",
-    /** スケルトンの副行など一段薄い骨（slate-100 / slate-800）。 */
+    /**
+     * スケルトンの副行など一段薄い骨（slate-100 / slate-800）。
+     * surface 面の上では使わない（dark で surface と同色になり見えなくなる）。
+     */
     skeletonMuted: "#f1f5f9",
   },
   dark: {

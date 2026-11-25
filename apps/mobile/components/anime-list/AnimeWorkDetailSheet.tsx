@@ -351,17 +351,21 @@ export function AnimeWorkDetailSheet({
                 // （連携済みユーザーに一瞬ゲートを見せないため。一覧と同じ扱い）。
                 // ラベルは付けない: 読み上げは詳細情報側のスケルトンが担う。
                 <StatusSectionFrame>
-                  <SkeletonGroup
-                    className="flex-row gap-2"
-                    testID="work-detail-status-skeleton"
-                  >
-                    {WATCH_STATUSES.map((s) => (
-                      <Skeleton
-                        key={s}
-                        className="h-9 w-16 rounded-full"
-                        muted
-                      />
-                    ))}
+                  {/* 実側のチップ列と同じく横スクロール枠に入れる
+                    （5 枚並ぶと狭い画面で幅をはみ出すため）。
+                    骨は muted にしない: シートの面は surface で、
+                    dark では skeletonMuted と同色になり消えてしまう。 */}
+                  <SkeletonGroup testID="work-detail-status-skeleton">
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                    >
+                      <View className="flex-row gap-2">
+                        {WATCH_STATUSES.map((s) => (
+                          <Skeleton key={s} className="h-9 w-16 rounded-full" />
+                        ))}
+                      </View>
+                    </ScrollView>
                   </SkeletonGroup>
                 </StatusSectionFrame>
               ) : !isConnected ? (
@@ -693,7 +697,7 @@ function RatingSection({
       {ratingQuery.isLoading ? (
         <SkeletonGroup className="flex-row gap-2" testID="work-rating-skeleton">
           {WORK_RATINGS.map((r) => (
-            <Skeleton key={r} className="h-9 flex-1 rounded-full" muted />
+            <Skeleton key={r} className="h-9 flex-1 rounded-full" />
           ))}
         </SkeletonGroup>
       ) : ratingQuery.isError ? (
@@ -893,11 +897,11 @@ function EpisodeSection({
     // ラベルは付けない: 読み上げは詳細情報側のスケルトンが担う。
     return (
       <SkeletonGroup className="gap-2" testID="episode-list-skeleton">
-        <Skeleton className="h-4 w-16 rounded" muted />
-        <Skeleton className="mb-1 h-9 w-full rounded-lg" muted />
-        <Skeleton className="h-6 w-3/4 rounded" muted />
-        <Skeleton className="h-6 w-2/3 rounded" muted />
-        <Skeleton className="h-6 w-5/6 rounded" muted />
+        <Skeleton className="h-4 w-16 rounded" />
+        <Skeleton className="mb-1 h-9 w-full rounded-lg" />
+        <Skeleton className="h-6 w-3/4 rounded" />
+        <Skeleton className="h-6 w-2/3 rounded" />
+        <Skeleton className="h-6 w-5/6 rounded" />
       </SkeletonGroup>
     );
   }
