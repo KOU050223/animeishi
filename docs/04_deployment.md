@@ -111,7 +111,7 @@ gh secret set CLOUDFLARE_API_TOKEN --body "xxxxx"
 
 Web プレビューのビルドには `EXPO_PUBLIC_API_URL` として上記の PR 用 API URL が埋め込まれる（`EXPO_PUBLIC_PREVIEW_API_URL` が設定されている場合はそちらが優先される）。これにより、API に新エンドポイントを追加する PR でも、マージ前にプレビュー web 上で動作確認できる。
 
-`/share/*` の転送先もその PR の API プレビューにしたいが、Service Binding はデプロイ済み Worker にしか届かず `versions upload` のプレビューバージョンは対象にできない。そこで `preview-web.yml` が `--var` で `API_ORIGIN` に PR の API エイリアスを、`SHARE_FORWARD_VIA_FETCH` に `true` を注入し、production env の Service Binding（本番 API 向き）ではなく公開 fetch で転送する（`worker/index.ts`）。`EXPO_PUBLIC_WEB_URL` は未設定なのでプレビュー web 上の共有 URL はそのプレビュー自身のオリジンで組み立てられ、API 側の `PUBLIC_WEB_URL` も `preview-api.yml` が `--var` で PR ごとの Web プレビュー URL を注入するため、共有 HTML の `og:url` / `canonical` もプレビュー web の URL を指す。
+`/share/*` の転送先もその PR の API プレビューにしたいが、Service Binding はデプロイ済み Worker にしか届かず `versions upload` のプレビューバージョンは対象にできない。そこで `preview-web.yml` が `--var` で `API_ORIGIN` に PR の API エイリアスを、`SHARE_FORWARD_VIA_FETCH` に `true` を注入し、production env の Service Binding（本番 API 向き）ではなく公開 fetch で転送する（`worker/index.ts`）。また、転送 fetch がエイリアス URL へ届くよう `--compatibility-flags global_fetch_strictly_public` を付ける（理由は issue #762・`worker/index.ts` の `SHARE_FORWARD_VIA_FETCH` コメント参照）。本番 deploy はこのフラグを付けない（本番は Service Binding で転送するため不要）。`EXPO_PUBLIC_WEB_URL` は未設定なのでプレビュー web 上の共有 URL はそのプレビュー自身のオリジンで組み立てられ、API 側の `PUBLIC_WEB_URL` も `preview-api.yml` が `--var` で PR ごとの Web プレビュー URL を注入するため、共有 HTML の `og:url` / `canonical` もプレビュー web の URL を指す。
 
 ### プレビューでの Annict 連携
 

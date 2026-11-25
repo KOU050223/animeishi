@@ -3,6 +3,7 @@ import { View } from "react-native";
 import type { ViewStyle } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSharedValue, type SharedValue } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { useTranslation } from "react-i18next";
 import type { MeishiElement, Transform } from "@/lib/meishi/types";
 
@@ -52,6 +53,7 @@ export function SelectionOverlay({
   });
 
   // Gesture インスタンス生成用のファクトリ。fresh な useMemo で1度だけ作る。
+  // コールバックは UI スレッドで動くため JS 関数は scheduleOnRN 経由（issue #784）。
   const buildResize = useCallback(
     (corner: Corner) =>
       Gesture.Pan()
@@ -88,9 +90,17 @@ export function SelectionOverlay({
               ny = clamp01(s.y + (s.height - nh));
               break;
           }
-          onTransform({ ...s, x: nx, y: ny, width: nw, height: nh });
+          scheduleOnRN(onTransform, {
+            ...s,
+            x: nx,
+            y: ny,
+            width: nw,
+            height: nh,
+          });
         })
-        .onEnd(() => onCommit?.()),
+        .onEnd(() => {
+          if (onCommit) scheduleOnRN(onCommit);
+        }),
     [start, latestTransform, canvasW, canvasH, onTransform, onCommit],
   );
 
@@ -125,9 +135,11 @@ export function SelectionOverlay({
           const nowAngle = Math.atan2(nowPy - cy, nowPx - cx);
           const deltaDeg = ((nowAngle - startAngle) * 180) / Math.PI;
           const nextRotation = (s.rotation + deltaDeg + 360) % 360;
-          onTransform({ ...s, rotation: nextRotation });
+          scheduleOnRN(onTransform, { ...s, rotation: nextRotation });
         })
-        .onEnd(() => onCommit?.()),
+        .onEnd(() => {
+          if (onCommit) scheduleOnRN(onCommit);
+        }),
     [
       canvasOrigin,
       start,
@@ -151,9 +163,11 @@ export function SelectionOverlay({
           const s = start.value;
           const nx = clamp01(s.x + e.translationX / canvasW.value);
           const ny = clamp01(s.y + e.translationY / canvasH.value);
-          onTransform({ ...s, x: nx, y: ny });
+          scheduleOnRN(onTransform, { ...s, x: nx, y: ny });
         })
-        .onEnd(() => onCommit?.()),
+        .onEnd(() => {
+          if (onCommit) scheduleOnRN(onCommit);
+        }),
     [start, latestTransform, canvasW, canvasH, onTransform, onCommit],
   );
 
@@ -263,8 +277,10 @@ function ResizeHandle({
 }
 
 function clamp01(v: number): number {
+  "worklet";
   return Math.min(1, Math.max(0, v));
 }
 function clampMin(v: number, min: number): number {
+  "worklet";
   return Math.max(min, Math.min(1, v));
 }

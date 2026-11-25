@@ -4,6 +4,10 @@
 # API が返す OGP 付き共有ページをこのドメインで配信する（issue #408）。
 name = "animeishi-web"
 main = "worker/index.ts"
+# PR プレビューの versions upload では preview-web.yml が
+# --compatibility-flags global_fetch_strictly_public を付ける（issue #762）。
+# compatibility_flags をここに書くと本番 deploy にも効くため、
+# プレビューだけに効かせたいフラグは workflow 側に書く。
 compatibility_date = "2026-11-23"
 account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 preview_urls = true

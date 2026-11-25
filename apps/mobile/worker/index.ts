@@ -37,6 +37,11 @@ type Env = SecurityHeadersEnv & {
    * 転送先は PR の API プレビュー（binding はデプロイ済み Worker にしか
    * 届かず versions upload のバージョンは対象にできない）にしたいので、
    * preview-web.yml がこの var と API_ORIGIN を --var で注入する。
+   * この fetch 経路が動くには、upload されたバージョンの compat flags に
+   * global_fetch_strictly_public が必要: 同一 *.workers.dev サブドメインへの
+   * fetch は Cloudflare 内部でルーティングされ、バージョンエイリアス名は
+   * Worker 名として解決できず "Page not found" になるため（issue #762）。
+   * preview-web.yml が --compatibility-flags で注入する。
    */
   SHARE_FORWARD_VIA_FETCH?: string;
 };

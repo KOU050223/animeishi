@@ -458,9 +458,8 @@ export function WatchHistorySection() {
                     })
                   : t("{{count}} 件", { count: enriched.length })}
               </Text>
-              {/* dアニメ取り込みは v1.0 では Web 版のみ提供（#158）。ネイティブで
-                  フラグが無効な間・停止スイッチ（#758）が入っている間は
-                  導線を出さない。 */}
+              {/* dアニメ取り込みの導線。フラグ無効時（#751 の env 切り戻し）
+                  ・停止スイッチ（#758）が入っている間は出さない。 */}
               {danimeImportEnabled && (
                 <TouchableOpacity
                   className="bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-1.5"
