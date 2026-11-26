@@ -17,8 +17,8 @@ import {
   FRIEND_THANKS_BODY_MAX_LENGTH,
   THANKS_PRESET_KEYS,
   THANKS_PRESET_TEXT,
-} from "@/lib/useFriendThanks";
-import type { ThanksPresetKey } from "@/lib/useFriendThanks";
+} from "@/features/friend-thanks/useFriendThanks";
+import type { ThanksPresetKey } from "@/features/friend-thanks/useFriendThanks";
 
 /**
  * 名刺交換後のお礼（issue #694）の送信シート。

@@ -26,7 +26,7 @@ import { FriendThanksSheet } from "@/components/social/FriendThanksSheet";
 import {
   useSendFriendThanks,
   type ThanksPresetKey,
-} from "@/lib/useFriendThanks";
+} from "@/features/friend-thanks/useFriendThanks";
 import { FriendUpdatesSection } from "@/components/social/FriendUpdatesSection";
 import { ExchangeRecordSection } from "@/components/social/ExchangeRecordSection";
 import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";

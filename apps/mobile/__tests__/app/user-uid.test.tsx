@@ -134,7 +134,7 @@ jest.mock("@/features/friend-requests/useFriendRequests", () => ({
 }));
 
 // 名刺交換のお礼（issue #694）。既定は空（届いた・送ったともに無し）。
-jest.mock("@/lib/useFriendThanks", () => ({
+jest.mock("@/features/friend-thanks/useFriendThanks", () => ({
   useFriendThanksFor: () => ({ received: [], sent: [], isError: false }),
   useSendFriendThanks: () => ({ mutate: jest.fn(), isPending: false }),
   useDeleteFriendThanks: () => ({ mutateAsync: jest.fn() }),

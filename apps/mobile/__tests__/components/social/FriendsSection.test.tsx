@@ -133,7 +133,7 @@ jest.mock("@/features/exchange-records/useExchangeRecords", () => ({
 // 届いたお礼の未読件数（issue #694）。既定は 0（未読バナーなし）。
 let mockUnreadThanksCount = 0;
 const mockThanksRefetch = jest.fn();
-jest.mock("@/lib/useFriendThanks", () => ({
+jest.mock("@/features/friend-thanks/useFriendThanks", () => ({
   useUnreadThanksCount: () => mockUnreadThanksCount,
   useFriendThanks: () => ({ refetch: mockThanksRefetch }),
 }));

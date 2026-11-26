@@ -14,7 +14,10 @@ import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
 import { useExchangeRecords } from "@/features/exchange-records/useExchangeRecords";
-import { useFriendThanks, useUnreadThanksCount } from "@/lib/useFriendThanks";
+import {
+  useFriendThanks,
+  useUnreadThanksCount,
+} from "@/features/friend-thanks/useFriendThanks";
 import { useFriendRequests } from "@/features/friend-requests/useFriendRequests";
 import type { FriendRequestItem } from "@/features/friend-requests/useFriendRequests";
 import { alert, confirm } from "@/lib/dialog";

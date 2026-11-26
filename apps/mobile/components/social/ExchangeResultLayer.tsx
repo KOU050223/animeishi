@@ -9,7 +9,7 @@ import type { MiniMeishi } from "@/lib/qrParser";
 import {
   useSendFriendThanks,
   type ThanksPresetKey,
-} from "@/lib/useFriendThanks";
+} from "@/features/friend-thanks/useFriendThanks";
 
 export type ExchangeResult =
   | {

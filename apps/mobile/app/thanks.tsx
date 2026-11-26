@@ -17,7 +17,7 @@ import {
   useMarkFriendThanksRead,
   THANKS_PRESET_TEXT,
   type ReceivedThanksItem,
-} from "@/lib/useFriendThanks";
+} from "@/features/friend-thanks/useFriendThanks";
 
 // 「2026年11月21日」形式。解釈できない値は空文字。
 function formatThanksDate(iso: string, language: string): string {

@@ -14,7 +14,7 @@ import { EVENT_PARTICIPANTS_QUERY_KEY } from "@/features/events/useEvents";
 import { PUBLIC_WORK_LISTS_KEY } from "@/lib/workList/useWorkLists";
 import { PUBLIC_TIER_LISTS_KEY } from "@/lib/tierList/usePublicTierLists";
 import { PUBLIC_USERS_KEY } from "@/lib/usePublicUsers";
-import { FRIEND_THANKS_QUERY_KEY } from "@/lib/useFriendThanks";
+import { FRIEND_THANKS_QUERY_KEY } from "@/features/friend-thanks/useFriendThanks";
 
 import { blockQueries } from "@/lib/queries/moderation";
 

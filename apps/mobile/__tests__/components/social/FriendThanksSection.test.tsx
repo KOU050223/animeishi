@@ -38,7 +38,7 @@ let mockReceived: ThanksItem[] = [];
 let mockSent: ThanksItem[] = [];
 let mockIsError = false;
 
-jest.mock("@/lib/useFriendThanks", () => ({
+jest.mock("@/features/friend-thanks/useFriendThanks", () => ({
   useFriendThanksFor: () => ({
     received: mockReceived,
     sent: mockSent,
