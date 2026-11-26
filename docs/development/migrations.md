@@ -24,6 +24,14 @@ vp run @animeishi/api#db:generate
 ファイル名を意味のあるものにしたいときは `drizzle-kit generate --name <名前>` で生成する
 （main に入った後の改名は `d1_migrations` の適用記録とずれるため不可）。
 
+## `db:generate` / `db:studio` とローカル D1
+
+- `db:generate` はスキーマと `migrations/meta` を比較するだけでローカル D1 を
+  読まない。新しい worktree など `.wrangler/state/v3/d1` が無くても実行できる。
+- `db:studio` はローカル D1 の SQLite ファイルに接続する。無いときは
+  `vp run @animeishi/api#db:migrate:local` で作成してマイグレーションを適用してから
+  実行する（`vp run @animeishi/api#dev` の起動でもファイルは作成される）。
+
 ## 手書きが必要な変更
 
 ### スキーマ変更を含む手書き SQL
@@ -51,8 +59,8 @@ vp -C apps/api exec drizzle-kit generate --custom --name <名前>
 - 変更後に `vp run @animeishi/api#db:generate` をもう一度実行し、
   `No schema changes, nothing to migrate` になることを確認する。
   差分が出たらスキーマとマイグレーションの結果がずれている。
-  これはスナップショットとスキーマ定義の一致だけを見るチェックで、適用後の
-  D1 は読まない。生成・手修正した SQL が意図した定義になるかは、空のローカル D1
+  これはスナップショットとスキーマ定義の一致だけを見るチェックなので、
+  生成・手修正した SQL が意図した定義になるかは、空のローカル D1
   に適用して `sqlite_master` の定義と照合する
   （`.wrangler/state/v3/d1` を消して `vp run @animeishi/api#db:migrate:local`）
 - `drizzle-kit generate` はテーブル・列の追加と削除から改名候補を見つけると

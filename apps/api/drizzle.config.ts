@@ -2,8 +2,8 @@ import { defineConfig } from "drizzle-kit";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { parse } from "smol-toml";
 import {
+  lazyLocalD1DbCredentials,
   localD1DatabaseIds,
-  resolveLocalD1Sqlite,
 } from "./scripts/local-d1-sqlite.mjs";
 
 // wrangler dev が生成するローカルD1のSQLiteファイルは
@@ -14,16 +14,13 @@ import {
 const D1_DIR = ".wrangler/state/v3/d1/miniflare-D1DatabaseObject";
 
 const wranglerConfig = parse(readFileSync("wrangler.toml", "utf8"));
-const sqliteFile = resolveLocalD1Sqlite(
-  localD1DatabaseIds(wranglerConfig),
-  existsSync(D1_DIR) ? readdirSync(D1_DIR) : [],
-);
+const databaseIds = localD1DatabaseIds(wranglerConfig);
 
 export default defineConfig({
   schema: "./src/db/schema.ts",
   out: "./migrations",
   dialect: "sqlite",
-  dbCredentials: {
-    url: `${D1_DIR}/${sqliteFile}`,
-  },
+  dbCredentials: lazyLocalD1DbCredentials(databaseIds, D1_DIR, () =>
+    existsSync(D1_DIR) ? readdirSync(D1_DIR) : [],
+  ),
 });
