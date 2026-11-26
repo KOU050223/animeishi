@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderHook, waitFor } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import { useWorkCatalogAccess } from "./useWorkCatalogAccess";
 
 const mockCatalogStatusGet = jest.fn();
@@ -30,7 +31,7 @@ jest.mock("@clerk/expo", () => ({
 }));
 
 function makeWrapper() {
-  const client = new QueryClient({
+  const client = createTestQueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
   return ({ children }: { children: React.ReactNode }) =>

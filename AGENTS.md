@@ -82,6 +82,8 @@ vp run @animeishi/api#db:migrate:local         # D1 ローカルマイグレー�
   `window` が必要なら先頭に `// @vitest-environment jsdom` を付ける
 - それ以外（コンポーネント、`jest.mock` を使うもの、jest.setup.js に依存するもの）は jest
   （`*.test.ts(x)`）。判断に迷ったら jest 側に置く
+- jest で React Query の `QueryClient` を使うときは `test-utils/queryClient.ts` の
+  `createTestQueryClient` で生成する（GC タイマーをテスト後に止めるため）
 
 変更に関係するテストだけを回すときは `apps/mobile` で直接実行する。
 

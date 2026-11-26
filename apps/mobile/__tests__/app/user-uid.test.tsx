@@ -5,10 +5,11 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import PublicProfilePage from "@/app/user/[uid]";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import { trackEvent } from "@/lib/events";
 
 const NOW_WATCHING = {
@@ -205,7 +206,7 @@ const findExpoImages = () =>
   );
 
 function wrapper({ children }: { children: React.ReactNode }) {
-  const client = new QueryClient({
+  const client = createTestQueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;

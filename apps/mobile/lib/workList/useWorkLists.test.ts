@@ -1,7 +1,8 @@
 import { createElement } from "react";
-import { cleanup, renderHook, waitFor } from "@testing-library/react-native";
+import { renderHook, waitFor } from "@testing-library/react-native";
 import { ApiRequestError } from "@/lib/apiError";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import {
   useWorkLists,
   useWorkListsContaining,
@@ -70,18 +71,11 @@ jest.mock("@/lib/api", () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-// QueryClient はクエリ・ミューテーションごとに gcTime（既定5分）のタイマーを
-// 抱えるため、放置すると Jest のワーカーが終了しない。gcTime を 0 にはできない
-// （観測者なしのキャッシュが即座に GC され、ミューテーションがキャッシュへ
-// 書く検証自体が壊れる）ため、テスト後にタイマーごと破棄する。
-const clients: QueryClient[] = [];
-
 function makeWrapper(
-  client = new QueryClient({
+  client = createTestQueryClient({
     defaultOptions: { queries: { retry: false } },
   }),
 ) {
-  clients.push(client);
   return {
     client,
     wrapper: ({ children }: { children: React.ReactNode }) =>
@@ -119,20 +113,6 @@ beforeEach(() => {
   jest.clearAllMocks();
   loggedInUser();
   setMockClerkState({ getToken: async () => "clerk_jwt" });
-});
-
-afterEach(async () => {
-  await cleanup();
-  for (const client of clients.splice(0)) {
-    // mutationCache の clear()/remove() は GC タイマーを止めない
-    // （queryCache 側は query.destroy() する非対称）ため、各 Mutation を
-    // destroy() してから client.clear() する。
-    client
-      .getMutationCache()
-      .getAll()
-      .forEach((mutation) => mutation.destroy());
-    client.clear();
-  }
 });
 
 describe("useWorkLists", () => {

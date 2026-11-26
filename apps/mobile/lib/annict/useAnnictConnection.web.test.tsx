@@ -3,7 +3,8 @@
  */
 import { createElement } from "react";
 import { renderHook, waitFor } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 
 // Web 実装を直接 import して検証する（バンドラの .web 解決に依存せず単体で確認）。
 import { useAnnictConnection } from "@/lib/annict/useAnnictConnection.web";
@@ -37,7 +38,7 @@ jest.mock("@clerk/expo", () => ({
 }));
 
 function makeWrapper() {
-  const client = new QueryClient({
+  const client = createTestQueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
   return ({ children }: { children: React.ReactNode }) =>

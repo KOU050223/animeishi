@@ -1,6 +1,7 @@
 import { act } from "react";
 import { renderHook } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import { usePublicSettings } from "@/lib/usePublicSettings";
 import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
 import { ApiRequestError } from "@/lib/apiError";
@@ -37,7 +38,7 @@ jest.mock("@/lib/useProfile", () => ({
   PROFILE_QUERY_KEY: ["profile"],
 }));
 
-function createWrapper(client = new QueryClient()) {
+function createWrapper(client = createTestQueryClient()) {
   return function wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -112,7 +113,7 @@ describe("usePublicSettings", () => {
   });
 
   it("保存に成功するとプロフィールの取得クエリを無効化する", async () => {
-    const client = new QueryClient();
+    const client = createTestQueryClient();
     const invalidate = jest.spyOn(client, "invalidateQueries");
     const q = await renderHook(() => usePublicSettings(), {
       wrapper: ({ children }) => (

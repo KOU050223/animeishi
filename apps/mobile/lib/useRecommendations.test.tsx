@@ -1,11 +1,8 @@
 import React from "react";
-import {
-  act,
-  cleanup,
-  renderHook,
-  waitFor,
-} from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, renderHook, waitFor } from "@testing-library/react-native";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
+import type { QueryClient } from "@tanstack/react-query";
 import {
   RECOMMENDATIONS_QUERY_KEY,
   useGenerateRecommendations,
@@ -85,21 +82,12 @@ describe("useRecommendations / useGenerateRecommendations", () => {
       ok: true,
       json: async () => [],
     });
-    client = new QueryClient({
+    client = createTestQueryClient({
       defaultOptions: {
         queries: { retry: false },
         mutations: { retry: false },
       },
     });
-  });
-
-  afterEach(async () => {
-    await cleanup();
-    client
-      .getMutationCache()
-      .getAll()
-      .forEach((m) => m.destroy());
-    client.clear();
   });
 
   it("useRecommendations: 保存済みのおすすめを返す（Annict トークンは不要）", async () => {

@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import { useWorkSearch } from "./useWorkSearch";
 import { loggedInUser, signedOutUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";
@@ -31,7 +32,7 @@ jest.mock("@/lib/annict", () => ({
 }));
 
 function makeWrapper(
-  client = new QueryClient({
+  client = createTestQueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   }),
 ) {
@@ -164,7 +165,7 @@ describe("useWorkSearch", () => {
   });
 
   it("検索語をクリアした直後はデバウンス済みの旧語で再フェッチしない", async () => {
-    const client = new QueryClient({
+    const client = createTestQueryClient({
       defaultOptions: { queries: { retry: false, gcTime: 0 } },
     });
     const { rerender } = await renderHook(

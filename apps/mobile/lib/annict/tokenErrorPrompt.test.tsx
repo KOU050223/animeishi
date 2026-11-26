@@ -1,6 +1,8 @@
 import React from "react";
 import { renderHook, waitFor } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
+import type { QueryClient } from "@tanstack/react-query";
 import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 import { ApiRequestError } from "@/lib/apiError";
@@ -62,7 +64,7 @@ describe("useAnnictTokenErrorPrompt", () => {
   it("トークン起因でないエラーは処理せず false を返す", async () => {
     const { result } = await renderHook(
       () => useAnnictTokenErrorPrompt("work_detail_sheet"),
-      { wrapper: makeWrapper(new QueryClient()) },
+      { wrapper: makeWrapper(createTestQueryClient()) },
     );
 
     expect(
@@ -74,7 +76,7 @@ describe("useAnnictTokenErrorPrompt", () => {
   it("annict_token_required で「連携する/あとで」の確認ダイアログを出し prompt_view を送る", async () => {
     const { result } = await renderHook(
       () => useAnnictTokenErrorPrompt("work_detail_sheet"),
-      { wrapper: makeWrapper(new QueryClient()) },
+      { wrapper: makeWrapper(createTestQueryClient()) },
     );
 
     expect(
@@ -105,7 +107,7 @@ describe("useAnnictTokenErrorPrompt", () => {
     mockConnect.mockResolvedValueOnce({ status: "success" });
     const { result } = await renderHook(
       () => useAnnictTokenErrorPrompt("analysis"),
-      { wrapper: makeWrapper(new QueryClient()) },
+      { wrapper: makeWrapper(createTestQueryClient()) },
     );
     result.current(new ApiRequestError(401, "x", "annict_token_invalid"));
 
@@ -129,7 +131,7 @@ describe("useAnnictTokenErrorPrompt", () => {
 
   it("連携が成功したとき作品詳細と視聴履歴のクエリを無効化する", async () => {
     mockConnect.mockResolvedValueOnce({ status: "success" });
-    const queryClient = new QueryClient();
+    const queryClient = createTestQueryClient();
     const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
     const { result } = await renderHook(
       () => useAnnictTokenErrorPrompt("work_detail_sheet"),
@@ -158,7 +160,7 @@ describe("useAnnictTokenErrorPrompt", () => {
     });
     const { result } = await renderHook(
       () => useAnnictTokenErrorPrompt("work_detail_sheet"),
-      { wrapper: makeWrapper(new QueryClient()) },
+      { wrapper: makeWrapper(createTestQueryClient()) },
     );
     result.current(new ApiRequestError(401, "x", "annict_token_required"));
 

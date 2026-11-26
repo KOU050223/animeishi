@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderHook, waitFor } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import {
   dedupeWorksById,
   useAnimeList,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/useAnimeList";
 import { loggedInUser, signedOutUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 
 // Annict 連携（SecureStore トークン / 連携状態）と apiClient をモックし、
 // useAnimeList のサーバー検索フロー（クエリ駆動の取得・レスポンス整形）を検証する。
@@ -43,7 +45,7 @@ jest.mock("@/lib/annict", () => ({
 function makeWrapper(client?: QueryClient) {
   const queryClient =
     client ??
-    new QueryClient({
+    createTestQueryClient({
       defaultOptions: { queries: { retry: false, gcTime: 0 } },
     });
   return ({ children }: { children: React.ReactNode }) =>
@@ -477,7 +479,7 @@ describe("usePrefetchSeasonWorks", () => {
     // 失敗エントリが残ると、後でそのシーズンへ切り替えた画面が
     // 自動リフェッチ中ずっとエラー表示になるため除去対象にする。
     // gcTime 既定値のままにしないと GC が先に消して検証にならない。
-    const client = new QueryClient({
+    const client = createTestQueryClient({
       defaultOptions: { queries: { retry: false } },
     });
     mockSearchGet.mockRejectedValue(new Error("network error"));
@@ -495,7 +497,7 @@ describe("usePrefetchSeasonWorks", () => {
   });
 
   it("プリフェッチの再取得が失敗してもデータを持つ既存エントリは消さない", async () => {
-    const client = new QueryClient({
+    const client = createTestQueryClient({
       defaultOptions: { queries: { retry: false } },
     });
     const key = ["works", "search", "season", "2026-summer"];

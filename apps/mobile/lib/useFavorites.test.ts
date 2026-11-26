@@ -1,11 +1,8 @@
 import React from "react";
-import {
-  act,
-  cleanup,
-  renderHook,
-  waitFor,
-} from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, renderHook, waitFor } from "@testing-library/react-native";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
+import type { QueryClient } from "@tanstack/react-query";
 import {
   nextFavoriteAction,
   matchesFavoriteQuery,
@@ -119,15 +116,9 @@ describe("推しを変更した後の共通点", () => {
     loggedInUser({ userId: "user_me" });
     setMockClerkState({ getToken: async () => "test-token" });
     mockFavoriteMatchCount = 0;
-    client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  });
-  afterEach(async () => {
-    await cleanup();
-    client
-      .getMutationCache()
-      .getAll()
-      .forEach((mutation) => mutation.destroy());
-    client.clear();
+    client = createTestQueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
   });
 
   it("推しの追加と解除後、開いているフレンドの共通点を再取得する", async () => {
