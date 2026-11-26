@@ -123,6 +123,11 @@ function actSync(callback) {
 notifyManager.setNotifyFunction((callback) => {
   actSync(callback);
 });
+// batch 中は外側の act だけが flush し、個別通知の act はネスト扱いで
+// flush しない。これで本番のバッチ通知に近い描画単位を保つ。
+notifyManager.setBatchNotifyFunction((callback) => {
+  actSync(callback);
+});
 
 // 実際の翻訳でアサートできるよう、テスト全体で i18n を初期化しておく。
 require("@/lib/i18n");
