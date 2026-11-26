@@ -1,14 +1,14 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import { ArticleRail } from "@/components/ArticleRail";
-import type { ArticleListItem } from "@/lib/useArticles";
+import type { ArticleListItem } from "@/features/articles/useArticles";
 
-// API・認証の振る舞いは lib/useArticles の結合部なので、ここではフックの
+// API・認証の振る舞いは features/articles/useArticles の結合部なので、ここではフックの
 // 戻り値を差し替えてレールの UI 分岐と遷移を検証する。
 let mockArticles: { data?: { items: ArticleListItem[] } };
 const mockPush = jest.fn();
 
-jest.mock("@/lib/useArticles", () => ({
+jest.mock("@/features/articles/useArticles", () => ({
   useLatestArticles: () => mockArticles,
 }));
 

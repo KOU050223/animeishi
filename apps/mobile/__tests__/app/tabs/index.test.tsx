@@ -138,7 +138,7 @@ let mockArticles: {
       }
     | undefined;
 };
-jest.mock("@/lib/useArticles", () => ({
+jest.mock("@/features/articles/useArticles", () => ({
   useLatestArticles: () => mockArticles,
   ARTICLES_QUERY_KEY: ["articles"],
 }));

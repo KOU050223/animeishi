@@ -1,8 +1,8 @@
 import { FlatList, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useLatestArticles } from "@/lib/useArticles";
-import type { ArticleListItem } from "@/lib/useArticles";
+import { useLatestArticles } from "@/features/articles/useArticles";
+import type { ArticleListItem } from "@/features/articles/useArticles";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import { useThemeColors } from "@/lib/theme";
 

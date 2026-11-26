@@ -22,7 +22,7 @@ import { ArticleRail } from "@/components/ArticleRail";
 import { ElectionRail } from "@/components/ElectionRail";
 import { EventRail } from "@/components/EventRail";
 import { ACTIVITY_FEED_QUERY_KEY } from "@/lib/useActivityFeed";
-import { ARTICLES_QUERY_KEY } from "@/lib/useArticles";
+import { ARTICLES_QUERY_KEY } from "@/features/articles/useArticles";
 import { ELECTIONS_QUERY_KEY } from "@/lib/useElections";
 import { EVENTS_QUERY_KEY } from "@/lib/useEvents";
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "@/lib/useFriendWatchStories";

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { useMarkdown } from "react-native-marked";
-import { AccessibleLinkRenderer } from "@/lib/markdownRenderer";
+import { AccessibleLinkRenderer } from "@/features/articles/markdownRenderer";
 
 function Markdown({ body }: { body: string }) {
   const elements = useMarkdown(body, {
