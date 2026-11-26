@@ -3,7 +3,7 @@ import { NativeTabs } from "expo-router/native-tabs";
 import type { ComponentProps } from "react";
 import { useThemeColors } from "@/lib/theme";
 import { tabBadgeText } from "@/lib/tabBadge";
-import { useReceivedFriendRequestCount } from "@/lib/useFriendRequests";
+import { useReceivedFriendRequestCount } from "@/features/friend-requests/useFriendRequests";
 import { useTranslation } from "react-i18next";
 
 // SF Symbols / Material Icons ではなく Ionicons のままにし、NativeTabs 化で

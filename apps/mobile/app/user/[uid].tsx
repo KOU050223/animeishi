@@ -55,8 +55,8 @@ import {
   useDeleteFriendRequest,
   useFriendRequests,
   useSendFriendRequest,
-} from "@/lib/useFriendRequests";
-import type { FriendRequestItem } from "@/lib/useFriendRequests";
+} from "@/features/friend-requests/useFriendRequests";
+import type { FriendRequestItem } from "@/features/friend-requests/useFriendRequests";
 import { useThemeColors } from "@/lib/theme";
 import { SocialLinksList } from "@/components/profile/SocialLinksList";
 

@@ -6,7 +6,7 @@ import { SegmentedControl } from "@/components/ui";
 import { QrSection } from "@/components/social/QrSection";
 import { FriendsSection } from "@/components/social/FriendsSection";
 import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
-import { useReceivedFriendRequestCount } from "@/lib/useFriendRequests";
+import { useReceivedFriendRequestCount } from "@/features/friend-requests/useFriendRequests";
 import { useTranslation } from "react-i18next";
 
 const SECTIONS = ["qr", "activity", "friends"] as const;

@@ -113,7 +113,7 @@ jest.mock("@/lib/useFriends", () => ({
   }),
 }));
 
-jest.mock("@/lib/useFriendRequests", () => ({
+jest.mock("@/features/friend-requests/useFriendRequests", () => ({
   useFriendRequests: () => ({
     data: mockRequestsData,
     refetch: jest.fn(),

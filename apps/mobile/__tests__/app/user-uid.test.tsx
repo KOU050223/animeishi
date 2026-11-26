@@ -115,7 +115,7 @@ let mockRequestsData: {
   sent: { id: number; userId: string; username: string }[];
 } = { received: [], sent: [] };
 let mockRequestsError = false;
-jest.mock("@/lib/useFriendRequests", () => ({
+jest.mock("@/features/friend-requests/useFriendRequests", () => ({
   useSendFriendRequest: () => ({ mutate: mockSendMutate, isPending: false }),
   useAcceptFriendRequest: () => ({
     mutate: mockAcceptMutate,
