@@ -99,6 +99,31 @@ jest.mock("@/lib/analytics/client", () => ({
   resetAnalyticsClientForTest: jest.fn(),
 }));
 
+// RNTL の act は常に async になるため、タイマーコールバックから await 無しで
+// 呼ぶと逆に act 未 await の警告が出る。ここでは React 本体の同期 act を使う。
+const { act } = require("react");
+const { notifyManager } = require("@tanstack/react-query");
+
+function actSync(callback) {
+  const previousActEnvironment = global.IS_REACT_ACT_ENVIRONMENT;
+  // RNTL の waitFor はポーリング中だけ IS_REACT_ACT_ENVIRONMENT を false にする。
+  // React Query の通知はその間にもタイマーで届くため、act に包む間だけ true に戻す。
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  try {
+    act(() => {
+      callback();
+    });
+  } finally {
+    global.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+  }
+}
+
+// React Query は状態通知を setTimeout(0) で束ねる。テストではその通知が
+// render や fireEvent の act 境界の外で走りやすいため、通知自体を act に包む。
+notifyManager.setNotifyFunction((callback) => {
+  actSync(callback);
+});
+
 // 実際の翻訳でアサートできるよう、テスト全体で i18n を初期化しておく。
 require("@/lib/i18n");
 
