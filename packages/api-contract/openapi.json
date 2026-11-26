@@ -4690,8 +4690,7 @@
                     "code": {
                       "type": "string",
                       "enum": [
-                        "generation_limit",
-                        "annict_rate_limited"
+                        "generation_limit"
                       ]
                     }
                   },

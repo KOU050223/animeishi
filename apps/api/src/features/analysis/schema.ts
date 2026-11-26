@@ -43,9 +43,14 @@ const analysisResultSchema = z.object({
 });
 
 // 生成回数制限（429）の応答。Retry-After ヘッダに解放までの秒数を載せる。
-// おすすめ生成では照合に Annict を呼ぶため、Annict 上流のレート制限
+// 分析は Annict を呼ばないため generation_limit のみ。
+const analysisRateLimitedSchema = z.object({
+  error: z.string(),
+  code: z.enum(["generation_limit"]),
+});
+// おすすめ生成は照合に Annict を呼ぶため、Annict 上流のレート制限
 // （annict_rate_limited）も同じ 429 で返りうる。
-const rateLimitedSchema = z.object({
+const recommendationRateLimitedSchema = z.object({
   error: z.string(),
   code: z.enum(["generation_limit", "annict_rate_limited"]),
 });
@@ -136,7 +141,7 @@ export const generateAnalysisRoute = createRoute({
     401: jsonError("未認証"),
     429: {
       headers: z.object({ "Retry-After": z.string() }),
-      content: { "application/json": { schema: rateLimitedSchema } },
+      content: { "application/json": { schema: analysisRateLimitedSchema } },
       description: "生成回数制限（Retry-After ヘッダ付き）",
     },
     502: jsonError("Workers AI の生成に失敗"),
@@ -200,7 +205,9 @@ export const generateRecommendationsRoute = createRoute({
     },
     429: {
       headers: z.object({ "Retry-After": z.string() }),
-      content: { "application/json": { schema: rateLimitedSchema } },
+      content: {
+        "application/json": { schema: recommendationRateLimitedSchema },
+      },
       description: "生成回数制限（Retry-After ヘッダ付き）",
     },
     502: jsonError("Workers AI または Annict との通信に失敗"),

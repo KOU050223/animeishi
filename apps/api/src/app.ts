@@ -87,6 +87,10 @@ app.use("*", (c, next) => {
   })(c, next);
 });
 
+// ルートに一致しない 404 も {error, code} の契約に揃える（issue #838）。
+// onError を通らないため notFound で明示する。
+app.notFound((c) => c.json({ error: "Not found", code: "not_found" }, 404));
+
 // 未処理例外の分類・Sentry 送信・応答整形は observability 側に集約している。
 app.onError(handleError);
 
