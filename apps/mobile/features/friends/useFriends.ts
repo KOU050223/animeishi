@@ -10,7 +10,7 @@ import {
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "@/features/feed/useFriendWatchStories";
 import { EXCHANGE_RECORDS_QUERY_KEY } from "@/features/exchange-records/useExchangeRecords";
 import { FRIEND_THANKS_QUERY_KEY } from "@/features/friend-thanks/useFriendThanks";
-import { PUBLIC_PROFILE_QUERY_KEY } from "@/lib/publicProfile";
+import { PUBLIC_PROFILE_QUERY_KEY } from "@/features/user/publicProfile";
 import { COMMON_POINTS_QUERY_KEY } from "@/lib/useCommonPoints";
 import { friendQueries } from "@/lib/queries/friends";
 import type { AddFriendResponse } from "@/lib/queries/friends";

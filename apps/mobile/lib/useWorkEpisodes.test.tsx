@@ -10,7 +10,7 @@ import {
   useWorkEpisodes,
 } from "@/lib/useWorkEpisodes";
 import { PROFILE_QUERY_KEY } from "@/features/me/useProfile";
-import { publicProfileQueryKey } from "@/lib/publicProfile";
+import { publicProfileQueryKey } from "@/features/user/publicProfile";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";

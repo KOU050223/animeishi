@@ -18,7 +18,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { alert, confirm } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";
 import { publicProfileQueries } from "@/lib/queries/publicProfile";
-import type { PublicProfile } from "@/lib/publicProfile";
+import type { PublicProfile } from "@/features/user/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { FriendNoteSection } from "@/components/social/FriendNoteSection";
 import { FriendThanksSection } from "@/components/social/FriendThanksSection";

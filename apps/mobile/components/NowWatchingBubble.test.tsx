@@ -4,7 +4,7 @@ import {
   NOW_WATCHING_TTL_MS,
   NowWatchingBubble,
 } from "@/components/NowWatchingBubble";
-import type { NowWatching } from "@/lib/publicProfile";
+import type { NowWatching } from "@/features/user/publicProfile";
 
 jest.mock("@/lib/useWorkEpisodes", () => ({
   useWorkEpisodes: () => ({ data: undefined }),

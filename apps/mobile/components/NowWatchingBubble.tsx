@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
 import { episodeLabel } from "@/lib/episodeLabel";
-import type { NowWatching } from "@/lib/publicProfile";
+import type { NowWatching } from "@/features/user/publicProfile";
 import { useThemeColors } from "@/lib/theme";
 import { useWorkEpisodes } from "@/lib/useWorkEpisodes";
 

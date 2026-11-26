@@ -7,7 +7,7 @@ import {
   readRetryAfterSeconds,
 } from "@/lib/apiError";
 import { apiErrorMessage, apiErrorMessageKey } from "@/lib/apiErrorMessages";
-import { PUBLIC_PROFILE_QUERY_KEY } from "@/lib/publicProfile";
+import { PUBLIC_PROFILE_QUERY_KEY } from "@/features/user/publicProfile";
 import {
   FRIENDS_QUERY_KEY,
   FRIEND_REQUESTS_QUERY_KEY,
