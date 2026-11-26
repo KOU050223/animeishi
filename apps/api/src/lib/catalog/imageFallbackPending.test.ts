@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { setupTestDb } from "@/test-utils/setup-db";
+import { flakyD1Db } from "@/test-utils/flaky-d1";
 import { requestUrl } from "@/test-utils/fetch";
 import {
   isKitsuAnimeListUrl,
@@ -315,6 +316,117 @@ describe("resolvePendingImageFallbacks", () => {
     fetchMock.mockClear();
     expect(await resolvePendingImageFallbacks(db)).toBe(0);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+const D1_INTERNAL_ERROR = "D1_ERROR: internal error; reference = e_test123";
+
+function expectDeferredLog(
+  consoleError: ReturnType<typeof vi.spyOn>,
+  stage: string,
+): void {
+  const logged = consoleError.mock.calls.some(([message]: unknown[]) => {
+    try {
+      const log = JSON.parse(String(message)) as {
+        level?: string;
+        event?: string;
+        stage?: string;
+      };
+      return (
+        log.level === "warn" &&
+        log.event === "image_fallback_deferred" &&
+        log.stage === stage
+      );
+    } catch {
+      return false;
+    }
+  });
+  expect(logged).toBe(true);
+}
+
+describe("resolvePendingImageFallbacks の D1 internal error 耐性（issue #833）", () => {
+  let db: Awaited<ReturnType<typeof setupTestDb>>;
+
+  beforeEach(async () => {
+    db = await setupTestDb(env.DB);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("対象取得が 1 回目だけ internal error なら再試行して解決を続行する", async () => {
+    await insertWork(db, {
+      annictWorkId: 900,
+      malAnimeId: 21,
+      imageUrl: null,
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      makeKitsuResponse({
+        m21: { coverImage: { extraLarge: "https://media.kitsu.app/21.jpg" } },
+      }),
+    );
+    const flaky = flakyD1Db(db, new Error(D1_INTERNAL_ERROR), { select: 1 });
+
+    const persisted = await resolvePendingImageFallbacks(flaky);
+
+    expect(persisted).toBe(1);
+    const row = await db.query.annictWorks.findFirst({
+      where: (t, { eq }) => eq(t.annictWorkId, 900),
+    });
+    expect(row?.resolvedImageUrl).toBe("https://media.kitsu.app/21.jpg");
+  });
+
+  it("対象取得の internal error が連続したら、例外を出さず次回 cron に回す", async () => {
+    await insertWork(db, {
+      annictWorkId: 901,
+      malAnimeId: 21,
+      imageUrl: null,
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const flaky = flakyD1Db(db, new Error(D1_INTERNAL_ERROR), { select: 10 });
+
+    await expect(resolvePendingImageFallbacks(flaky)).resolves.toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expectDeferredLog(consoleError, "get_pending_image_fallback_works");
+    const row = await db.query.annictWorks.findFirst({
+      where: (t, { eq }) => eq(t.annictWorkId, 901),
+    });
+    expect(row?.imageFallbackAttemptedAt).toBeNull();
+  });
+
+  it("試行時刻の書き込みが internal error で連続失敗しても次回 cron に回す", async () => {
+    await insertWork(db, {
+      annictWorkId: 902,
+      malAnimeId: 21,
+      imageUrl: null,
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const flaky = flakyD1Db(db, new Error(D1_INTERNAL_ERROR), { update: 10 });
+
+    await expect(resolvePendingImageFallbacks(flaky)).resolves.toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expectDeferredLog(consoleError, "mark_image_fallback_attempted");
+    const row = await db.query.annictWorks.findFirst({
+      where: (t, { eq }) => eq(t.annictWorkId, 902),
+    });
+    expect(row?.imageFallbackAttemptedAt).toBeNull();
+  });
+
+  it("internal error 以外の失敗は握りつぶさず呼び出し元に投げる", async () => {
+    const flaky = flakyD1Db(db, new Error('near "xyz": syntax error'), {
+      select: 10,
+    });
+
+    await expect(resolvePendingImageFallbacks(flaky)).rejects.toThrow(
+      "syntax error",
+    );
   });
 });
 

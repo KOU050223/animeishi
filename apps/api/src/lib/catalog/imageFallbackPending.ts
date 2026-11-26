@@ -1,5 +1,6 @@
 import type { DrizzleDb } from "@/db/client";
 import { worksRepository } from "@/features/works/repository";
+import { isD1InternalError, withD1InternalErrorRetry } from "@/lib/d1/retry";
 import {
   IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS,
   resolveImagesForWorks,
@@ -29,6 +30,19 @@ export function imageFallbackNoneStaleBefore(now: Date = new Date()): Date {
  */
 const PENDING_RESOLVE_LIMIT = 40;
 
+// D1 internal error が 2 回続いたときの warn ログ。ログだけ残して
+// ジョブは次回 cron に回す（Sentry に送り続けない。issue #833）。
+function warnImageFallbackDeferred(stage: string, err: unknown): void {
+  console.error(
+    JSON.stringify({
+      level: "warn",
+      event: "image_fallback_deferred",
+      stage,
+      error: err instanceof Error ? err.message : String(err),
+    }),
+  );
+}
+
 /**
  * image_source 未解決（null）または 'none' で TTL 切れの作品を D1 から引いて
  * Kitsu（無ければ MAL API）で解決・永続化する。cron ハンドラから定期実行される。
@@ -41,6 +55,11 @@ const PENDING_RESOLVE_LIMIT = 40;
  *
  * 試行前に attempted マーカーを立ててクールダウンを適用する（解決成功時は
  * image_source が立つため pending から自然に外れる）。
+ *
+ * D1 の internal error はストレージ層の一過性エラーが大半なので、D1 呼び出しは
+ * 1 回だけ実行し直す。それでも失敗した場合はこの実行を諦めて次回 cron に回す
+ * （画像はキャッシュ的な補完データで、1 回分の遅延で済むため。issue #833）。
+ * internal error 以外の失敗は握らず投げ、runCronJob 経由で Sentry に送る。
  */
 export async function resolvePendingImageFallbacks(
   db: DrizzleDb,
@@ -48,19 +67,36 @@ export async function resolvePendingImageFallbacks(
   options: { malClientId?: string | undefined; fetchImpl?: typeof fetch } = {},
 ): Promise<number> {
   const repo = worksRepository(db);
-  const targets = await repo.getPendingImageFallbackWorks(
-    limit,
-    imageFallbackAttemptStaleBefore(),
-    imageFallbackNoneStaleBefore(),
-  );
+  let targets: Awaited<ReturnType<typeof repo.getPendingImageFallbackWorks>>;
+  try {
+    targets = await withD1InternalErrorRetry(() =>
+      repo.getPendingImageFallbackWorks(
+        limit,
+        imageFallbackAttemptStaleBefore(),
+        imageFallbackNoneStaleBefore(),
+      ),
+    );
+  } catch (err) {
+    if (!isD1InternalError(err)) throw err;
+    warnImageFallbackDeferred("get_pending_image_fallback_works", err);
+    return 0;
+  }
   if (targets.length === 0) return 0;
 
   // 実行中の中断や解決失敗が次回実行での即時リトライにならないよう、
   // 試行前に attempted マーカーを立てる（クールダウン）。
-  await repo.markImageFallbackAttempted(
-    targets.map((t) => t.annictWorkId),
-    new Date(),
-  );
+  try {
+    await withD1InternalErrorRetry(() =>
+      repo.markImageFallbackAttempted(
+        targets.map((t) => t.annictWorkId),
+        new Date(),
+      ),
+    );
+  } catch (err) {
+    if (!isD1InternalError(err)) throw err;
+    warnImageFallbackDeferred("mark_image_fallback_attempted", err);
+    return 0;
+  }
 
   let results;
   try {
@@ -83,11 +119,13 @@ export async function resolvePendingImageFallbacks(
   let persisted = 0;
   for (const result of results) {
     try {
-      await repo.updateResolvedImage(result.annictWorkId, {
-        resolvedImageUrl: result.resolvedImageUrl,
-        imageSource: result.imageSource,
-        resolvedAt,
-      });
+      await withD1InternalErrorRetry(() =>
+        repo.updateResolvedImage(result.annictWorkId, {
+          resolvedImageUrl: result.resolvedImageUrl,
+          imageSource: result.imageSource,
+          resolvedAt,
+        }),
+      );
       persisted++;
     } catch (err) {
       console.error(
