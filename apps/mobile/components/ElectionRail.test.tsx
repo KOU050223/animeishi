@@ -1,14 +1,14 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import { ElectionRail } from "@/components/ElectionRail";
-import type { ElectionListItem } from "@/lib/useElections";
+import type { ElectionListItem } from "@/features/elections/useElections";
 
-// API・認証の振る舞いは lib/useElections の結合部なので、ここではフックの
+// API・認証の振る舞いは features/elections/useElections の結合部なので、ここではフックの
 // 戻り値を差し替えてレールの UI 分岐と遷移を検証する。
 let mockElections: { data?: { items: ElectionListItem[] } };
 const mockPush = jest.fn();
 
-jest.mock("@/lib/useElections", () => ({
+jest.mock("@/features/elections/useElections", () => ({
   useElections: () => mockElections,
 }));
 

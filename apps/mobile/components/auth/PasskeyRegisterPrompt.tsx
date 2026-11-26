@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useUser } from "@clerk/expo";
 import { useTranslation } from "react-i18next";
-import { toAuthErrorMessage } from "@/lib/authErrors";
-import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
+import { toAuthErrorMessage } from "@/features/auth/authErrors";
+import { passkeyPromptPending } from "@/features/auth/passkeyPromptPending";
 import { useThemeColors } from "@/lib/theme";
 
 type Props = {

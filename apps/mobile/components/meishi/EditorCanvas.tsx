@@ -7,13 +7,13 @@ import { useThemeColors } from "@/lib/theme";
 import { BackgroundLayer } from "./BackgroundLayer";
 import { ElementRenderer } from "./elements/ElementRenderer";
 import { SelectionOverlay } from "./SelectionOverlay";
-import { MEISHI_DESIGN_WIDTH } from "@/lib/meishi/defaults";
+import { MEISHI_DESIGN_WIDTH } from "@/features/meishi/defaults";
 import type {
   MeishiDocument,
   MeishiElement,
   MeishiRenderContext,
   Transform,
-} from "@/lib/meishi/types";
+} from "@/features/meishi/types";
 
 type Size = { width: number; height: number };
 

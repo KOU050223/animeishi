@@ -6,7 +6,7 @@ import type {
   ImageElement,
   MeishiRenderContext,
   TextElement,
-} from "@/lib/meishi/types";
+} from "@/features/meishi/types";
 
 jest.mock("react-native-gesture-handler", () => {
   let end:

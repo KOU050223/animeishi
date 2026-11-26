@@ -7,9 +7,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   MEISHI_COMPLETION_STEPS,
   MEISHI_COMPLETION_STEP_LABELS,
-} from "@/lib/meishi/completion";
-import type { MeishiCompletionStep } from "@/lib/meishi/completion";
-import { useMeishiCompletion } from "@/lib/meishi/useMeishiCompletion";
+} from "@/features/meishi/completion";
+import type { MeishiCompletionStep } from "@/features/meishi/completion";
+import { useMeishiCompletion } from "@/features/meishi/useMeishiCompletion";
 import type { TranslationKey } from "@/lib/i18n/keys";
 import { useThemeColors } from "@/lib/theme";
 

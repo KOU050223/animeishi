@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useFriendNote, useSaveFriendNote } from "@/lib/useFriendNote";
+import {
+  useFriendNote,
+  useSaveFriendNote,
+} from "@/features/friends/useFriendNote";
 import { alert } from "@/lib/dialog";
 import { FriendNoteSheet } from "./FriendNoteSheet";
 

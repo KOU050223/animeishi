@@ -15,12 +15,12 @@ import {
   useSaveSocialLinks,
   SOCIAL_LINK_KINDS,
   socialLinkLabel,
-} from "@/lib/socialLinks";
+} from "@/features/social-links/socialLinks";
 import type {
   SocialLinkInput,
   SocialLinkKind,
   SocialLinkVisibility,
-} from "@/lib/socialLinks";
+} from "@/features/social-links/socialLinks";
 
 const VISIBILITIES: SocialLinkVisibility[] = ["public", "friends", "private"];
 

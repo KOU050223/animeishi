@@ -3,13 +3,13 @@ import { useTranslation } from "react-i18next";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button } from "@/components/ui";
 import { MeishiCard } from "@/components/MeishiCard";
-import { useMeishiCompletion } from "@/lib/meishi/useMeishiCompletion";
+import { useMeishiCompletion } from "@/features/meishi/useMeishiCompletion";
 import {
   MEISHI_COMPLETION_STEPS,
   MEISHI_COMPLETION_STEP_LABELS,
-} from "@/lib/meishi/completion";
-import type { MeishiDocument } from "@/lib/meishi/types";
-import { useProfile } from "@/lib/useProfile";
+} from "@/features/meishi/completion";
+import type { MeishiDocument } from "@/features/meishi/types";
+import { useProfile } from "@/features/me/useProfile";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useThemeColors } from "@/lib/theme";
 import { OnboardingScaffold } from "./OnboardingScaffold";

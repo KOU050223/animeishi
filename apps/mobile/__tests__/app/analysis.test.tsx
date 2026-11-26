@@ -43,7 +43,7 @@ jest.mock("expo-router", () => ({
   }),
 }));
 
-jest.mock("@/lib/useAnalysis", () => ({
+jest.mock("@/features/analysis/useAnalysis", () => ({
   useAnalysis: () => ({
     data: {
       analysis: {
@@ -90,7 +90,7 @@ const RECOMMENDED_WORK = {
   reason: "好みに合いそう",
 };
 
-jest.mock("@/lib/useRecommendations", () => ({
+jest.mock("@/features/analysis/useRecommendations", () => ({
   useRecommendations: () => mockUseRecommendations(),
   useGenerateRecommendations: () => ({
     mutate: jest.fn(),
@@ -98,7 +98,7 @@ jest.mock("@/lib/useRecommendations", () => ({
   }),
 }));
 
-jest.mock("@/lib/useWatchHistory", () => ({
+jest.mock("@/features/watch-history/useWatchHistory", () => ({
   useUpsertWatchHistory: () => ({
     mutate: mockMutateHistory,
     mutateAsync: jest.fn(() => Promise.resolve({})),
@@ -118,7 +118,7 @@ jest.mock("@/lib/useWatchHistory", () => ({
   },
 }));
 
-jest.mock("@/lib/useFavorites", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
   useFavoriteIds: () => new Set<number>(),
   useToggleFavorite: () => ({
     toggle: mockToggleFavorite,
@@ -126,7 +126,7 @@ jest.mock("@/lib/useFavorites", () => ({
   }),
 }));
 
-jest.mock("@/lib/useWorkDetail", () => ({
+jest.mock("@/features/works/useWorkDetail", () => ({
   useWorkDetail: () => ({
     data: undefined,
     isLoading: false,
@@ -145,7 +145,7 @@ jest.mock("@/lib/useWorkDetail", () => ({
 // 詳細シートの評価フックも実物だと QueryClient が要るためスタブにする
 // （評価セクション自体は AnimeWorkDetailSheet.test.tsx で検証）。
 // 未評価を返すので視聴済み以外ではセクションは出ない。
-jest.mock("@/lib/useWorkRating", () => ({
+jest.mock("@/features/work-ratings/useWorkRating", () => ({
   useWorkRating: () => ({
     data: undefined,
     isLoading: false,
@@ -159,7 +159,7 @@ jest.mock("@/lib/useWorkRating", () => ({
 
 // 詳細シート内の話数一覧・記録フックも実物だと QueryClient が要るため
 // スタブにする（話数セクション自体は AnimeWorkDetailSheet.test.tsx で検証）。
-jest.mock("@/lib/useWorkEpisodes", () => ({
+jest.mock("@/features/works/useWorkEpisodes", () => ({
   useWorkEpisodes: () => ({
     data: undefined,
     isLoading: false,
@@ -188,13 +188,13 @@ jest.mock("@/lib/dialog", () => ({
 
 // 分析画面と詳細シートが使う Annict 連携系フックを差し替える。
 // 既定は連携済みで、失敗は「Annict トークン起因でない」とする。
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useAnnictConnection: () => mockUseAnnictConnection(),
   useAnnictConnect: () => mockUseAnnictConnect(),
   useAnnictFunnel: () => mockFunnelTrack,
   useAnnictTokenErrorPrompt: (...args: unknown[]) =>
     mockUseAnnictTokenErrorPrompt(...args),
-  annictErrorKey: jest.requireActual("@/lib/annict/errorMessages")
+  annictErrorKey: jest.requireActual("@/features/annict/errorMessages")
     .annictErrorKey,
 }));
 

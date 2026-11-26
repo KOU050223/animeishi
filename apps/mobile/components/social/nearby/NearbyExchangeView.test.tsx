@@ -9,12 +9,12 @@ import {
 } from "./NearbyExchangeStage";
 import { alert } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";
-import { TAP_REQUEST_TIMEOUT_MS } from "@/lib/nearbyExchange/useNearbyExchangeSession";
+import { TAP_REQUEST_TIMEOUT_MS } from "@/features/friends/nearbyExchange/useNearbyExchangeSession";
 import {
   encodeNearbyMessage,
   type NearbyExchangeModuleEvents,
   type NearbyMessage,
-} from "@/lib/nearbyExchange";
+} from "@/features/friends/nearbyExchange";
 
 const dataMessage = (url: string) => encodeNearbyMessage({ kind: "data", url });
 const signal = (kind: Exclude<NearbyMessage["kind"], "data">) =>
@@ -27,7 +27,7 @@ const mockListeners = new Map<string, Set<Listener>>();
 const mockSendPayload = jest.fn();
 const mockStart = jest.fn();
 let mockSupported = true;
-jest.mock("@/lib/nearbyExchange/nearbyExchange", () => ({
+jest.mock("@/features/friends/nearbyExchange/nearbyExchange", () => ({
   nearbyExchange: {
     platformAvailable: true,
     isSupported: () => mockSupported,
@@ -65,7 +65,7 @@ const MY_NEARBY_PAYLOAD =
 const PARTNER_QR =
   "https://animeishi.uomi.dev/user/user_partner2abcDEF?qt=partner-qt";
 
-jest.mock("@/lib/useExchangeQrValue", () => ({
+jest.mock("@/features/friends/useExchangeQrValue", () => ({
   useExchangeQrValue: () => ({
     qrValue: MY_QR,
     nearbyPayload: MY_NEARBY_PAYLOAD,
@@ -78,20 +78,20 @@ jest.mock("expo-router", () => ({
 }));
 
 const mockAddFriendMutate = jest.fn();
-jest.mock("@/lib/useFriends", () => ({
+jest.mock("@/features/friends/useFriends", () => ({
   useAddFriend: () => ({ mutate: mockAddFriendMutate, isPending: false }),
 }));
 
 const mockEnqueueExchange = jest.fn();
-jest.mock("@/lib/exchangeQueue", () => ({
+jest.mock("@/features/friends/exchangeQueue", () => ({
   enqueueExchange: (item: unknown) => mockEnqueueExchange(item),
 }));
 
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useProfile: () => ({ data: { username: "みお" } }),
 }));
 
-jest.mock("@/lib/meishi/useMeishiLibrary", () => ({
+jest.mock("@/features/meishi/useMeishiLibrary", () => ({
   useMeishiLibrary: () => ({ defaultCard: null }),
 }));
 

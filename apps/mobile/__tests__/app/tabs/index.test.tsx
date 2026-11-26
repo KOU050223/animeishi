@@ -1,6 +1,6 @@
 import React from "react";
 import { Platform } from "react-native";
-import { WorkDetailContext } from "@/lib/workDetailContext";
+import { WorkDetailContext } from "@/features/works/workDetailContext";
 import {
   render,
   screen,
@@ -11,7 +11,7 @@ import HomeScreen from "@/app/(tabs)/(home)/index";
 import { featureFlags } from "@/lib/featureFlags";
 
 import { currentSeason, SEASONS } from "@/components/anime-list/animeListUtils";
-import type { WatchState } from "@/lib/watchStatusLabels";
+import type { WatchState } from "@/features/watch-history/watchStatusLabels";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 jest.mock("@/lib/dialog", () => require("@/lib/dialog/dialog.web"));
@@ -79,10 +79,10 @@ jest.mock("@/components/CurrentSeasonConnectCard", () => ({
 }));
 
 // 連携状態をテストごとに切り替えられるよう、変数経由で返す。
-// バレル（@/lib/annict）ごと潰すと useWatchHistory が使う buildAnnictAuthHeader 等が
+// バレル（@/features/annict）ごと潰すと useWatchHistory が使う buildAnnictAuthHeader 等が
 // undefined になるため、解決先のプラットフォーム実装モジュールを直接モックする。
 let mockAnnictConnection = { isConnected: true, isLoading: false };
-jest.mock("@/lib/annict/useAnnictConnection", () => ({
+jest.mock("@/features/annict/useAnnictConnection", () => ({
   useAnnictConnection: () => mockAnnictConnection,
   buildAnnictAuthHeader: async () => ({}),
 }));
@@ -94,7 +94,7 @@ let mockWatchHistory: {
   isError: boolean;
   refetch: jest.Mock;
 };
-jest.mock("@/lib/useWatchHistory", () => ({
+jest.mock("@/features/watch-history/useWatchHistory", () => ({
   useWatchHistory: () => mockWatchHistory,
   WATCH_HISTORY_QUERY_KEY: ["watch-history"],
 }));
@@ -109,18 +109,18 @@ let mockFeed: {
   fetchNextPage: jest.Mock;
   isFetchingNextPage: boolean;
 };
-jest.mock("@/lib/useActivityFeed", () => ({
+jest.mock("@/features/feed/useActivityFeed", () => ({
   useActivityFeed: () => mockFeed,
   ACTIVITY_FEED_QUERY_KEY: ["activity-feed"],
 }));
 
 // フィードの空状態がフレンド数で案内を出し分けるため（issue #533）、
 // フレンドありで固定する。
-jest.mock("@/lib/useFriends", () => ({
+jest.mock("@/features/friends/useFriends", () => ({
   useFriends: () => ({ data: [{ friendId: "f1" }], isLoading: false }),
 }));
 
-jest.mock("@/lib/useFriendWatchStories", () => ({
+jest.mock("@/features/feed/useFriendWatchStories", () => ({
   useFriendWatchStories: () => ({ data: undefined, refetch: jest.fn() }),
   FRIEND_WATCH_STORIES_QUERY_KEY: ["friend-watch-stories"],
 }));
@@ -138,7 +138,7 @@ let mockArticles: {
       }
     | undefined;
 };
-jest.mock("@/lib/useArticles", () => ({
+jest.mock("@/features/articles/useArticles", () => ({
   useLatestArticles: () => mockArticles,
   ARTICLES_QUERY_KEY: ["articles"],
 }));
@@ -159,7 +159,7 @@ let mockEvents: {
       }
     | undefined;
 };
-jest.mock("@/lib/useEvents", () => ({
+jest.mock("@/features/events/useEvents", () => ({
   useEvents: () => mockEvents,
   EVENTS_QUERY_KEY: ["events"],
 }));
@@ -179,7 +179,7 @@ let mockElections: {
       }
     | undefined;
 };
-jest.mock("@/lib/useElections", () => ({
+jest.mock("@/features/elections/useElections", () => ({
   useElections: () => mockElections,
   ELECTIONS_QUERY_KEY: ["elections"],
 }));

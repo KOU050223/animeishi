@@ -7,7 +7,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import TierListsScreen from "@/app/tier-lists";
 import { confirm } from "@/lib/dialog";
 import { featureFlags } from "@/lib/featureFlags";
-import type { MergedTierListItem } from "@/lib/tierList/useMergedTierLists";
+import type { MergedTierListItem } from "@/features/tier-lists/useMergedTierLists";
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -46,8 +46,8 @@ function setTierFlags(character: boolean, custom: boolean) {
 
 let mockItems: MergedTierListItem[] = [];
 let mockListsLoading = false;
-jest.mock("@/lib/tierList/useMergedTierLists", () => {
-  const actual = jest.requireActual("@/lib/tierList/useMergedTierLists");
+jest.mock("@/features/tier-lists/useMergedTierLists", () => {
+  const actual = jest.requireActual("@/features/tier-lists/useMergedTierLists");
   return {
     ...actual,
     useMergedTierLists: () => ({
@@ -59,7 +59,7 @@ jest.mock("@/lib/tierList/useMergedTierLists", () => {
 });
 
 const mockRemove = jest.fn();
-jest.mock("@/lib/tierList/useTierList", () => ({
+jest.mock("@/features/tier-lists/useTierList", () => ({
   useDeleteTierList: () => ({ mutateAsync: mockRemove }),
 }));
 

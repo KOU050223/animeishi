@@ -9,7 +9,7 @@ import {
   useShareWatchHistory,
   useUnshareWatchHistory,
   useWatchHistoryShareStatus,
-} from "@/lib/useWatchHistoryShare";
+} from "@/features/watch-history/useWatchHistoryShare";
 import { useThemeColors } from "@/lib/theme";
 
 const COPIED_LABEL_MS = 2000;

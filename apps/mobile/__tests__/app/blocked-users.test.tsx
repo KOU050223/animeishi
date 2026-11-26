@@ -46,7 +46,7 @@ const mockConfirm = jest.fn(
   ) => onConfirm(),
 );
 
-jest.mock("@/lib/useModeration", () => ({
+jest.mock("@/features/users/useModeration", () => ({
   useBlockedUsers: () => mockUseBlockedUsers(),
   useUnblockUser: () => ({
     mutateAsync: (...args: unknown[]) => mockUnblockMutateAsync(...args),

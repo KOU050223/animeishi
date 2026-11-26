@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 import type { TranslationKey } from "@/lib/i18n/keys";
-import type { AnimeTitle } from "@/lib/useAnimeList";
+import type { AnimeTitle } from "@/features/works/useAnimeList";
 
 // 作品詳細シートと作品ページ（app/work/[id]）で共有する、表示以外の値の組み立て。
 // WorkDetailInfo.tsx をコンポーネントだけの export に保ち Fast Refresh を効かせるため分けている。

@@ -2,9 +2,12 @@ import { forwardRef, useEffect, useRef } from "react";
 import { StyleSheet, Text, View, type ViewInstance } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { MeishiRenderer } from "./MeishiRenderer";
-import { countRenderableImages } from "@/lib/meishi/renderableImages";
+import { countRenderableImages } from "@/features/meishi/renderableImages";
 import { useThemeColors, type ThemeColors } from "@/lib/theme";
-import type { MeishiDocument, MeishiRenderContext } from "@/lib/meishi/types";
+import type {
+  MeishiDocument,
+  MeishiRenderContext,
+} from "@/features/meishi/types";
 
 /** 共有画像の横幅。 */
 const SNAPSHOT_WIDTH = 640;

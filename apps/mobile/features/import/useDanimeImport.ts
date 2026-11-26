@@ -1,0 +1,418 @@
+// dアニメインポートの API 通信フック。
+//   - useDanimeMatch: 抽出結果を作品単位に集約して /me/import/danime/match に投げる
+//     （読み取り専用の照合なのでキャッシュ無効化は不要）
+//   - useBulkRegisterWatchHistory: 確定済みの作品を /me/watch-histories/bulk に
+//     上限件数ずつチャンクして逐次送信する（進捗コールバック付き）
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/expo";
+import type { InferResponseType } from "hono/client";
+import { apiClient, apiFetch } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
+import {
+  normalizeTitle,
+  toMatchWorks,
+  type DanimeAnnictWork,
+  type DanimeExtractedEpisode,
+  type DanimeExtractedLists,
+  type DanimeMatchItem,
+} from "@animeishi/danime-core";
+import { WATCH_HISTORY_QUERY_KEY } from "@/features/watch-history/watchHistoryKey";
+import { ACHIEVEMENTS_QUERY_KEY } from "@/features/achievements/useAchievements";
+import { invalidateCommonPoints } from "@/features/users/useCommonPoints";
+import type { TranslationKey } from "@/lib/i18n/keys";
+import { danimeQueries, type DanimeEpisodeJob } from "@/lib/queries/danime";
+
+// bulk エンドポイントの入力 1 件。nodeId / 作品メタは送らない
+// （API 側がキャッシュ→Annict の順で正規解決する。クライアント提供値を
+// 信頼すると共有キャッシュを汚染できるためスキーマで受け付けない）。
+export type BulkRegisterEntry = {
+  annictWorkId: number;
+  state: "WATCHED" | "WATCHING";
+};
+
+export type BulkRegisterResult = {
+  /** 送信予定の全エントリ分の結果。未送信分も ok:false で含まれる。 */
+  results: { annictWorkId: number; ok: boolean; error?: string }[];
+  /** Annict トークン失効などで API が残りを打ち切った場合 true。 */
+  aborted: boolean;
+  /** 途中のチャンクで通信/HTTP エラーが起きた場合のメッセージキー。 */
+  requestError: TranslationKey | null;
+  /** requestError が HTTP 失敗のときのステータス（補間用）。 */
+  requestErrorStatus: number | null;
+  /** 登録フェーズの経過時間（ms、クライアント側計測）。 */
+  elapsedMs: number;
+};
+
+// POST /me/import/danime/match の stats 要素と対応するクライアント側の型。
+export type DanimeMatchStats = {
+  /** D1 キャッシュ照合（issue #219 で追加。旧 API では返らないため任意）。 */
+  localPassSearches?: number;
+  firstPassSearches: number;
+  secondPassSearches: number;
+  retries: number;
+  /** 検索計画を完走できず pending になった件数（旧 API では返らない）。 */
+  pending?: number;
+  elapsedMs: number;
+};
+
+type DanimeMatchOutput = {
+  items: DanimeMatchItem[];
+  /** 照合フェーズの経過時間（ms、クライアント側計測）。 */
+  elapsedMs: number;
+  /** API 側の検索統計（デプロイ前の旧 API では返らないため任意）。 */
+  stats?: DanimeMatchStats | undefined;
+};
+
+// 1 リクエストあたりの上限（API 側スキーマ WATCH_HISTORY_BULK_MAX_ENTRIES と
+// 揃える）。Workers のサブリクエスト上限 50/req に対し、bulk 1 件あたり
+// 最悪 11 サブリクエスト（Annict 2 呼び出し × 最大 3 試行 + D1 5）と
+// ステータス一括取得 3 を数えると 3 件までしか収まらない。計算の内訳は
+// apps/api/src/features/watch-history/schema.ts のコメント参照。
+const BULK_CHUNK_SIZE = 3;
+
+// 1 リクエストあたりの照合件数。API 側は 500 件まで受け付けるが、
+// Workers のサブリクエスト上限（issue #219）に収まるよう
+// 小さく分割して逐次送信する。pending の再送もこの単位で行う。
+const MATCH_CHUNK_SIZE = 100;
+
+// issue #219: 照合を 100 件単位で分割送信しているため、正規化タイトルが同じ
+// Annict 作品が別チャンクの結果として別々に exact 確定した場合、API 側は
+// 各リクエスト内の候補プールしか見られず「同名だが別作品かもしれない」
+// 曖昧さを検出できない。同一リクエスト内なら API が行う判定
+// （同名の複数 exact 候補 → candidates）を、結合後にクライアント側で
+// やり直し誤確定を防ぐ。
+function demoteAmbiguousExactAcrossChunks(
+  items: DanimeMatchItem[],
+): DanimeMatchItem[] {
+  const groups = new Map<string, DanimeMatchItem[]>();
+  for (const item of items) {
+    if (item.status !== "exact" || !item.work) continue;
+    const key = normalizeTitle(item.work.title);
+    if (!key) continue;
+    const group = groups.get(key);
+    if (group) {
+      group.push(item);
+    } else {
+      groups.set(key, [item]);
+    }
+  }
+  return items.map((item) => {
+    if (item.status !== "exact" || !item.work) return item;
+    const group = groups.get(normalizeTitle(item.work.title));
+    if (!group || new Set(group.map((g) => g.work?.annictWorkId)).size <= 1) {
+      return item;
+    }
+    // 同名グループの Annict 作品をすべて candidates に入れて選択肢にする。
+    const groupWorks = new Map<number, DanimeAnnictWork>();
+    for (const g of group) {
+      if (g.work) groupWorks.set(g.work.annictWorkId, g.work);
+    }
+    const rest = item.candidates.filter((c) => !groupWorks.has(c.annictWorkId));
+    return {
+      ...item,
+      status: "candidates",
+      work: null,
+      candidates: [...groupWorks.values(), ...rest],
+    };
+  });
+}
+
+export function useDanimeMatch() {
+  return useMutation({
+    mutationFn: async ({
+      lists,
+      registeredWorkIds = [],
+    }: {
+      lists: DanimeExtractedLists;
+      // 登録済み Annict 作品 ID。照合時に「登録済みの別シーズン」を候補から
+      // 外すヒントとして API に渡す。
+      registeredWorkIds?: number[];
+    }) => {
+      const works = toMatchWorks(lists);
+      if (works.length === 0) {
+        throw new Error("照合対象の作品がありません");
+      }
+
+      // API の works 上限を超える履歴にも対応するためチャンク分割する。
+      // Clerk トークンは短命なので、長時間かかる連続リクエストの途中で
+      // 期限切れにならないようチャンクごとに取得し直す。
+      const startedAt = Date.now();
+      let stats: DanimeMatchStats | undefined;
+
+      const postMatch = async (chunk: typeof works) => {
+        const res = await apiClient.me["import"].danime.match.$post(
+          {
+            json: { works: chunk, registeredWorkIds },
+          },
+          {
+            fetch: apiFetch({
+              annict: true,
+              onHttpError: async (errorRes) => {
+                // エラー JSON（{error, code}）の code を画面の文言切替に
+                // 使う。本文は内部向けの詳細を含むためメッセージには載せず、
+                // デバッグ用にコンソールへだけ残す（issue #219）。
+                const detail = await errorRes.text().catch(() => "");
+                let code: string | undefined;
+                try {
+                  const parsed = JSON.parse(detail) as { code?: unknown };
+                  if (typeof parsed.code === "string") code = parsed.code;
+                } catch {
+                  // エラー応答が JSON でない場合（WAF の HTML 等）は code なし。
+                }
+                console.error(
+                  `danime match request failed (HTTP ${errorRes.status}): ${detail.slice(0, 500)}`,
+                );
+                return new ApiRequestError(
+                  errorRes.status,
+                  `Annict とのマッチングに失敗しました（HTTP ${errorRes.status}）`,
+                  code,
+                );
+              },
+            }),
+          },
+        );
+        const body = (await res.json()) as InferResponseType<
+          (typeof apiClient.me)["import"]["danime"]["match"]["$post"],
+          200
+        >;
+        // チャンク分割・pending 再送時は各リクエストの統計を合算する。
+        // 検索回数・リトライ・経過時間は累積でよいが、pending 件数は
+        // 「その応答時点の未検索数」なので合算すると結果一覧とずれる。
+        // 最終的な items が決まってから数え直す。
+        if (body.stats) {
+          stats = {
+            localPassSearches:
+              (stats?.localPassSearches ?? 0) +
+              (body.stats.localPassSearches ?? 0),
+            firstPassSearches:
+              (stats?.firstPassSearches ?? 0) + body.stats.firstPassSearches,
+            secondPassSearches:
+              (stats?.secondPassSearches ?? 0) + body.stats.secondPassSearches,
+            retries: (stats?.retries ?? 0) + body.stats.retries,
+            elapsedMs: (stats?.elapsedMs ?? 0) + body.stats.elapsedMs,
+          };
+        }
+        return body.results;
+      };
+
+      // API が返した最新の照合結果（danimeWorkId 単位）。pending は
+      // 「予算切れ等で未検索」なので、次のリクエストへ送り直す（issue #219）。
+      // 1 ラウンドで 1 件も確定しなければ進捗なしとみなして打ち切り、
+      // 残りは pending のまま画面に返す（無限ループ防止）。
+      const resultById = new Map<string, DanimeMatchItem>();
+      const workById = new Map(works.map((w) => [w.danimeWorkId, w]));
+      let remaining = [...workById.values()];
+      while (remaining.length > 0) {
+        const pending: typeof works = [];
+        let resolved = 0;
+        for (let i = 0; i < remaining.length; i += MATCH_CHUNK_SIZE) {
+          const chunk = remaining.slice(i, i + MATCH_CHUNK_SIZE);
+          for (const r of await postMatch(chunk)) {
+            if (r.status === "pending") {
+              const work = workById.get(r.danimeWorkId);
+              if (work) pending.push(work);
+            } else {
+              resultById.set(r.danimeWorkId, r);
+              resolved++;
+            }
+          }
+        }
+        if (resolved === 0) break;
+        remaining = pending;
+      }
+      // 入力順を維持して返す。残った pending はそのまま返し、
+      // レビュー画面で「保留」として表示する。
+      const items = works.map(
+        (w) =>
+          resultById.get(w.danimeWorkId) ?? {
+            ...w,
+            status: "pending" as const,
+            work: null,
+            candidates: [],
+          },
+      );
+      if (stats) {
+        stats.pending = items.filter((i) => i.status === "pending").length;
+      }
+      return {
+        items: demoteAmbiguousExactAcrossChunks(items),
+        elapsedMs: Date.now() - startedAt,
+        stats,
+      } satisfies DanimeMatchOutput;
+    },
+  });
+}
+
+export function useBulkRegisterWatchHistory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      entries,
+      onProgress,
+    }: {
+      entries: BulkRegisterEntry[];
+      onProgress?: (done: number, total: number) => void;
+    }): Promise<BulkRegisterResult> => {
+      const startedAt = Date.now();
+      const results: BulkRegisterResult["results"] = [];
+      let aborted = false;
+      let requestError: TranslationKey | null = null;
+      let requestErrorStatus: number | null = null;
+
+      for (let i = 0; i < entries.length; i += BULK_CHUNK_SIZE) {
+        const chunk = entries.slice(i, i + BULK_CHUNK_SIZE);
+        let body;
+        try {
+          // Clerk トークンは短命なので、apiFetch がリクエストごとに取得し直す。
+          const res = await apiClient.me["watch-histories"].bulk.$post(
+            { json: { entries: chunk } },
+            {
+              fetch: apiFetch({
+                annict: true,
+                onHttpError: async (errorRes) =>
+                  new ApiRequestError(
+                    errorRes.status,
+                    "一括登録リクエストが失敗しました（HTTP {{status}}）",
+                  ),
+              }),
+            },
+          );
+          body = (await res.json()) as InferResponseType<
+            (typeof apiClient.me)["watch-histories"]["bulk"]["$post"],
+            200
+          >;
+        } catch (error) {
+          // apiFetch は HTTP 失敗を ApiRequestError に変換して投げる。
+          // ステータスを文言に含める契約なので ApiRequestError だけを
+          // HTTP 失敗として扱い、それ以外（通信エラー）は別メッセージにする。
+          if (error instanceof ApiRequestError) {
+            requestError =
+              "一括登録リクエストが失敗しました（HTTP {{status}}）";
+            requestErrorStatus = error.status;
+          } else {
+            requestError = "一括登録リクエストで通信エラーが発生しました";
+          }
+        }
+
+        if (!body) {
+          // 途中でリクエスト自体が失敗した場合でも、成功済み分の結果は保持し、
+          // 残りを未処理として返す（onSuccess のキャッシュ無効化も効かせる）。
+          for (const rest of entries.slice(i)) {
+            results.push({
+              annictWorkId: rest.annictWorkId,
+              ok: false,
+              error: "not_sent",
+            });
+          }
+          break;
+        }
+
+        results.push(...body.results);
+        onProgress?.(results.length, entries.length);
+        // Annict トークン失効などで API が打ち切った場合、後続チャンクは送らず
+        // 未送信分を aborted として結果に含める（件数の整合のため）。
+        if (body.aborted) {
+          aborted = true;
+          for (const rest of entries.slice(i + BULK_CHUNK_SIZE)) {
+            results.push({
+              annictWorkId: rest.annictWorkId,
+              ok: false,
+              error: "aborted",
+            });
+          }
+          break;
+        }
+      }
+      return {
+        results,
+        aborted,
+        requestError,
+        requestErrorStatus,
+        elapsedMs: Date.now() - startedAt,
+      };
+    },
+    // 途中失敗（requestError）でも成功分が登録されている可能性があるため、
+    // onSuccess（= mutationFn が正常終了した場合）で必ず無効化する。
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
+      // 一括登録は視聴数バッジの判定入力（WATCHED 件数）を増やすため
+      // 実績クエリも無効化する（issue #415）。
+      void queryClient.invalidateQueries({
+        queryKey: ACHIEVEMENTS_QUERY_KEY,
+      });
+      // 登録された履歴は共通点（視聴済み数・一緒に視聴中）の入力でも
+      // あるため、共通点クエリも無効化する。
+      invalidateCommonPoints(queryClient);
+    },
+  });
+}
+
+// ---- 話単位の記録ジョブ（issue #477） ----
+//
+// レビュー画面の「登録」完了後、確定（exact）作品の dアニメ話一覧を
+// POST /me/import/danime/episode-jobs に渡してジョブを登録する。
+// API はジョブを登録して即座に返し、Annict への話記録は
+// Cloudflare Workflows がバックグラウンドで約 1 秒間隔に実行する。
+// 画面は GET /episode-jobs/current をポーリングして進捗を出す。
+
+export type { DanimeEpisodeJob } from "@/lib/queries/danime";
+
+const DANIME_EPISODE_JOB_QUERY_KEY = danimeQueries.episodeJob.all;
+
+/** 最新の話記録ジョブを取得する。実行中（matching/writing）だけ 5 秒ごとに再取得する。 */
+export function useDanimeEpisodeJob(enabled = true) {
+  const { isSignedIn, userId } = useAuth();
+  return useQuery({
+    ...danimeQueries.episodeJob.query({ userId }),
+    enabled: enabled && !!isSignedIn && !!userId,
+    refetchInterval: (query) => {
+      const job = query.state.data;
+      return job && (job.status === "matching" || job.status === "writing")
+        ? 5_000
+        : false;
+    },
+  });
+}
+
+/** ジョブ登録の入力。episodes は作品ページから抽出した dアニメ話一覧。 */
+export type DanimeEpisodeJobWorkInput = {
+  danimeWorkId: string;
+  annictWorkId: number;
+  episodes: DanimeExtractedEpisode[];
+};
+
+export function useCreateDanimeEpisodeJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      works,
+    }: {
+      works: DanimeEpisodeJobWorkInput[];
+    }): Promise<{ job: DanimeEpisodeJob | null; created: boolean }> => {
+      const res = await apiClient.me["import"].danime["episode-jobs"].$post(
+        { json: { works } },
+        {
+          fetch: apiFetch({
+            // ステータスを文言に含める契約は TranslationKey では
+            // 表せないため onHttpError で維持する。
+            onHttpError: async (errorRes) =>
+              new ApiRequestError(
+                errorRes.status,
+                `話数記録ジョブの登録に失敗しました（HTTP ${errorRes.status}）`,
+              ),
+          }),
+        },
+      );
+      return res.json() as Promise<{
+        job: DanimeEpisodeJob | null;
+        created: boolean;
+      }>;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: DANIME_EPISODE_JOB_QUERY_KEY,
+      });
+    },
+  });
+}

@@ -4,7 +4,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button } from "@/components/ui";
 import { MeishiRenderer } from "@/components/meishi/MeishiRenderer";
 import { selectionAccessibilityProps } from "@/lib/accessibility";
-import { MEISHI_TEMPLATES } from "@/lib/meishi/templates";
+import { MEISHI_TEMPLATES } from "@/features/meishi/templates";
 import { useThemeColors } from "@/lib/theme";
 import { OnboardingScaffold } from "./OnboardingScaffold";
 import type { TranslationKey } from "@/lib/i18n/keys";

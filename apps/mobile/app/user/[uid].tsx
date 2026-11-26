@@ -18,7 +18,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { alert, confirm } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";
 import { publicProfileQueries } from "@/lib/queries/publicProfile";
-import type { PublicProfile } from "@/lib/publicProfile";
+import type { PublicProfile } from "@/features/user/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { FriendNoteSection } from "@/components/social/FriendNoteSection";
 import { FriendThanksSection } from "@/components/social/FriendThanksSection";
@@ -26,34 +26,37 @@ import { FriendThanksSheet } from "@/components/social/FriendThanksSheet";
 import {
   useSendFriendThanks,
   type ThanksPresetKey,
-} from "@/lib/useFriendThanks";
+} from "@/features/friend-thanks/useFriendThanks";
 import { FriendUpdatesSection } from "@/components/social/FriendUpdatesSection";
 import { ExchangeRecordSection } from "@/components/social/ExchangeRecordSection";
 import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";
 import { CommonPoints } from "@/components/social/CommonPoints";
 import { GuestSignUpCta } from "@/components/social/GuestSignUpCta";
 import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
-import { saveReceivedMeishi } from "@/lib/receivedMeishi";
+import { saveReceivedMeishi } from "@/features/received-meishi";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";
 import type { WorkDetailSheetTarget } from "@/components/anime-list";
-import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
+import {
+  useFavoriteIds,
+  useToggleFavorite,
+} from "@/features/favorites/useFavorites";
 import { trackEvent } from "@/lib/events";
 import {
   getReportErrorMessage,
   REPORT_REASONS,
   useBlockUser,
   useReportUser,
-} from "@/lib/useModeration";
-import type { ReportReason } from "@/lib/useModeration";
-import { useFriends } from "@/lib/useFriends";
+} from "@/features/users/useModeration";
+import type { ReportReason } from "@/features/users/useModeration";
+import { useFriends } from "@/features/friends/useFriends";
 import {
   useAcceptFriendRequest,
   useDeleteFriendRequest,
   useFriendRequests,
   useSendFriendRequest,
-} from "@/lib/useFriendRequests";
-import type { FriendRequestItem } from "@/lib/useFriendRequests";
+} from "@/features/friend-requests/useFriendRequests";
+import type { FriendRequestItem } from "@/features/friend-requests/useFriendRequests";
 import { useThemeColors } from "@/lib/theme";
 import { SocialLinksList } from "@/components/profile/SocialLinksList";
 

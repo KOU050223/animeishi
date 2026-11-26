@@ -83,7 +83,7 @@ jest.mock("@/lib/haptics", () => ({
   },
 }));
 
-jest.mock("@/lib/useModeration", () => ({
+jest.mock("@/features/users/useModeration", () => ({
   REPORT_REASONS: ["不適切なコンテンツ", "スパム・宣伝"],
   useReportUser: () => ({ mutate: mockReportMutate, isPending: false }),
   useBlockUser: () => ({ mutate: mockBlockMutate, isPending: false }),
@@ -97,7 +97,7 @@ const mockFriendsRefetch = jest.fn();
 // 「失敗かつデータ無し」だけがエラー表示になる（issue #417 レビュー対応）。
 let mockFriendsData: { friendId: string }[] | undefined = [];
 let mockFriendsError = false;
-jest.mock("@/lib/useFriends", () => ({
+jest.mock("@/features/friends/useFriends", () => ({
   useFriends: () => ({
     data: mockFriendsData,
     isLoading: false,
@@ -115,7 +115,7 @@ let mockRequestsData: {
   sent: { id: number; userId: string; username: string }[];
 } = { received: [], sent: [] };
 let mockRequestsError = false;
-jest.mock("@/lib/useFriendRequests", () => ({
+jest.mock("@/features/friend-requests/useFriendRequests", () => ({
   useSendFriendRequest: () => ({ mutate: mockSendMutate, isPending: false }),
   useAcceptFriendRequest: () => ({
     mutate: mockAcceptMutate,
@@ -134,7 +134,7 @@ jest.mock("@/lib/useFriendRequests", () => ({
 }));
 
 // 名刺交換のお礼（issue #694）。既定は空（届いた・送ったともに無し）。
-jest.mock("@/lib/useFriendThanks", () => ({
+jest.mock("@/features/friend-thanks/useFriendThanks", () => ({
   useFriendThanksFor: () => ({ received: [], sent: [], isError: false }),
   useSendFriendThanks: () => ({ mutate: jest.fn(), isPending: false }),
   useDeleteFriendThanks: () => ({ mutateAsync: jest.fn() }),
@@ -153,7 +153,7 @@ jest.mock("@/components/anime-list", () => ({
   },
 }));
 
-jest.mock("@/lib/useFavorites", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
   useFavoriteIds: () => new Set<number>(),
   useToggleFavorite: () => ({ toggle: jest.fn(), isPending: false }),
 }));
@@ -169,15 +169,15 @@ let mockWorkEpisodesData:
       }[];
     }
   | undefined;
-jest.mock("@/lib/useWorkEpisodes", () => ({
+jest.mock("@/features/works/useWorkEpisodes", () => ({
   useWorkEpisodes: () => ({ data: mockWorkEpisodesData }),
 }));
 
 jest.mock("@/lib/events", () => ({ trackEvent: jest.fn() }));
 
 const mockSavePendingReturn = jest.fn(async (_path: string) => {});
-jest.mock("@/lib/guestCta", () => ({
-  ...jest.requireActual("@/lib/guestCta/pendingReturn"),
+jest.mock("@/features/auth/guestCta", () => ({
+  ...jest.requireActual("@/features/auth/guestCta/pendingReturn"),
   savePendingReturn: (path: string) => mockSavePendingReturn(path),
 }));
 
@@ -194,7 +194,7 @@ jest.mock("@/lib/dialog", () => ({
 
 // 名刺画像の保存（issue #675）。プラットフォーム実装は呼び出し内容だけ見る。
 const mockSaveReceivedMeishi = jest.fn((_input: unknown) => Promise.resolve());
-jest.mock("@/lib/receivedMeishi", () => ({
+jest.mock("@/features/received-meishi", () => ({
   saveReceivedMeishi: (input: unknown) => mockSaveReceivedMeishi(input),
 }));
 

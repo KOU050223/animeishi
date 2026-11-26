@@ -18,13 +18,13 @@ import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { selectionAccessibilityProps } from "@/lib/accessibility";
-import { useQrScanner } from "@/lib/useQrScanner";
-import { useAddFriend } from "@/lib/useFriends";
-import { useExchangeQrValue } from "@/lib/useExchangeQrValue";
-import { nearbyExchange } from "@/lib/nearbyExchange";
+import { useQrScanner } from "@/features/friends/useQrScanner";
+import { useAddFriend } from "@/features/friends/useFriends";
+import { useExchangeQrValue } from "@/features/friends/useExchangeQrValue";
+import { nearbyExchange } from "@/features/friends/nearbyExchange";
 import { NearbyExchangeView } from "@/components/social/nearby/NearbyExchangeView";
 import { ApiRequestError } from "@/lib/apiError";
-import { enqueueExchange } from "@/lib/exchangeQueue";
+import { enqueueExchange } from "@/features/friends/exchangeQueue";
 import {
   ExchangeResultLayer,
   type ExchangeResult,
@@ -34,12 +34,12 @@ import { MeishiCard } from "@/components/MeishiCard";
 import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { publicProfileQueries } from "@/lib/queries/publicProfile";
-import { shareTierListUrl } from "@/lib/tierList/share";
-import { saveQrImage } from "@/lib/qrImage";
+import { shareTierListUrl } from "@/features/tier-lists/share";
+import { saveQrImage } from "@/features/friends/qrImage";
 import { alert } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
-import { useProfile } from "@/lib/useProfile";
-import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
+import { useProfile } from "@/features/me/useProfile";
+import { useMeishiLibrary } from "@/features/meishi/useMeishiLibrary";
 import { SegmentedControl } from "@/components/ui";
 
 // 「コピーしました」表示を元に戻すまでの時間。
@@ -235,7 +235,7 @@ function GenerateView() {
   async function onShareLink() {
     try {
       // native は OS 共有シート、web は Web Share API → クリップボードの順に
-      // フォールバックする（lib/tierList/share の ShareTierListUrl）。
+      // フォールバックする（features/tier-lists/share の ShareTierListUrl）。
       const result = await shareTierListUrl(shareUrl);
       if (result === "copied") {
         showCopied();

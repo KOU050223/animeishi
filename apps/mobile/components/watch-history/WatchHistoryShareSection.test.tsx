@@ -23,7 +23,7 @@ const mockUnshareMutateAsync = jest.fn();
 let mockShareToken: string | null = null;
 let mockIsLoading = false;
 
-jest.mock("@/lib/useWatchHistoryShare", () => ({
+jest.mock("@/features/watch-history/useWatchHistoryShare", () => ({
   useWatchHistoryShareStatus: () => ({
     data: { shareToken: mockShareToken },
     isLoading: mockIsLoading,

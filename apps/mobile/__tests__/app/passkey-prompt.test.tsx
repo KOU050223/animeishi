@@ -8,7 +8,7 @@ import {
 // Web 実装を直接 import して検証する（バンドラの .web 解決に依存せず単体で確認）。
 import PasskeyPromptScreen from "@/app/passkey-prompt.web";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
-import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
+import { passkeyPromptPending } from "@/features/auth/passkeyPromptPending";
 
 // issue #332: Google OAuth の新規登録完了時に clerk-js が遷移する促進ルート。
 // ルート自体の振る舞い（促進表示・「あとで」でホーム・フラグ無効時の

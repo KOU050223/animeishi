@@ -75,7 +75,7 @@ const mockRefetch = jest.fn(async () => ({}));
 const mockToggleMutate = jest.fn();
 const mockReportSubmit = jest.fn();
 
-jest.mock("@/lib/usePublicUsers", () => ({
+jest.mock("@/features/users/usePublicUsers", () => ({
   usePublicUsers: () => ({
     data: { pages: [{ items: mockItems, nextCursor: null }] },
     isLoading: mockLoading,
@@ -88,7 +88,7 @@ jest.mock("@/lib/usePublicUsers", () => ({
   useToggleUserLike: () => ({ mutate: mockToggleMutate }),
 }));
 
-jest.mock("@/lib/useReportUserFlow", () => ({
+jest.mock("@/features/users/useReportUserFlow", () => ({
   useReportUserFlow: () => ({
     submit: mockReportSubmit,
     isPending: false,

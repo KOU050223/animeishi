@@ -12,8 +12,8 @@ import {
   resetEventTrackingForTest,
   setEventContext,
   trackEvent,
-} from "./events";
-import { useEventTrackingContext } from "./useEventTrackingContext";
+} from "@/lib/events";
+import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
 
 // ハッシュ化は expo-crypto 経由。テストでは固定値を返して
 // 「生の userId を送らない」「先頭16文字に切る」ことだけを検証する。

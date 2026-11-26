@@ -1,15 +1,15 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import { MeishiCompletionCard } from "@/components/MeishiCompletionCard";
-import type { MeishiCompletion } from "@/lib/meishi/useMeishiCompletion";
+import type { MeishiCompletion } from "@/features/meishi/useMeishiCompletion";
 
-// 判定ロジックは lib/meishi/completion の単体テスト側で検証する。
+// 判定ロジックは features/meishi/completion の単体テスト側で検証する。
 // ここではフックの戻り値を差し替えてカードの UI 分岐と遷移を検証する。
 let mockCompletion: MeishiCompletion;
 const mockReload = jest.fn();
 const mockPush = jest.fn();
 
-jest.mock("@/lib/meishi/useMeishiCompletion", () => ({
+jest.mock("@/features/meishi/useMeishiCompletion", () => ({
   useMeishiCompletion: () => mockCompletion,
 }));
 

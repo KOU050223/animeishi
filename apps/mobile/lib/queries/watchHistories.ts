@@ -2,9 +2,9 @@ import { queryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/queries/achievements";
-import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
+import { WATCH_HISTORY_QUERY_KEY } from "@/features/watch-history/watchHistoryKey";
 import { workQueries, type WorkDetailResponse } from "@/lib/queries/works";
-import { invalidateCommonPoints } from "@/lib/useCommonPoints";
+import { invalidateCommonPoints } from "@/features/users/useCommonPoints";
 
 export type WatchHistoriesResponse = InferResponseType<
   (typeof apiClient.me)["watch-histories"]["$get"],

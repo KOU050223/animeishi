@@ -15,10 +15,10 @@ import { useAuth } from "@clerk/expo";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { haptics } from "@/lib/haptics";
-import type { PublicProfile } from "@/lib/publicProfile";
+import type { PublicProfile } from "@/features/user/publicProfile";
 import { publicProfileQueries } from "@/lib/queries/publicProfile";
 import { useThemeColors } from "@/lib/theme";
-import { useFriends } from "@/lib/useFriends";
+import { useFriends } from "@/features/friends/useFriends";
 import { CommonPoints } from "./CommonPoints";
 
 export type ExchangeSuccessOverlayProps = {

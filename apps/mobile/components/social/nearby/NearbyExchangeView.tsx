@@ -10,19 +10,19 @@ import {
 } from "@/components/social/ExchangeResultLayer";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert } from "@/lib/dialog";
-import { enqueueExchange } from "@/lib/exchangeQueue";
+import { enqueueExchange } from "@/features/friends/exchangeQueue";
 import { haptics } from "@/lib/haptics";
-import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
+import { useMeishiLibrary } from "@/features/meishi/useMeishiLibrary";
 import {
   approachProgress,
   selectTapPeers,
   selectTargetPeer,
   useNearbyExchangeSession,
-} from "@/lib/nearbyExchange";
-import { parseQrPayload, type QrPayload } from "@/lib/qrParser";
-import { useExchangeQrValue } from "@/lib/useExchangeQrValue";
-import { useAddFriend } from "@/lib/useFriends";
-import { useProfile } from "@/lib/useProfile";
+} from "@/features/friends/nearbyExchange";
+import { parseQrPayload, type QrPayload } from "@/features/friends/qrParser";
+import { useExchangeQrValue } from "@/features/friends/useExchangeQrValue";
+import { useAddFriend } from "@/features/friends/useFriends";
+import { useProfile } from "@/features/me/useProfile";
 import { NearbyExchangeStage, type StagePhase } from "./NearbyExchangeStage";
 import { NearbyFallback } from "./NearbyFallback";
 import { nearbyHint } from "./nearbyHint";

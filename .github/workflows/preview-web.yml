@@ -33,7 +33,7 @@ jobs:
       API_PREVIEW_URL: ${{ vars.EXPO_PUBLIC_PREVIEW_API_URL || format('https://pr-{0}-animeishi-api-preview.{1}.workers.dev', github.event.pull_request.number, vars.CLOUDFLARE_WORKERS_SUBDOMAIN || 'uozumi05') }}
       # Annict OAuth の redirect_uri。Annict には動的なプレビュー URL を登録できない
       # ため、登録済みの本番 Web の /annict に固定する。戻り先オリジンは state に
-      # 埋め込まれ、本番側の /annict がプレビューへ中継する（lib/annict/oauth.ts）。
+      # 埋め込まれ、本番側の /annict がプレビューへ中継する（features/annict/oauth.ts）。
       ANNICT_WEB_REDIRECT_URI: ${{ vars.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI || format('https://animeishi-web-production.{0}.workers.dev/annict', vars.CLOUDFLARE_WORKERS_SUBDOMAIN || 'uozumi05') }}
     steps:
       - uses: actions/checkout@v7
@@ -58,7 +58,7 @@ jobs:
           # プロダクト計測（issue #758）。未登録なら空になり、計測は何もしない（no-op）
           EXPO_PUBLIC_POSTHOG_KEY: ${{ vars.EXPO_PUBLIC_POSTHOG_KEY }}
           EXPO_PUBLIC_POSTHOG_HOST: ${{ vars.EXPO_PUBLIC_POSTHOG_HOST }}
-          # App Store 審査・Expo Explore 用デモアカウント（apps/mobile/lib/reviewAccount.ts）。
+          # App Store 審査・Expo Explore 用デモアカウント（apps/mobile/features/auth/reviewAccount.ts）。
           # 秘密ではない。native は eas.json に同じ値を持つ
           EXPO_PUBLIC_REVIEW_ACCOUNT_EMAIL: ${{ vars.EXPO_PUBLIC_REVIEW_ACCOUNT_EMAIL || 'animeishi-demodemo-account@uomi.dev' }}
           EXPO_PUBLIC_COMMIT_SHA: ${{ github.sha }}

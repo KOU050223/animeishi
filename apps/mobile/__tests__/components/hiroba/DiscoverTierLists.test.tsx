@@ -78,7 +78,7 @@ const mockRefetch = jest.fn(async () => ({}));
 const mockToggleMutate = jest.fn();
 const mockReportSubmit = jest.fn();
 
-jest.mock("@/lib/tierList/usePublicTierLists", () => ({
+jest.mock("@/features/tier-lists/usePublicTierLists", () => ({
   usePublicTierLists: () => ({
     data: { pages: [{ items: mockItems, nextCursor: null }] },
     isLoading: mockLoading,
@@ -91,7 +91,7 @@ jest.mock("@/lib/tierList/usePublicTierLists", () => ({
   useToggleTierListLike: () => ({ mutate: mockToggleMutate }),
 }));
 
-jest.mock("@/lib/tierList/useReportTierListFlow", () => ({
+jest.mock("@/features/tier-lists/useReportTierListFlow", () => ({
   useReportTierListFlow: () => ({
     submit: mockReportSubmit,
     isPending: false,

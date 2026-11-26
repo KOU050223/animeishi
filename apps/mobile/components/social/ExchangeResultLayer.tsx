@@ -5,11 +5,11 @@ import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverl
 import { FriendThanksSheet } from "@/components/social/FriendThanksSheet";
 import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";
 import { alert } from "@/lib/dialog";
-import type { MiniMeishi } from "@/lib/qrParser";
+import type { MiniMeishi } from "@/features/friends/qrParser";
 import {
   useSendFriendThanks,
   type ThanksPresetKey,
-} from "@/lib/useFriendThanks";
+} from "@/features/friend-thanks/useFriendThanks";
 
 export type ExchangeResult =
   | {

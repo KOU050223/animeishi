@@ -11,7 +11,7 @@ import {
   type ReceivedThanksItem,
   type SentThanksItem,
   type ThanksPresetKey,
-} from "@/lib/useFriendThanks";
+} from "@/features/friend-thanks/useFriendThanks";
 import { FriendThanksSheet } from "./FriendThanksSheet";
 
 // 「2026年11月21日」形式。解釈できない値は空文字。

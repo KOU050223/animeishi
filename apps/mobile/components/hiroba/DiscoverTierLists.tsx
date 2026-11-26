@@ -23,10 +23,10 @@ import {
   useToggleTierListLike,
   type PublicTierListItem,
   type PublicTierListsSort,
-} from "@/lib/tierList/usePublicTierLists";
-import { useReportTierListFlow } from "@/lib/tierList/useReportTierListFlow";
-import { TIER_KIND_LABELS } from "@/lib/tierList/useMergedTierLists";
-import type { ReportReason } from "@/lib/useModeration";
+} from "@/features/tier-lists/usePublicTierLists";
+import { useReportTierListFlow } from "@/features/tier-lists/useReportTierListFlow";
+import { TIER_KIND_LABELS } from "@/features/tier-lists/useMergedTierLists";
+import type { ReportReason } from "@/features/users/useModeration";
 import { DiscoverReportSheet } from "./DiscoverReportSheet";
 
 // ひろば「みつける」の tier 表フィード（issue #418）。

@@ -8,7 +8,7 @@ import {
   PLANNED_FEATURES,
   UPDATES,
   type PlannedFeature,
-} from "@/lib/changelog";
+} from "@/features/changelog/changelog";
 
 const ISSUES_URL = "https://github.com/KOU050223/animeishi/issues";
 
@@ -39,8 +39,8 @@ function formatLatestUpdateDate(language: string): string {
 }
 
 // アプリの機能一覧・更新情報・今後の予定をまとめた静的ページ（issue #98）。
-// 表示内容は lib/changelog.ts の静的データがソースオブトゥルース。
-// 更新履歴・機能一覧の本文（lib/changelog.ts）はリリースノートとして日本語を
+// 表示内容は features/changelog/changelog.ts の静的データがソースオブトゥルース。
+// 更新履歴・機能一覧の本文（features/changelog/changelog.ts）はリリースノートとして日本語を
 // 正本とし i18n 対象外。ページの枠（タイトル・見出し・案内）だけは t() 化する。
 export default function ChangelogScreen() {
   const { t, i18n } = useTranslation();

@@ -6,9 +6,9 @@ import {
   waitFor,
 } from "@testing-library/react-native";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
-import { onboardingPending } from "@/lib/onboarding";
+import { onboardingPending } from "@/features/onboarding";
 import { resetAuth, getAuthMock } from "@/test-utils/auth";
-import type { GoogleAuthResult } from "@/lib/googleAuth";
+import type { GoogleAuthResult } from "@/features/auth/googleAuth";
 
 // issue #412: ネイティブ Google 新規登録のオンボーディング振り分け。
 // AuthGuard が isSignedIn を見て先にホームへ飛ばさないよう、
@@ -20,7 +20,7 @@ jest.mock("expo-router", () => ({
 }));
 
 const mockStartGoogleAuth = jest.fn<Promise<GoogleAuthResult>, []>();
-jest.mock("@/lib/googleAuth", () => ({
+jest.mock("@/features/auth/googleAuth", () => ({
   useGoogleAuth: () => ({ startGoogleAuth: mockStartGoogleAuth }),
 }));
 

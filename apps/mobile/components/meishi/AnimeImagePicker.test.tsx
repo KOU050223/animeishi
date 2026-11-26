@@ -6,7 +6,7 @@ import { ApiRequestError } from "@/lib/apiError";
 // 作品検索は API（Annict プロキシ）へ行くため、フックをモックして
 // 「連携済み/未連携」と検索結果だけを制御する。
 const mockUseAnimeList = jest.fn();
-jest.mock("@/lib/useAnimeList", () => ({
+jest.mock("@/features/works/useAnimeList", () => ({
   useAnimeList: (...args: unknown[]) => mockUseAnimeList(...args),
 }));
 
@@ -14,7 +14,7 @@ jest.mock("@/lib/useAnimeList", () => ({
 // バレルごと潰すと buildAnnictAuthHeader 等が巻き添えになるため、
 // 解決先のプラットフォーム実装モジュールだけをモックする。
 let mockAnnictConnected = true;
-jest.mock("@/lib/annict/useAnnictConnection", () => ({
+jest.mock("@/features/annict/useAnnictConnection", () => ({
   useAnnictConnection: () => ({
     isConnected: mockAnnictConnected,
     isLoading: false,

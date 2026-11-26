@@ -1,0 +1,523 @@
+import { createElement } from "react";
+import { renderHook, waitFor } from "@testing-library/react-native";
+import { QueryClientProvider } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
+import {
+  dedupeWorksById,
+  useAnimeList,
+  usePrefetchSeasonWorks,
+  useSortedAnimeList,
+} from "@/features/works/useAnimeList";
+import { loggedInUser, signedOutUser, resetAuth } from "@/test-utils/auth";
+import { setMockClerkState } from "@/__mocks__/@clerk/expo";
+import { createTestQueryClient } from "@/test-utils/queryClient";
+
+// Annict 連携（SecureStore トークン / 連携状態）と apiClient をモックし、
+// useAnimeList のサーバー検索フロー（クエリ駆動の取得・レスポンス整形）を検証する。
+// jest.mock のファクトリは巻き上げられるため、参照する変数は mock 接頭辞が必須。
+const mockSearchGet = jest.fn();
+// 認証ヘッダ・Annict ヘッダの付与は共通 fetch（apiFetch）側の責務になったため、
+// ここでは apiFetch が適切なオプションで呼ばれたことだけを見る
+// （ヘッダ実装の検証は lib/api.test.ts）。
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
+jest.mock("@/lib/api", () => ({
+  apiClient: {
+    works: { search: { $get: (...args: unknown[]) => mockSearchGet(...args) } },
+  },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+}));
+
+let mockCanBrowseWorks = true;
+let mockIsAccessLoading = false;
+jest.mock("@/features/annict", () => ({
+  // 実装では確認中は canBrowseWorks が未確定（false）になる。
+  // useAnimeList は canBrowseWorks でフェッチを gate するため、
+  // モックでも同じ契約（loading 中は canBrowseWorks=false）に揃える。
+  useWorkCatalogAccess: () => ({
+    canBrowseWorks: mockIsAccessLoading ? false : mockCanBrowseWorks,
+    // 本人は未連携のまま（共用トークンで作品情報だけ使える状態）を既定にして、
+    // 取得条件が連携状態ではなく canBrowseWorks で決まることを確かめる（issue #561）。
+    isConnected: false,
+    isLoading: mockIsAccessLoading,
+  }),
+}));
+
+function makeWrapper(client?: QueryClient) {
+  const queryClient =
+    client ??
+    createTestQueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+  return ({ children }: { children: React.ReactNode }) =>
+    createElement(QueryClientProvider, { client: queryClient }, children);
+}
+
+function okSearchResponse(body: unknown) {
+  return { ok: true, json: async () => body };
+}
+
+const MOCK_WORKS = [
+  {
+    annictWorkId: 1,
+    nodeId: "node-1",
+    state: null,
+    title: "進撃の巨人",
+    titleKana: "しんげきのきょじん",
+    titleEn: "Attack on Titan",
+    seasonYear: 2013,
+    seasonName: "2013-spring",
+    imageUrl: null,
+    malAnimeId: null,
+    resolvedImageUrl: null,
+    hostedImageUrl: null,
+    genres: null,
+  },
+  {
+    annictWorkId: 2,
+    nodeId: "node-2",
+    state: null,
+    title: "鬼滅の刃",
+    titleKana: "きめつのやいば",
+    titleEn: "Demon Slayer",
+    seasonYear: 2019,
+    seasonName: "2019-spring",
+    imageUrl: null,
+    malAnimeId: null,
+    resolvedImageUrl: null,
+    hostedImageUrl: null,
+    genres: null,
+  },
+  {
+    annictWorkId: 3,
+    nodeId: "node-3",
+    state: null,
+    title: "HUNTER×HUNTER",
+    titleKana: "はんたーはんたー",
+    titleEn: "Hunter x Hunter",
+    seasonYear: 2011,
+    seasonName: "2011-fall",
+    imageUrl: null,
+    malAnimeId: null,
+    resolvedImageUrl: null,
+    hostedImageUrl: null,
+    genres: null,
+  },
+];
+
+describe("dedupeWorksById", () => {
+  it("同じ annictWorkId を先出の 1 件に畳み、並び順を保持する（issue #521）", () => {
+    // MOCK_WORKS はリテラルで 3 件固定のため添字は必ず存在する。
+    const w1 = MOCK_WORKS[0]!;
+    const w2 = MOCK_WORKS[1]!;
+    const w3 = MOCK_WORKS[2]!;
+    expect(
+      dedupeWorksById([w1, w2, w1, w3, w2]).map((w) => w.annictWorkId),
+    ).toEqual([1, 2, 3]);
+  });
+
+  it("同じタイトルでも id が違えば別の作品として残す", () => {
+    const w1 = MOCK_WORKS[0]!;
+    const sameTitle = { ...w1, annictWorkId: 999 };
+    expect(dedupeWorksById([w1, sameTitle])).toHaveLength(2);
+  });
+});
+
+describe("useSortedAnimeList", () => {
+  describe("ソート", () => {
+    it("タイトル昇順でソートする", async () => {
+      const { result } = await renderHook(() =>
+        useSortedAnimeList(MOCK_WORKS, "title", "asc"),
+      );
+      const titles = result.current.map((a) => a.title);
+      expect(titles).toEqual(["HUNTER×HUNTER", "鬼滅の刃", "進撃の巨人"]);
+    });
+
+    it("タイトル降順でソートする", async () => {
+      const { result } = await renderHook(() =>
+        useSortedAnimeList(MOCK_WORKS, "title", "desc"),
+      );
+      const titles = result.current.map((a) => a.title);
+      expect(titles).toEqual(["進撃の巨人", "鬼滅の刃", "HUNTER×HUNTER"]);
+    });
+
+    it("年度昇順でソートする", async () => {
+      const { result } = await renderHook(() =>
+        useSortedAnimeList(MOCK_WORKS, "year", "asc"),
+      );
+      const years = result.current.map((a) => a.seasonYear);
+      expect(years).toEqual([2011, 2013, 2019]);
+    });
+
+    it("年度降順でソートする", async () => {
+      const { result } = await renderHook(() =>
+        useSortedAnimeList(MOCK_WORKS, "year", "desc"),
+      );
+      const years = result.current.map((a) => a.seasonYear);
+      expect(years).toEqual([2019, 2013, 2011]);
+    });
+
+    it("元の配列を破壊しない", async () => {
+      const original = [...MOCK_WORKS];
+      await renderHook(() => useSortedAnimeList(MOCK_WORKS, "title", "asc"));
+      expect(MOCK_WORKS).toEqual(original);
+    });
+  });
+
+  describe("エッジケース", () => {
+    it("data が undefined のとき空配列を返す", async () => {
+      const { result } = await renderHook(() =>
+        useSortedAnimeList(undefined, "title", "asc"),
+      );
+      expect(result.current).toHaveLength(0);
+    });
+  });
+});
+
+describe("useAnimeList", () => {
+  beforeEach(async () => {
+    resetAuth();
+    mockSearchGet.mockReset();
+    mockApiFetch.mockReset();
+    mockCanBrowseWorks = true;
+    mockIsAccessLoading = false;
+    loggedInUser();
+    setMockClerkState({ getToken: async () => "clerk_jwt" });
+  });
+
+  it("検索語が空のときは今期アニメ（season）を title なしで取得する", async () => {
+    mockSearchGet.mockResolvedValue(
+      okSearchResponse({
+        works: [
+          { annictWorkId: 99, nodeId: "n99", state: null, title: "今期アニメ" },
+        ],
+        hasNextPage: false,
+        endCursor: null,
+      }),
+    );
+
+    const { result } = await renderHook(() => useAnimeList(""), {
+      wrapper: makeWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(result.current.isSeason).toBe(true);
+    expect(result.current.data?.[0]?.title).toBe("今期アニメ");
+    // 検索語が空なので title を載せない（サーバーが今期シーズンを既定にする）。
+    const [arg] = mockSearchGet.mock.calls[0]!;
+    expect(arg.query.title).toBeUndefined();
+  });
+
+  it("作品情報を使えない（未連携かつ共用トークン無し）うちはフェッチせず canBrowseWorks=false を返す", async () => {
+    mockCanBrowseWorks = false;
+    const { result } = await renderHook(() => useAnimeList("進撃"), {
+      wrapper: makeWrapper(),
+    });
+    expect(mockSearchGet).not.toHaveBeenCalled();
+    expect(result.current.canBrowseWorks).toBe(false);
+  });
+
+  it("連携状態・共用トークン有無の確認中は isAccessLoading=true を返しフェッチしない", async () => {
+    mockIsAccessLoading = true;
+    const { result } = await renderHook(() => useAnimeList("進撃"), {
+      wrapper: makeWrapper(),
+    });
+    expect(mockSearchGet).not.toHaveBeenCalled();
+    expect(result.current.isAccessLoading).toBe(true);
+  });
+
+  it("サインアウト中はフェッチしない", async () => {
+    signedOutUser();
+    await renderHook(() => useAnimeList("進撃"), { wrapper: makeWrapper() });
+    expect(mockSearchGet).not.toHaveBeenCalled();
+  });
+
+  it("検索語ありで works/search を叩き、works を data として返す", async () => {
+    mockSearchGet.mockResolvedValue(
+      okSearchResponse({
+        works: [
+          { annictWorkId: 1, nodeId: "n1", state: null, title: "進撃の巨人" },
+        ],
+        hasNextPage: true,
+        endCursor: "cur1",
+      }),
+    );
+
+    const { result } = await renderHook(() => useAnimeList("進撃"), {
+      wrapper: makeWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0]?.title).toBe("進撃の巨人");
+    // ページング情報を落とさず公開する。
+    expect(result.current.hasNextPage).toBe(true);
+    expect(result.current.endCursor).toBe("cur1");
+
+    // 検索結果は今期アニメ初期表示ではない。
+    expect(result.current.isSeason).toBe(false);
+    // title を載せ、Annict トークン付きの共通 fetch で呼んでいる。
+    const [arg] = mockSearchGet.mock.calls[0]!;
+    expect(arg.query.title).toBe("進撃");
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ annict: true }),
+    );
+  });
+
+  it("シーズン検索で hasNextPage があれば after で自動追い読みし結果を連結する", async () => {
+    // サーバー側のページ上限に達した場合（hasNextPage=true + endCursor）でも
+    // 表示が途中で打ち切られないよう、次ページを自動で辿る。
+    mockSearchGet
+      .mockResolvedValueOnce(
+        okSearchResponse({
+          works: [
+            { annictWorkId: 1, nodeId: "n1", state: null, title: "作品A" },
+          ],
+          hasNextPage: true,
+          endCursor: "cur1",
+        }),
+      )
+      .mockResolvedValueOnce(
+        okSearchResponse({
+          works: [
+            { annictWorkId: 2, nodeId: "n2", state: null, title: "作品B" },
+          ],
+          hasNextPage: false,
+          endCursor: null,
+        }),
+      );
+
+    const { result } = await renderHook(() => useAnimeList("", "2026-spring"), {
+      wrapper: makeWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    expect(result.current.data?.map((w) => w.title)).toEqual([
+      "作品A",
+      "作品B",
+    ]);
+    expect(result.current.hasNextPage).toBe(false);
+    expect(mockSearchGet).toHaveBeenCalledTimes(2);
+    // 2 ページ目は endCursor を after に載せて継続取得する
+    const [first] = mockSearchGet.mock.calls[0]!;
+    const [second] = mockSearchGet.mock.calls[1]!;
+    expect(first.query.season).toBe("2026-spring");
+    expect(first.query.after).toBeUndefined();
+    expect(second.query.season).toBe("2026-spring");
+    expect(second.query.after).toBe("cur1");
+  });
+
+  it("追い読みしたページに同じ作品が再出現しても data では 1 件に畳む（issue #521）", async () => {
+    // Annict の順位変動・継続カーソル境界で、後続ページに先のページの
+    // 作品が重なって返ることがある。未分類欄に同じ作品が複数並ぶ
+    // 原因になるため、ページ結合時に id で潰す。
+    mockSearchGet
+      .mockResolvedValueOnce(
+        okSearchResponse({
+          works: [
+            { annictWorkId: 1, nodeId: "n1", state: null, title: "作品A" },
+            { annictWorkId: 2, nodeId: "n2", state: null, title: "作品B" },
+          ],
+          hasNextPage: true,
+          endCursor: "cur1",
+        }),
+      )
+      .mockResolvedValueOnce(
+        okSearchResponse({
+          works: [
+            // 前ページの末尾作品が次ページ先頭に再出現するケース。
+            { annictWorkId: 2, nodeId: "n2", state: null, title: "作品B" },
+            { annictWorkId: 3, nodeId: "n3", state: null, title: "作品C" },
+          ],
+          hasNextPage: false,
+          endCursor: null,
+        }),
+      );
+
+    const { result } = await renderHook(() => useAnimeList("", "2026-spring"), {
+      wrapper: makeWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.data).toHaveLength(3));
+    expect(result.current.data?.map((w) => w.annictWorkId)).toEqual([1, 2, 3]);
+    expect(result.current.hasNextPage).toBe(false);
+    expect(mockSearchGet).toHaveBeenCalledTimes(2);
+  });
+
+  it("タイトル検索では hasNextPage があっても自動追い読みしない", async () => {
+    // 広い語で全件走査すると際限がないため、タイトル検索は先頭ページのみ。
+    mockSearchGet.mockResolvedValue(
+      okSearchResponse({
+        works: [
+          { annictWorkId: 1, nodeId: "n1", state: null, title: "進撃の巨人" },
+        ],
+        hasNextPage: true,
+        endCursor: "cur1",
+      }),
+    );
+
+    const { result } = await renderHook(() => useAnimeList("進撃"), {
+      wrapper: makeWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    // 追い読みが起きないことを確認するため少し待つ
+    await new Promise((r) => setTimeout(r, 100));
+    expect(mockSearchGet).toHaveBeenCalledTimes(1);
+    expect(result.current.hasNextPage).toBe(true);
+    expect(result.current.endCursor).toBe("cur1");
+  });
+
+  it("fetchAllPages を渡したタイトル検索は全ページを自動追い読みする", async () => {
+    // メディア/ジャンルのクライアント側絞り込みが有効なときは、先頭ページに
+    // 無い一致作品を見落とさないため絞り込み対象の全件を取得する（issue #346）。
+    mockSearchGet
+      .mockResolvedValueOnce(
+        okSearchResponse({
+          works: [
+            { annictWorkId: 1, nodeId: "n1", state: null, title: "作品A" },
+          ],
+          hasNextPage: true,
+          endCursor: "cur1",
+        }),
+      )
+      .mockResolvedValueOnce(
+        okSearchResponse({
+          works: [
+            { annictWorkId: 2, nodeId: "n2", state: null, title: "作品B" },
+          ],
+          hasNextPage: false,
+          endCursor: null,
+        }),
+      );
+
+    const { result } = await renderHook(
+      () => useAnimeList("作品", undefined, { fetchAllPages: true }),
+      { wrapper: makeWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    expect(result.current.data?.map((w) => w.title)).toEqual([
+      "作品A",
+      "作品B",
+    ]);
+    expect(result.current.hasNextPage).toBe(false);
+    expect(mockSearchGet).toHaveBeenCalledTimes(2);
+    const [second] = mockSearchGet.mock.calls[1]!;
+    expect(second.query.after).toBe("cur1");
+  });
+});
+
+describe("usePrefetchSeasonWorks", () => {
+  beforeEach(async () => {
+    resetAuth();
+    mockSearchGet.mockReset();
+    mockApiFetch.mockReset();
+    mockCanBrowseWorks = true;
+    mockIsAccessLoading = false;
+    loggedInUser();
+    setMockClerkState({ getToken: async () => "clerk_jwt" });
+  });
+
+  it("enabled のとき指定シーズンを season 検索でプリフェッチする", async () => {
+    mockSearchGet.mockResolvedValue(
+      okSearchResponse({ works: [], hasNextPage: false, endCursor: null }),
+    );
+
+    await renderHook(
+      () => usePrefetchSeasonWorks(["2026-summer", "2027-winter"], true),
+      { wrapper: makeWrapper() },
+    );
+
+    await waitFor(() => expect(mockSearchGet).toHaveBeenCalledTimes(2));
+    const seasons = mockSearchGet.mock.calls.map(([arg]) => arg.query.season);
+    expect(seasons).toEqual(["2026-summer", "2027-winter"]);
+    // title 検索ではなくシーズン検索として叩く。
+    for (const [arg] of mockSearchGet.mock.calls) {
+      expect(arg.query.title).toBeUndefined();
+    }
+    // Annict トークン付きの共通 fetch で呼んでいる。
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ annict: true }),
+    );
+  });
+
+  it("enabled=false ならプリフェッチしない", async () => {
+    await renderHook(() => usePrefetchSeasonWorks(["2026-summer"], false), {
+      wrapper: makeWrapper(),
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockSearchGet).not.toHaveBeenCalled();
+  });
+
+  it("Annict 未連携ならプリフェッチしない", async () => {
+    mockCanBrowseWorks = false;
+    await renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
+      wrapper: makeWrapper(),
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockSearchGet).not.toHaveBeenCalled();
+  });
+
+  it("サインアウト中はプリフェッチしない", async () => {
+    signedOutUser();
+    await renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
+      wrapper: makeWrapper(),
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockSearchGet).not.toHaveBeenCalled();
+  });
+
+  it("seasons が空なら何もしない", async () => {
+    await renderHook(() => usePrefetchSeasonWorks([], true), {
+      wrapper: makeWrapper(),
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockSearchGet).not.toHaveBeenCalled();
+  });
+
+  it("プリフェッチが失敗したときデータを持たないエラーエントリを残さない", async () => {
+    // 失敗エントリが残ると、後でそのシーズンへ切り替えた画面が
+    // 自動リフェッチ中ずっとエラー表示になるため除去対象にする。
+    // gcTime 既定値のままにしないと GC が先に消して検証にならない。
+    const client = createTestQueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    mockSearchGet.mockRejectedValue(new Error("network error"));
+
+    await renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
+      wrapper: makeWrapper(client),
+    });
+
+    await waitFor(() => expect(mockSearchGet).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(
+        client.getQueryState(["works", "search", "season", "2026-summer"]),
+      ).toBeUndefined(),
+    );
+  });
+
+  it("プリフェッチの再取得が失敗してもデータを持つ既存エントリは消さない", async () => {
+    const client = createTestQueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const key = ["works", "search", "season", "2026-summer"];
+    const cached = {
+      pages: [{ works: MOCK_WORKS, hasNextPage: false, endCursor: null }],
+      pageParams: [undefined],
+    };
+    client.setQueryData(key, cached);
+    mockSearchGet.mockRejectedValue(new Error("network error"));
+
+    await renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
+      wrapper: makeWrapper(client),
+    });
+
+    await waitFor(() => expect(mockSearchGet).toHaveBeenCalledTimes(1));
+    // 再取得が失敗して error 状態になっても、データを持つエントリは消さず
+    // 一覧にはキャッシュ済みの作品が出せる。
+    await waitFor(() =>
+      expect(client.getQueryState(key)?.status).toBe("error"),
+    );
+    expect(client.getQueryData(key)).toEqual(cached);
+  });
+});

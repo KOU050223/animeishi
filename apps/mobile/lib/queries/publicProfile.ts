@@ -1,6 +1,9 @@
 import { queryOptions } from "@tanstack/react-query";
 import { clerkSessionToken } from "@/lib/api";
-import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
+import {
+  fetchPublicProfile,
+  publicProfileQueryKey,
+} from "@/features/user/publicProfile";
 
 // 公開プロフィール（GET /user/:uid）のクエリファクトリ（issue #726）。
 // キー値は移行前と同一（["public-profile", uid, viewerId ?? "guest"]）。

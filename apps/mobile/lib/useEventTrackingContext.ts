@@ -6,7 +6,7 @@
 import { useEffect } from "react";
 import { useAuth } from "@clerk/expo";
 import { useSegments } from "expo-router";
-import { setEventContext } from "./events";
+import { setEventContext } from "@/lib/events";
 
 export function useEventTrackingContext(): void {
   const { userId } = useAuth();

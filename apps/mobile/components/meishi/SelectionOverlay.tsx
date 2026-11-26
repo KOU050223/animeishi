@@ -5,7 +5,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSharedValue, type SharedValue } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { useTranslation } from "react-i18next";
-import type { MeishiElement, Transform } from "@/lib/meishi/types";
+import type { MeishiElement, Transform } from "@/features/meishi/types";
 
 type CanvasOrigin = { x: number; y: number };
 

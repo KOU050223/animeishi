@@ -12,7 +12,10 @@ import { BackButton } from "@/components/ui";
 import { alert, confirm } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
-import { useWorkLists, useDeleteWorkList } from "@/lib/workList/useWorkLists";
+import {
+  useWorkLists,
+  useDeleteWorkList,
+} from "@/features/work-lists/useWorkLists";
 
 /**
  * オリジナル作品リストの一覧（issue #349）。

@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 import { Platform, type ColorValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "@/lib/theme";
-import { useReceivedFriendRequestCount } from "@/lib/useFriendRequests";
+import { useReceivedFriendRequestCount } from "@/features/friend-requests/useFriendRequests";
 import { useTranslation } from "react-i18next";
 
 // tabBarIcon の color は型上 ColorValue（null | number | NativeColorValue を

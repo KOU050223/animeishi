@@ -9,7 +9,11 @@ import {
 } from "react-native";
 import { TierBoard } from "./TierBoard";
 import { colors } from "@/lib/theme";
-import type { TierAssignment, TierRow, TierItem } from "@/lib/tierList/types";
+import type {
+  TierAssignment,
+  TierRow,
+  TierItem,
+} from "@/features/tier-lists/types";
 
 // @react-native/jest-preset が useColorScheme を jest.fn(() => "light")
 // でモック済みのため、mockReturnValue でスキームを切り替える。

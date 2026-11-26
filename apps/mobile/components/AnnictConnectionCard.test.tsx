@@ -4,7 +4,7 @@ import { AnnictConnectionCard } from "./AnnictConnectionCard";
 
 let mockIsConnected = true;
 
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useAnnictConnection: () => ({
     isConnected: mockIsConnected,
     isLoading: false,

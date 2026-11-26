@@ -4,8 +4,8 @@
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useDanimeEpisodeJob } from "@/lib/danime/useDanimeImport";
-import { episodeJobStatusText } from "@/lib/danime/episodeJobStatus";
+import { useDanimeEpisodeJob } from "@/features/import/useDanimeImport";
+import { episodeJobStatusText } from "@/features/import/episodeJobStatus";
 
 export function DanimeEpisodeJobStatus({
   enabled = true,

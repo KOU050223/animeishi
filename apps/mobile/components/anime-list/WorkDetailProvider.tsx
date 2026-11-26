@@ -4,9 +4,12 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
-import { WorkDetailContext } from "@/lib/workDetailContext";
-import type { WorkDetailTarget } from "@/lib/workDetailContext";
-import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
+import { WorkDetailContext } from "@/features/works/workDetailContext";
+import type { WorkDetailTarget } from "@/features/works/workDetailContext";
+import {
+  useFavoriteIds,
+  useToggleFavorite,
+} from "@/features/favorites/useFavorites";
 import { alert } from "@/lib/dialog";
 
 export function WorkDetailProvider({ children }: { children: ReactNode }) {

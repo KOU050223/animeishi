@@ -4,8 +4,11 @@ import { useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui";
-import { throwIfAuthError, toAuthErrorMessage } from "@/lib/authErrors";
-import { getIncompleteSignInMessage } from "@/lib/signInStatus";
+import {
+  throwIfAuthError,
+  toAuthErrorMessage,
+} from "@/features/auth/authErrors";
+import { getIncompleteSignInMessage } from "@/features/auth/signInStatus";
 import { useThemeColors } from "@/lib/theme";
 
 type Props = {

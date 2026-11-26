@@ -11,8 +11,12 @@ import { alert } from "@/lib/dialog";
 import {
   DEFAULT_TIERS,
   defaultCharacterTierListTitle,
-} from "@/lib/tierList/defaults";
-import type { TierAssignment, TierItem, TierRow } from "@/lib/tierList/types";
+} from "@/features/tier-lists/defaults";
+import type {
+  TierAssignment,
+  TierItem,
+  TierRow,
+} from "@/features/tier-lists/types";
 
 let mockParams: { kind?: string; workId?: string; workTitle?: string } = {
   kind: "character",
@@ -76,7 +80,7 @@ jest.mock("@/components/tier-list/TierBoardSnapshot", () => ({
   TierBoardSnapshot: () => null,
 }));
 
-jest.mock("@/lib/tierList/useWorkCharacters", () => ({
+jest.mock("@/features/tier-lists/useWorkCharacters", () => ({
   useWorkCharacters: () => ({
     characters: mockCharacters,
     workTitle: mockFetchedWorkTitle,
@@ -88,7 +92,7 @@ jest.mock("@/lib/tierList/useWorkCharacters", () => ({
 }));
 
 // character 以外の候補ソースはこのテストでは使わない。
-jest.mock("@/lib/tierList/useSeasonWorks", () => ({
+jest.mock("@/features/tier-lists/useSeasonWorks", () => ({
   useSeasonWorks: () => ({
     works: [],
     isLoading: false,
@@ -98,16 +102,16 @@ jest.mock("@/lib/tierList/useSeasonWorks", () => ({
   }),
 }));
 
-jest.mock("@/lib/tierList/useWorksLookup", () => ({
+jest.mock("@/features/tier-lists/useWorksLookup", () => ({
   useWorksLookup: () => ({ data: undefined, isLoading: false, isError: false }),
 }));
 
-jest.mock("@/lib/useAnimeList", () => ({
+jest.mock("@/features/works/useAnimeList", () => ({
   usePrefetchSeasonWorks: jest.fn(),
 }));
 
 // Annict 連携のゲートは「連携済み」で通す。
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useWorkCatalogAccess: () => ({
     canBrowseWorks: true,
     isLoading: false,
@@ -121,7 +125,7 @@ const mockBeginShare = jest.fn();
 const mockCancelShare = jest.fn();
 const mockPresentShareUrl = jest.fn();
 const mockPresentOptions = jest.fn();
-jest.mock("@/lib/tierList/useTierList", () => ({
+jest.mock("@/features/tier-lists/useTierList", () => ({
   useSavedTierList: () => ({
     data: mockSaved,
     isLoading: mockSavedLoading,
@@ -136,7 +140,7 @@ jest.mock("@/lib/tierList/useTierList", () => ({
   useShareTierList: () => ({ mutateAsync: mockShareMutateAsync }),
 }));
 
-jest.mock("@/lib/tierList/share", () => ({
+jest.mock("@/features/tier-lists/share", () => ({
   buildTierListShareUrl: () => "https://example.com/share/tier-lists/token",
   captureTierListImageFile: jest.fn(),
   presentTierShareOptions: (options: unknown) => mockPresentOptions(options),

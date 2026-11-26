@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import { proximityLevel } from "@/lib/nearbyExchange";
+import { proximityLevel } from "@/features/friends/nearbyExchange";
 import type { StagePhase } from "./NearbyExchangeStage";
 
 /** 近づけて交換の画面下に出す案内（見出しと補足）。 */

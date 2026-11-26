@@ -16,10 +16,10 @@ import { featureFlags } from "@/lib/featureFlags";
 import {
   useMergedTierLists,
   type MergedTierListItem,
-} from "@/lib/tierList/useMergedTierLists";
-import { useWorkLists } from "@/lib/workList/useWorkLists";
+} from "@/features/tier-lists/useMergedTierLists";
+import { useWorkLists } from "@/features/work-lists/useWorkLists";
 import { CharacterTierWorkPicker } from "@/components/tier-list/CharacterTierWorkPicker";
-import type { TierItem } from "@/lib/tierList/types";
+import type { TierItem } from "@/features/tier-lists/types";
 
 // 横スクロールは「最近作ったもの」の入口。「すべて見る」で全件管理する
 // ハブ画面へ行けるため、先頭だけを出す。

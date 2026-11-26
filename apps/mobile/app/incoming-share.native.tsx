@@ -5,8 +5,8 @@ import { useIncomingShare } from "expo-sharing";
 import { useTranslation } from "react-i18next";
 
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
-import { extractUserIdFromSharedText } from "@/lib/incomingShare/extractUserId";
-import { scanQrFromImage } from "@/lib/incomingShare";
+import { extractUserIdFromSharedText } from "@/features/friends/incomingShare/extractUserId";
+import { scanQrFromImage } from "@/features/friends/incomingShare";
 import { useThemeColors } from "@/lib/theme";
 
 /**

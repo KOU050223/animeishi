@@ -7,7 +7,7 @@ import { AddToWorkListSheet } from "./AddToWorkListSheet";
 const mockUseWorkListsContaining = jest.fn();
 const mockAddMutate = jest.fn();
 const mockCreateMutate = jest.fn();
-jest.mock("@/lib/workList/useWorkLists", () => ({
+jest.mock("@/features/work-lists/useWorkLists", () => ({
   useWorkListsContaining: (...args: unknown[]) =>
     mockUseWorkListsContaining(...args),
   useAddWorkToWorkList: () => ({

@@ -35,7 +35,7 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
-jest.mock("@/lib/useAnimeList", () => ({
+jest.mock("@/features/works/useAnimeList", () => ({
   useAnimeList: (query: unknown, season: unknown, options: unknown) =>
     mockUseAnimeList(query, season, options),
   usePrefetchSeasonWorks: jest.fn(),
@@ -43,7 +43,7 @@ jest.mock("@/lib/useAnimeList", () => ({
     mockUseSortedAnimeList(data, sortKey, sortOrder),
 }));
 
-jest.mock("@/lib/useWorkDetail", () => ({
+jest.mock("@/features/works/useWorkDetail", () => ({
   useWorkDetail: () => ({
     data: undefined,
     isLoading: false,
@@ -62,7 +62,7 @@ jest.mock("@/lib/useWorkDetail", () => ({
 // 詳細シートの評価フックも実物だと QueryClient が要るためスタブにする
 // （評価セクション自体は AnimeWorkDetailSheet.test.tsx で検証）。
 // 未評価を返すので視聴済み以外ではセクションは出ない。
-jest.mock("@/lib/useWorkRating", () => ({
+jest.mock("@/features/work-ratings/useWorkRating", () => ({
   useWorkRating: () => ({
     data: undefined,
     isLoading: false,
@@ -76,7 +76,7 @@ jest.mock("@/lib/useWorkRating", () => ({
 
 // 詳細シート内の話数一覧・記録フックも実物だと QueryClient が要るため
 // スタブにする（話数セクション自体は AnimeWorkDetailSheet.test.tsx で検証）。
-jest.mock("@/lib/useWorkEpisodes", () => ({
+jest.mock("@/features/works/useWorkEpisodes", () => ({
   useWorkEpisodes: () => ({
     data: undefined,
     isLoading: false,
@@ -89,7 +89,7 @@ jest.mock("@/lib/useWorkEpisodes", () => ({
 
 let mockWatchHistory: { annictWorkId: number; state: string }[] | undefined;
 
-jest.mock("@/lib/useWatchHistory", () => ({
+jest.mock("@/features/watch-history/useWatchHistory", () => ({
   useWatchHistory: () => ({ data: mockWatchHistory }),
   useUpsertWatchHistory: () => ({
     mutateAsync: mockMutateAsync,
@@ -122,7 +122,7 @@ jest.mock("@/lib/events", () => ({
 // 詳細シートの Annict 連携系はネイティブ依存を持つためスタブにする。
 // 既定は連携済み・エラーはトークン起因でない扱い。
 const mockPromptAnnictTokenError = jest.fn();
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
   useAnnictConnect: () => ({
     connect: jest.fn(),
@@ -131,14 +131,14 @@ jest.mock("@/lib/annict", () => ({
   }),
   useAnnictFunnel: () => jest.fn(),
   useAnnictTokenErrorPrompt: () => mockPromptAnnictTokenError,
-  annictErrorKey: jest.requireActual("@/lib/annict/errorMessages")
+  annictErrorKey: jest.requireActual("@/features/annict/errorMessages")
     .annictErrorKey,
-  ...jest.requireActual("@/lib/annict/apiErrorCodes"),
+  ...jest.requireActual("@/features/annict/apiErrorCodes"),
 }));
 
 // 「リストに追加」シートのフックは実物だと QueryClient が要るため、
 // 一覧側のテストではスタブにする（シート自体は AddToWorkListSheet.test.tsx）。
-jest.mock("@/lib/workList/useWorkLists", () => ({
+jest.mock("@/features/work-lists/useWorkLists", () => ({
   useWorkListsContaining: () => ({
     data: [],
     isLoading: false,

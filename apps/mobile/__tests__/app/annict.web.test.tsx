@@ -6,7 +6,7 @@ import { render } from "@testing-library/react-native";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test-utils/queryClient";
 import AnnictCallbackScreen from "@/app/annict.web";
-import { ANNICT_CONNECTION_QUERY_KEY } from "@/lib/annict";
+import { ANNICT_CONNECTION_QUERY_KEY } from "@/features/annict";
 
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
@@ -22,13 +22,13 @@ jest.mock("@clerk/expo", () => ({
 }));
 
 const mockExchange = jest.fn();
-jest.mock("@/lib/annict/useAnnictConnect.web", () => ({
+jest.mock("@/features/annict/useAnnictConnect.web", () => ({
   exchangeAnnictWebCallback: (...args: unknown[]) => mockExchange(...args),
 }));
 
 // バレルのネイティブ依存（SecureStore 等）を避け、画面が使う実装だけ差し替える。
 // 正規オリジンへの中継は今回の対象外なので relayTarget は常に null。
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   annictErrorKey: (reason: string) => `annict.error.${reason}`,
   ANNICT_CONNECTION_QUERY_KEY: ["annict", "connection"],
   resolveAnnictRelayTarget: () => null,

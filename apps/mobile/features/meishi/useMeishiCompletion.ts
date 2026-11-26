@@ -1,0 +1,105 @@
+import { useCallback, useEffect, useState } from "react";
+import { isMeishiComplete, missingMeishiCompletionSteps } from "./completion";
+import type { MeishiCompletionStep } from "./completion";
+import { defaultCard } from "./library";
+import { loadMeishiLibrary } from "./storage";
+import type { MeishiDocument } from "./types";
+import { useFavorites } from "@/features/favorites/useFavorites";
+import { useProfile } from "@/features/me/useProfile";
+
+export type MeishiCompletion = {
+  /** 完成に足りない項目（空なら完成）。「残り N ステップ」の N に対応する。 */
+  missing: MeishiCompletionStep[];
+  isComplete: boolean;
+  /** プロフィール・お気に入り・ドキュメントの読み込みが揃うまで true。 */
+  isLoading: boolean;
+  /**
+   * プロフィール・お気に入り・ドキュメントのいずれかの取得に失敗したら
+   * true。欠けた値を未達と誤判定しないよう、表示側はこのとき出さない。
+   */
+  isError: boolean;
+  /** 判定に使った名刺ドキュメント（プレビュー表示にも使える）。 */
+  document: MeishiDocument | null;
+  /**
+   * ドキュメントを AsyncStorage から読み直す。タブ画面はマウントが
+   * 維持されるため、名刺エディタ等から戻ったタイミングで呼ぶ
+   * （useMeishiLibrary の reload と同じ使い方）。
+   */
+  reload: () => Promise<void>;
+};
+
+/**
+ * 名刺の完成状態をプロフィール・お気に入り・既定カードのドキュメントから
+ * 組み立てる。完成の定義は features/meishi/completion.ts（issue #419 と共通）。
+ * 「テンプレート選択済み」は既定カード（issue #427 の名刺ライブラリ）に
+ * ドキュメントがあることで判定する。
+ * オンボーディングの「名刺完成」画面と、ホームの完成度カード（#419）で共用する。
+ */
+export function useMeishiCompletion(): MeishiCompletion {
+  const {
+    data: profile,
+    isLoading: profileLoading,
+    isError: profileError,
+  } = useProfile();
+  const {
+    data: favorites,
+    isLoading: favoritesLoading,
+    isError: favoritesError,
+  } = useFavorites();
+  const [document, setDocument] = useState<MeishiDocument | null>(null);
+  const [docLoaded, setDocLoaded] = useState(false);
+  const [docError, setDocError] = useState(false);
+
+  // 読み込み失敗を「テンプレート未選択」の未達と誤判定しないよう
+  // 失敗フラグで表す。
+  // マウント時 effect の依存に使うため参照を固定する。
+  const readLibrary = useCallback(async () => {
+    try {
+      const library = await loadMeishiLibrary();
+      return {
+        document: library ? (defaultCard(library)?.document ?? null) : null,
+        error: false,
+      };
+    } catch {
+      return { document: null, error: true };
+    }
+  }, []);
+
+  // 呼び出し側の useFocusEffect の依存に使うため参照を固定する。
+  const reload = useCallback(async () => {
+    const result = await readLibrary();
+    setDocument(result.document);
+    setDocError(result.error);
+    setDocLoaded(true);
+  }, [readLibrary]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void readLibrary().then((result) => {
+      if (cancelled) return;
+      setDocument(result.document);
+      setDocError(result.error);
+      setDocLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [readLibrary]);
+
+  const input = {
+    profileImageUrl: profile?.profileImageUrl,
+    username: profile?.username,
+    favoritesCount: favorites?.length ?? 0,
+    document,
+  };
+  const missing = missingMeishiCompletionSteps(input);
+
+  return {
+    missing,
+    isComplete: isMeishiComplete(input),
+    isLoading: profileLoading || favoritesLoading || !docLoaded,
+    isError: profileError || favoritesError || docError,
+    document,
+    reload,
+  };
+}

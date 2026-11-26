@@ -1,8 +1,11 @@
 import { Linking, Pressable, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
-import type { SocialLink, SocialLinkKind } from "@/lib/socialLinks";
-import { socialLinkLabel } from "@/lib/socialLinks";
+import type {
+  SocialLink,
+  SocialLinkKind,
+} from "@/features/social-links/socialLinks";
+import { socialLinkLabel } from "@/features/social-links/socialLinks";
 
 const icons: Record<SocialLinkKind, keyof typeof Ionicons.glyphMap> = {
   x: "logo-twitter",

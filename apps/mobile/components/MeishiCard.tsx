@@ -6,9 +6,12 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { MeishiRenderer } from "./meishi/MeishiRenderer";
-import { resolveMeishiDocument } from "@/lib/meishi/templates";
-import type { MeishiDocument, MeishiRenderContext } from "@/lib/meishi/types";
-import { useMeishiRenderContext } from "@/lib/meishi/useMeishiRenderContext";
+import { resolveMeishiDocument } from "@/features/meishi/templates";
+import type {
+  MeishiDocument,
+  MeishiRenderContext,
+} from "@/features/meishi/types";
+import { useMeishiRenderContext } from "@/features/meishi/useMeishiRenderContext";
 
 export type MeishiCardProps = {
   username?: string | null | undefined;

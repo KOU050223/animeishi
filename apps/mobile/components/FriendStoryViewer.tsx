@@ -11,10 +11,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useTranslation } from "react-i18next";
-import type { FriendWatchStory } from "@/lib/useFriendWatchStories";
-import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
-import { formatRelativeTime } from "@/lib/activityText";
-import { useOpenWorkDetail } from "@/lib/workDetailContext";
+import type { FriendWatchStory } from "@/features/feed/useFriendWatchStories";
+import { WATCH_STATUS_LABELS } from "@/features/watch-history/watchStatusLabels";
+import { formatRelativeTime } from "@/features/feed/activityText";
+import { useOpenWorkDetail } from "@/features/works/workDetailContext";
 
 // 1 スライドの表示時間。Instagram のストーリー（写真 5 秒）に合わせる。
 const SLIDE_DURATION_MS = 5000;

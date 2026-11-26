@@ -17,18 +17,21 @@ import {
   useUpsertWatchHistory,
   useDeleteWatchHistory,
   WATCH_STATUS_LABELS,
-} from "@/lib/useWatchHistory";
+} from "@/features/watch-history/useWatchHistory";
 import type {
   WatchHistoryItem,
   UpsertWatchHistoryError,
-} from "@/lib/useWatchHistory";
-import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
+} from "@/features/watch-history/useWatchHistory";
+import {
+  useFavoriteIds,
+  useToggleFavorite,
+} from "@/features/favorites/useFavorites";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
-import { useAnnictConnection } from "@/lib/annict";
+import { useAnnictConnection } from "@/features/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { WatchHistoryShareSection } from "@/components/watch-history/WatchHistoryShareSection";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -54,12 +57,12 @@ import {
   filterWatchHistory,
   isWatchHistoryFilterActive,
   sortWatchHistory,
-} from "@/lib/watchHistorySortFilter";
+} from "@/features/watch-history/watchHistorySortFilter";
 import type {
   WatchHistoryDecade,
   WatchHistoryFilters,
   WatchHistorySortKey,
-} from "@/lib/watchHistorySortFilter";
+} from "@/features/watch-history/watchHistorySortFilter";
 
 const WATCH_STATUSES = [
   "WATCHING",

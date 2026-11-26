@@ -101,7 +101,7 @@ const mockFriend = {
 
 let mockFriendsData: (typeof mockFriend)[] = [mockFriend];
 
-jest.mock("@/lib/useFriends", () => ({
+jest.mock("@/features/friends/useFriends", () => ({
   useFriends: () => ({
     data: mockFriendsData,
     isLoading: mockFriendsLoading,
@@ -113,7 +113,7 @@ jest.mock("@/lib/useFriends", () => ({
   }),
 }));
 
-jest.mock("@/lib/useFriendRequests", () => ({
+jest.mock("@/features/friend-requests/useFriendRequests", () => ({
   useFriendRequests: () => ({
     data: mockRequestsData,
     refetch: jest.fn(),
@@ -123,7 +123,7 @@ jest.mock("@/lib/useFriendRequests", () => ({
 // イベント絞り込み（issue #661）の交換記録。既定は空（絞り込み UI なし）。
 let mockExchangeRecordsData: { friendId: string; eventName: string | null }[] =
   [];
-jest.mock("@/lib/useExchangeRecords", () => ({
+jest.mock("@/features/exchange-records/useExchangeRecords", () => ({
   useExchangeRecords: () => ({
     data: mockExchangeRecordsData,
     refetch: jest.fn(),
@@ -133,7 +133,7 @@ jest.mock("@/lib/useExchangeRecords", () => ({
 // 届いたお礼の未読件数（issue #694）。既定は 0（未読バナーなし）。
 let mockUnreadThanksCount = 0;
 const mockThanksRefetch = jest.fn();
-jest.mock("@/lib/useFriendThanks", () => ({
+jest.mock("@/features/friend-thanks/useFriendThanks", () => ({
   useUnreadThanksCount: () => mockUnreadThanksCount,
   useFriendThanks: () => ({ refetch: mockThanksRefetch }),
 }));

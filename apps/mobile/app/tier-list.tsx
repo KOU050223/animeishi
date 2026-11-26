@@ -13,7 +13,7 @@ import { webUrl } from "@/lib/webUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { haptics } from "@/lib/haptics";
-import { useWorkCatalogAccess } from "@/lib/annict";
+import { useWorkCatalogAccess } from "@/features/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { BackButton, Input } from "@/components/ui";
 import { SeasonFilter } from "@/components/anime-list/SeasonFilter";
@@ -25,7 +25,7 @@ import {
   type SeasonKey,
 } from "@/components/anime-list/animeListUtils";
 import { TierBoard } from "@/components/tier-list/TierBoard";
-import { useOpenWorkDetail } from "@/lib/workDetailContext";
+import { useOpenWorkDetail } from "@/features/works/workDetailContext";
 import {
   TierBoardSnapshot,
   type SnapshotItem,
@@ -39,38 +39,42 @@ import {
   parseTiersJson,
   toAssignment,
   toSaveItems,
-} from "@/lib/tierList/board";
+} from "@/features/tier-lists/board";
 import {
   DEFAULT_TIERS,
   defaultCharacterTierListTitle,
   defaultTierListTitle,
-} from "@/lib/tierList/defaults";
-import { renameTier } from "@/lib/tierList/label";
+} from "@/features/tier-lists/defaults";
+import { renameTier } from "@/features/tier-lists/label";
 import {
   buildTierListShareUrl,
   captureTierListImageFile,
   presentTierShareOptions,
   shareTierListImage,
   useTierUrlShare,
-} from "@/lib/tierList/share";
-// jest が "@/lib/tierList/share" をモックするため、フロー本体は
+} from "@/features/tier-lists/share";
+// jest が "@/features/tier-lists/share" をモックするため、フロー本体は
 // バレル経由ではなくサブモジュールから直接 import する。
 import {
   shareTierListViaUrl,
   withRenderedTierSnapshot,
-} from "@/lib/tierList/share/flow";
-import type { TierAssignment, TierItem, TierRow } from "@/lib/tierList/types";
-import type { TierListKind } from "@/lib/tierList/useMergedTierLists";
+} from "@/features/tier-lists/share/flow";
+import type {
+  TierAssignment,
+  TierItem,
+  TierRow,
+} from "@/features/tier-lists/types";
+import type { TierListKind } from "@/features/tier-lists/useMergedTierLists";
 import type { TierListScope } from "@/lib/queries/tierLists";
-import { useSeasonWorks } from "@/lib/tierList/useSeasonWorks";
-import { useWorkCharacters } from "@/lib/tierList/useWorkCharacters";
-import { useWorksLookup } from "@/lib/tierList/useWorksLookup";
-import { usePrefetchSeasonWorks } from "@/lib/useAnimeList";
+import { useSeasonWorks } from "@/features/tier-lists/useSeasonWorks";
+import { useWorkCharacters } from "@/features/tier-lists/useWorkCharacters";
+import { useWorksLookup } from "@/features/tier-lists/useWorksLookup";
+import { usePrefetchSeasonWorks } from "@/features/works/useAnimeList";
 import {
   useSavedTierList,
   useSaveTierList,
   useShareTierList,
-} from "@/lib/tierList/useTierList";
+} from "@/features/tier-lists/useTierList";
 
 /**
  * tier 表の編集画面（issue #724 で season / character / custom の 3 画面を
@@ -596,7 +600,7 @@ export default function TierListScreen() {
     });
 
   // 盤面を保存し、保存結果をスナップショットに描画させてから run を実行する。
-  // try/finally は React Compiler が最適化できないため lib/tierList/share/flow.ts に置く。
+  // try/finally は React Compiler が最適化できないため features/tier-lists/share/flow.ts に置く。
   const withRenderedSnapshot = <T,>(run: () => Promise<T>): Promise<T> =>
     withRenderedTierSnapshot({
       saveBoard: saveTierListData,

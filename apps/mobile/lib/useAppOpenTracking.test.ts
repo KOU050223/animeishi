@@ -1,9 +1,9 @@
 import { AppState, type AppStateStatus } from "react-native";
 import { renderHook } from "@testing-library/react-native";
-import { useAppOpenTracking } from "./useAppOpenTracking";
-import { trackEvent } from "./events";
+import { useAppOpenTracking } from "@/lib/useAppOpenTracking";
+import { trackEvent } from "@/lib/events";
 
-jest.mock("./events", () => ({ trackEvent: jest.fn() }));
+jest.mock("@/lib/events", () => ({ trackEvent: jest.fn() }));
 
 const trackEventMock = jest.mocked(trackEvent);
 

@@ -115,7 +115,7 @@ Web プレビューのビルドには `EXPO_PUBLIC_API_URL` として上記の P
 
 ### プレビューでの Annict 連携
 
-Annict OAuth は `redirect_uri` の完全一致を要求するため、PR ごとの動的なプレビュー URL は登録できない。そこで Web の `redirect_uri` は常に登録済みの正規 URL（既定: `https://animeishi-web-production.<subdomain>.workers.dev/annict`、GitHub Variable `EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI` で上書き可）に固定し、戻り先オリジンを `state` に埋め込む。正規オリジン上の `/annict` が `state` をデコードし、許可済みオリジン（プレビューエイリアス・独自ドメイン・localhost）へ code/state を中継する。実装は `apps/mobile/lib/annict/oauth.ts`（`resolveAnnictRelayTarget`）と `app/annict.web.tsx`。
+Annict OAuth は `redirect_uri` の完全一致を要求するため、PR ごとの動的なプレビュー URL は登録できない。そこで Web の `redirect_uri` は常に登録済みの正規 URL（既定: `https://animeishi-web-production.<subdomain>.workers.dev/annict`、GitHub Variable `EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI` で上書き可）に固定し、戻り先オリジンを `state` に埋め込む。正規オリジン上の `/annict` が `state` をデコードし、許可済みオリジン（プレビューエイリアス・独自ドメイン・localhost）へ code/state を中継する。実装は `apps/mobile/features/annict/oauth.ts`（`resolveAnnictRelayTarget`）と `app/annict.web.tsx`。
 
 > 中継は本番 Web の `/annict` が担うため、プレビューからの連携が機能するには中継ロジックが本番にデプロイ済みである必要がある。また `ANNICT_CLIENT_SECRET` / `ANNICT_ENCRYPTION_KEY` が preview Worker に登録済みであること（「初回ブートストラップ」参照）。
 

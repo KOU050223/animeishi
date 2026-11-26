@@ -9,7 +9,7 @@ import { ApiRequestError } from "@/lib/apiError";
 const mockAlert = jest.fn();
 let capturedOnError: ((e: unknown) => void) | undefined;
 
-jest.mock("@/lib/useFavorites", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
   useFavoriteIds: () => new Set<number>(),
   useToggleFavorite: (
     _favoriteIds: Set<number>,

@@ -23,9 +23,9 @@ import {
   useToggleUserLike,
   type PublicUserItem,
   type PublicUsersSort,
-} from "@/lib/usePublicUsers";
-import { useReportUserFlow } from "@/lib/useReportUserFlow";
-import type { ReportReason } from "@/lib/useModeration";
+} from "@/features/users/usePublicUsers";
+import { useReportUserFlow } from "@/features/users/useReportUserFlow";
+import type { ReportReason } from "@/features/users/useModeration";
 import { DiscoverReportSheet } from "./DiscoverReportSheet";
 
 // ひろば「みつける」の名刺フィード（issue #418）。

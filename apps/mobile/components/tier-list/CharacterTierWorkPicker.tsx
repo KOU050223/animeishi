@@ -10,9 +10,9 @@ import { useTranslation } from "react-i18next";
 import { initialWindowMetrics } from "react-native-safe-area-context";
 import { WorkAddSheet } from "@/components/tier-list/WorkAddSheet";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
-import { useWorkCatalogAccess } from "@/lib/annict";
+import { useWorkCatalogAccess } from "@/features/annict";
 import { useThemeColors } from "@/lib/theme";
-import type { TierItem } from "@/lib/tierList/types";
+import type { TierItem } from "@/features/tier-lists/types";
 
 // ピッカーでは「既に追加済み」の概念が無いため、重複表示は常に空集合にする。
 const NO_EXISTING = new Set<number>();

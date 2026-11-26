@@ -68,12 +68,12 @@ jest.mock("@/components/anime-list", () => ({
   },
 }));
 
-jest.mock("@/lib/useFavorites", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
   useFavoriteIds: () => new Set<number>(),
   useToggleFavorite: () => ({ toggle: jest.fn(), isPending: false }),
 }));
 
-jest.mock("@/lib/useWorkEpisodes", () => ({
+jest.mock("@/features/works/useWorkEpisodes", () => ({
   useWorkEpisodes: () => ({ data: undefined }),
 }));
 
@@ -111,7 +111,7 @@ let mockProfile: {
   refetch: jest.Mock;
 };
 
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useProfile: () => mockProfile,
   useUpdateProfile: () => ({
     isPending: false,
@@ -123,7 +123,7 @@ jest.mock("@/lib/useProfile", () => ({
   }),
 }));
 
-jest.mock("@/lib/usePublicSettings", () => ({
+jest.mock("@/features/me/usePublicSettings", () => ({
   usePublicSettings: () => ({
     profileVisibility:
       (mockProfile?.data?.isPublic ?? true) === false ? "private" : "public",
@@ -132,17 +132,17 @@ jest.mock("@/lib/usePublicSettings", () => ({
   }),
 }));
 
-jest.mock("@/lib/socialLinks", () => ({
+jest.mock("@/features/social-links/socialLinks", () => ({
   useSocialLinks: () => ({ data: { items: [] } }),
 }));
 
 // 話記録ジョブ（issue #477）は QueryClientProvider 配下でしか動かない
 // useQuery を使うので、このテストではジョブ無しとして差し替える。
-jest.mock("@/lib/danime/useDanimeImport", () => ({
+jest.mock("@/features/import/useDanimeImport", () => ({
   useDanimeEpisodeJob: () => ({ data: null }),
 }));
 
-jest.mock("@/lib/annict/storage", () => ({
+jest.mock("@/features/annict/storage", () => ({
   annictTokenStorage: {
     get: jest.fn(async () => null),
     set: jest.fn(async () => {}),
@@ -150,14 +150,14 @@ jest.mock("@/lib/annict/storage", () => ({
   },
 }));
 
-jest.mock("@/lib/useProfileAvatar", () => ({
+jest.mock("@/features/me/useProfileAvatar", () => ({
   useProfileAvatarUpload: () => ({
     isPending: false,
     mutate: jest.fn(),
   }),
 }));
 
-jest.mock("@/lib/meishi/useMeishiLibrary", () => ({
+jest.mock("@/features/meishi/useMeishiLibrary", () => ({
   useMeishiLibrary: () => ({
     cards: [],
     defaultCard: null,

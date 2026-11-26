@@ -19,41 +19,50 @@ import {
   useWorkDetail,
   WORK_DETAIL_QUERY_KEY,
   workDetailQueryKey,
-} from "@/lib/useWorkDetail";
+} from "@/features/works/useWorkDetail";
 import {
   useDeleteWatchHistory,
   useUpsertWatchHistory,
   WATCH_STATUS_LABELS,
-} from "@/lib/useWatchHistory";
-import type { UpsertWatchHistoryError } from "@/lib/useWatchHistory";
+} from "@/features/watch-history/useWatchHistory";
+import type { UpsertWatchHistoryError } from "@/features/watch-history/useWatchHistory";
 import {
   useRecordEpisode,
   useUnrecordEpisode,
   useWorkEpisodes,
-} from "@/lib/useWorkEpisodes";
-import type { EpisodeRecordError, WorkEpisode } from "@/lib/useWorkEpisodes";
-import { episodeLabel } from "@/lib/episodeLabel";
+} from "@/features/works/useWorkEpisodes";
+import type {
+  EpisodeRecordError,
+  WorkEpisode,
+} from "@/features/works/useWorkEpisodes";
+import { episodeLabel } from "@/features/works/episodeLabel";
 import {
   useDeleteWorkRating,
   useUpsertWorkRating,
   useWorkRating,
   WORK_RATING_LABELS,
-} from "@/lib/useWorkRating";
-import type { WorkRating, WorkRatingError } from "@/lib/useWorkRating";
+} from "@/features/work-ratings/useWorkRating";
+import type {
+  WorkRating,
+  WorkRatingError,
+} from "@/features/work-ratings/useWorkRating";
 import {
   loadWorkRatingHintSeen,
   markWorkRatingHintSeen,
-} from "@/lib/workRatingHint";
-import type { WatchState } from "@/lib/watchStatusLabels";
+} from "@/features/work-ratings/workRatingHint";
+import type { WatchState } from "@/features/watch-history/watchStatusLabels";
 import { alert } from "@/lib/dialog";
-import { useAnnictConnection, useAnnictTokenErrorPrompt } from "@/lib/annict";
+import {
+  useAnnictConnection,
+  useAnnictTokenErrorPrompt,
+} from "@/features/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { trackEvent } from "@/lib/events";
 import { featureFlags } from "@/lib/featureFlags";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { Skeleton, SkeletonGroup } from "@/components/ui/Skeleton";
 import { AddToWorkListSheet } from "@/components/work-list";
-import { buildDanimeWorkSearchUrl } from "@/lib/danime/workSearchUrl";
+import { buildDanimeWorkSearchUrl } from "@/features/import/workSearchUrl";
 import {
   DetailLink,
   SectionTitle,

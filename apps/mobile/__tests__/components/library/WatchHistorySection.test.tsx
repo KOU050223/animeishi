@@ -43,7 +43,7 @@ let mockHistories: unknown[] = [
 ];
 let mockHistoryLoading = false;
 let mockHistoryError = false;
-jest.mock("@/lib/useWatchHistory", () => ({
+jest.mock("@/features/watch-history/useWatchHistory", () => ({
   useWatchHistory: () => ({
     data: mockHistories,
     isLoading: mockHistoryLoading,
@@ -68,7 +68,7 @@ jest.mock("@/lib/useWatchHistory", () => ({
 // 推し（お気に入り）の状態・トグルをテストごとに差し替えられるようにする（#379）。
 let mockFavoriteIds = new Set<number>();
 const mockToggleFavorite = jest.fn();
-jest.mock("@/lib/useFavorites", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
   useFavoriteIds: () => mockFavoriteIds,
   useToggleFavorite: () => ({
     toggle: (annictWorkId: number) => mockToggleFavorite(annictWorkId),
@@ -145,13 +145,13 @@ jest.mock("@/components/anime-list/AnimeWorkDetailSheet", () => {
   };
 });
 
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
 }));
 
 // 共有 URL 導線（WatchHistoryShareSection）のフック。画面のテストでは
 // 共有状態を未発行に固定し、発行・解除は実際には呼ばれないスタブにする。
-jest.mock("@/lib/useWatchHistoryShare", () => ({
+jest.mock("@/features/watch-history/useWatchHistoryShare", () => ({
   useWatchHistoryShareStatus: () => ({
     data: { shareToken: null },
     isLoading: false,

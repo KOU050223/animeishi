@@ -24,35 +24,35 @@ import { BackButton } from "@/components/ui";
 import { alert } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
 import { trackEvent } from "@/lib/events";
-import { makeDefaultElement, newId } from "@/lib/meishi/defaults";
+import { makeDefaultElement, newId } from "@/features/meishi/defaults";
 import {
   getFittedCanvasWidth,
   getInspectorHeight,
-} from "@/lib/meishi/inspectorLayout";
-import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
-import { getTemplate, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
-import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
-import type { UseMeishiDocument } from "@/lib/meishi/useMeishiDocument";
-import { useMeishiImageShare } from "@/lib/meishi/imageShare";
-import { useMeishiPrintExport } from "@/lib/meishi/printExport";
-import { usePublicMeishiSnapshot } from "@/lib/meishi/publicSnapshot/usePublicMeishiSnapshot";
-import { loadMeishiLibrary } from "@/lib/meishi/storage";
+} from "@/features/meishi/inspectorLayout";
+import { buildMeishiAnimeContext } from "@/features/meishi/animeContext";
+import { getTemplate, MEISHI_TEMPLATES } from "@/features/meishi/templates";
+import { useMeishiDocument } from "@/features/meishi/useMeishiDocument";
+import type { UseMeishiDocument } from "@/features/meishi/useMeishiDocument";
+import { useMeishiImageShare } from "@/features/meishi/imageShare";
+import { useMeishiPrintExport } from "@/features/meishi/printExport";
+import { usePublicMeishiSnapshot } from "@/features/meishi/publicSnapshot/usePublicMeishiSnapshot";
+import { loadMeishiLibrary } from "@/features/meishi/storage";
 import { buildProfileUrl } from "@/lib/profileUrl";
-import { useAchievements } from "@/lib/achievements/useAchievements";
-import { useFavorites } from "@/lib/useFavorites";
+import { useAchievements } from "@/features/achievements/useAchievements";
+import { useFavorites } from "@/features/favorites/useFavorites";
 import {
   pickMeishiImage,
   useMeishiAssetUpload,
-} from "@/lib/useMeishiAssetUpload";
-import { useProfile } from "@/lib/useProfile";
-import { useWatchHistory } from "@/lib/useWatchHistory";
+} from "@/features/meishi/useMeishiAssetUpload";
+import { useProfile } from "@/features/me/useProfile";
+import { useWatchHistory } from "@/features/watch-history/useWatchHistory";
 import { useThemeColors } from "@/lib/theme";
 import type { ThemeColors } from "@/lib/theme";
 import type {
   MeishiElement,
   MeishiElementType,
   MeishiRenderContext,
-} from "@/lib/meishi/types";
+} from "@/features/meishi/types";
 
 export default function MeishiEditScreen() {
   const { t } = useTranslation();

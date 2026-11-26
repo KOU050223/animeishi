@@ -10,7 +10,7 @@ const findIndicators = () =>
       typeof node.type === "string" && node.type.includes("ActivityIndicator"),
   );
 
-// API・認証の振る舞いは lib/useActivityFeed の結合部なので、
+// API・認証の振る舞いは features/feed/useActivityFeed の結合部なので、
 // ここではフックの戻り値を差し替えてセクションの UI 分岐を検証する。
 let mockFeed: {
   data?:
@@ -49,7 +49,7 @@ let mockFeed: {
   isFetchingNextPage: boolean;
 };
 
-jest.mock("@/lib/useActivityFeed", () => ({
+jest.mock("@/features/feed/useActivityFeed", () => ({
   useActivityFeed: () => mockFeed,
 }));
 
@@ -64,7 +64,7 @@ let mockFriends: {
   data?: { friendId: string }[] | undefined;
   isLoading: boolean;
 };
-jest.mock("@/lib/useFriends", () => ({
+jest.mock("@/features/friends/useFriends", () => ({
   useFriends: () => mockFriends,
 }));
 

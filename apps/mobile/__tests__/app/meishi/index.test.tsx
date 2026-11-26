@@ -6,8 +6,8 @@ import {
   waitFor,
 } from "@testing-library/react-native";
 import MeishiDeckScreen from "@/app/meishi/index";
-import type { MeishiCardData } from "@/lib/meishi/types";
-import { loadMeishiLibrary } from "@/lib/meishi/storage";
+import type { MeishiCardData } from "@/features/meishi/types";
+import { loadMeishiLibrary } from "@/features/meishi/storage";
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -71,7 +71,7 @@ jest.mock("@/lib/dialog", () => ({
   ) => mockConfirm(title, message, onConfirm, options),
 }));
 
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useProfile: () => ({
     data: {
       id: "user_1",
@@ -82,21 +82,23 @@ jest.mock("@/lib/useProfile", () => ({
     },
   }),
 }));
-jest.mock("@/lib/useFavorites", () => ({ useFavorites: () => ({ data: [] }) }));
-jest.mock("@/lib/useWatchHistory", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
+  useFavorites: () => ({ data: [] }),
+}));
+jest.mock("@/features/watch-history/useWatchHistory", () => ({
   useWatchHistory: () => ({ data: [] }),
 }));
-jest.mock("@/lib/achievements/useAchievements", () => ({
+jest.mock("@/features/achievements/useAchievements", () => ({
   useAchievements: () => ({ data: undefined }),
 }));
-jest.mock("@/lib/meishi/publicSnapshot/usePublicMeishiSnapshot", () => ({
+jest.mock("@/features/meishi/publicSnapshot/usePublicMeishiSnapshot", () => ({
   usePublicMeishiSnapshot: () => ({
     publish: mockPublishSnapshot,
     clear: jest.fn(),
     snapshotElement: null,
   }),
 }));
-jest.mock("@/lib/meishi/storage", () => ({
+jest.mock("@/features/meishi/storage", () => ({
   loadMeishiLibrary: jest.fn(),
 }));
 
@@ -121,7 +123,7 @@ let mockCards: MeishiCardData[] = cards;
 let mockDefaultCard: MeishiCardData | null = cards[0] ?? null;
 let mockLoaded = true;
 
-jest.mock("@/lib/meishi/useMeishiLibrary", () => ({
+jest.mock("@/features/meishi/useMeishiLibrary", () => ({
   useMeishiLibrary: () => ({
     cards: mockCards,
     defaultCard: mockDefaultCard,

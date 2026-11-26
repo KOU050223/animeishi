@@ -92,7 +92,7 @@ let mockError = false;
 const mockToggleMutate = jest.fn();
 const mockReportSubmit = jest.fn();
 
-jest.mock("@/lib/workList/useWorkLists", () => ({
+jest.mock("@/features/work-lists/useWorkLists", () => ({
   usePublicWorkList: () => ({
     data: mockData,
     isLoading: mockLoading,
@@ -104,7 +104,7 @@ jest.mock("@/lib/workList/useWorkLists", () => ({
   }),
 }));
 
-jest.mock("@/lib/workList/useReportWorkListFlow", () => ({
+jest.mock("@/features/work-lists/useReportWorkListFlow", () => ({
   useReportWorkListFlow: () => ({
     submit: mockReportSubmit,
     isPending: false,

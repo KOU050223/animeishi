@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import OnboardingScreen from "@/app/onboarding";
-import { onboardingPending } from "@/lib/onboarding";
+import { onboardingPending } from "@/features/onboarding";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { captureAnalyticsEvent } from "@/lib/analytics/client";
 
@@ -29,7 +29,7 @@ jest.mock("expo-router", () => ({
 }));
 
 const mockMutateAsync = jest.fn().mockResolvedValue({});
-jest.mock("@/lib/useFavorites", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
   useAddFavorite: () => ({ mutateAsync: mockMutateAsync }),
 }));
 

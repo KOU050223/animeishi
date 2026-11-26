@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
 import { Image as ExpoImage } from "expo-image";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
-import { FONT_FAMILY_OPTIONS } from "@/lib/meishi/defaults";
+import { FONT_FAMILY_OPTIONS } from "@/features/meishi/defaults";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
@@ -18,8 +18,8 @@ import {
   dragImageFocus,
   imageContentPosition,
   nudgeImageFocus,
-} from "@/lib/meishi/imageFocus";
-import { resolveImageUri } from "@/lib/meishi/renderableImages";
+} from "@/features/meishi/imageFocus";
+import { resolveImageUri } from "@/features/meishi/renderableImages";
 import { ColorGrid } from "./ColorGrid";
 import type { ThemeColors } from "@/lib/theme";
 import type { TFunction } from "i18next";
@@ -31,7 +31,7 @@ import type {
   MeishiRenderContext,
   MeishiElement,
   TextSource,
-} from "@/lib/meishi/types";
+} from "@/features/meishi/types";
 
 type Props = {
   element: MeishiElement;

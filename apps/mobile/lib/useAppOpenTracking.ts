@@ -4,7 +4,7 @@
 // ルートレイアウト（app/_layout.tsx）で 1 度だけ呼ぶ。
 import { useEffect, useRef } from "react";
 import { AppState } from "react-native";
-import { trackEvent } from "./events";
+import { trackEvent } from "@/lib/events";
 
 export function useAppOpenTracking(): void {
   const lastState = useRef<string | null>(AppState.currentState);

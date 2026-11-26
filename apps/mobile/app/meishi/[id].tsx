@@ -19,12 +19,12 @@ import {
 import { MeishiCard } from "@/components/MeishiCard";
 import { BackButton } from "@/components/ui";
 import { buildProfileUrl } from "@/lib/profileUrl";
-import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
-import { useMeishiPrintExport } from "@/lib/meishi/printExport";
-import { useMeishiRenderContext } from "@/lib/meishi/useMeishiRenderContext";
-import { useProfile } from "@/lib/useProfile";
+import { useMeishiLibrary } from "@/features/meishi/useMeishiLibrary";
+import { useMeishiPrintExport } from "@/features/meishi/printExport";
+import { useMeishiRenderContext } from "@/features/meishi/useMeishiRenderContext";
+import { useProfile } from "@/features/me/useProfile";
 import { useThemeColors } from "@/lib/theme";
-import { useSocialLinks } from "@/lib/socialLinks";
+import { useSocialLinks } from "@/features/social-links/socialLinks";
 import { SocialLinksList } from "@/components/profile/SocialLinksList";
 import type { ThemeColors } from "@/lib/theme";
 

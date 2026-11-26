@@ -8,7 +8,7 @@ import {
   useAnnictConnect,
   useAnnictFunnel,
   type AnnictConnectResult,
-} from "@/lib/annict";
+} from "@/features/annict";
 import type { TranslationKey } from "@/lib/i18n/keys";
 import { useThemeColors } from "@/lib/theme";
 

@@ -21,12 +21,15 @@ import type { ThemeColors } from "@/lib/theme";
 import {
   usePublicTierList,
   useToggleTierListLike,
-} from "@/lib/tierList/usePublicTierLists";
-import { useReportTierListFlow } from "@/lib/tierList/useReportTierListFlow";
-import { TIER_KIND_LABELS } from "@/lib/tierList/useMergedTierLists";
-import { tierLabelFontSize, tierLabelTextColor } from "@/lib/tierList/label";
+} from "@/features/tier-lists/usePublicTierLists";
+import { useReportTierListFlow } from "@/features/tier-lists/useReportTierListFlow";
+import { TIER_KIND_LABELS } from "@/features/tier-lists/useMergedTierLists";
+import {
+  tierLabelFontSize,
+  tierLabelTextColor,
+} from "@/features/tier-lists/label";
 import { DiscoverReportSheet } from "@/components/hiroba/DiscoverReportSheet";
-import type { ReportReason } from "@/lib/useModeration";
+import type { ReportReason } from "@/features/users/useModeration";
 
 type PublicTierListDetail = NonNullable<
   ReturnType<typeof usePublicTierList>["data"]

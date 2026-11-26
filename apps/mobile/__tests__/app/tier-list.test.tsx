@@ -11,8 +11,15 @@ import {
   toSeasonParam,
   type SeasonKey,
 } from "@/components/anime-list/animeListUtils";
-import { DEFAULT_TIERS, defaultTierListTitle } from "@/lib/tierList/defaults";
-import type { TierAssignment, TierItem, TierRow } from "@/lib/tierList/types";
+import {
+  DEFAULT_TIERS,
+  defaultTierListTitle,
+} from "@/features/tier-lists/defaults";
+import type {
+  TierAssignment,
+  TierItem,
+  TierRow,
+} from "@/features/tier-lists/types";
 
 const initialSeason = toSeasonParam(currentSeason().year, currentSeason().key);
 
@@ -86,7 +93,7 @@ jest.mock("@/components/tier-list/TierBoardSnapshot", () => ({
 
 let mockWorks: TierItem[] = [];
 let mockWorksError = false;
-jest.mock("@/lib/tierList/useSeasonWorks", () => ({
+jest.mock("@/features/tier-lists/useSeasonWorks", () => ({
   useSeasonWorks: () => ({
     works: mockWorks,
     isLoading: false,
@@ -97,7 +104,7 @@ jest.mock("@/lib/tierList/useSeasonWorks", () => ({
 }));
 
 // season 以外の候補ソースはこのテストでは使わない（kind=season で開く）。
-jest.mock("@/lib/tierList/useWorkCharacters", () => ({
+jest.mock("@/features/tier-lists/useWorkCharacters", () => ({
   useWorkCharacters: () => ({
     characters: [],
     workTitle: null,
@@ -108,20 +115,20 @@ jest.mock("@/lib/tierList/useWorkCharacters", () => ({
   }),
 }));
 
-jest.mock("@/lib/tierList/useWorksLookup", () => ({
+jest.mock("@/features/tier-lists/useWorksLookup", () => ({
   useWorksLookup: () => ({ data: undefined, isLoading: false, isError: false }),
 }));
 
 // Annict 連携のゲートは「連携済み」で通す。未連携時の出し分けは
 // AnnictSoftGate のテスト側で扱う。
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useWorkCatalogAccess: () => ({
     canBrowseWorks: true,
     isLoading: false,
   }),
 }));
 
-jest.mock("@/lib/useAnimeList", () => ({
+jest.mock("@/features/works/useAnimeList", () => ({
   usePrefetchSeasonWorks: jest.fn(),
 }));
 
@@ -133,7 +140,7 @@ const mockCancelShare = jest.fn();
 const mockPresentShareUrl = jest.fn();
 const mockPresentOptions = jest.fn();
 let mockUseRealWebShare = false;
-jest.mock("@/lib/tierList/useTierList", () => ({
+jest.mock("@/features/tier-lists/useTierList", () => ({
   useSavedTierList: (scope: { kind: string; season?: string } | null) => {
     const season = scope?.kind === "season" ? scope.season : undefined;
     if (season) mockSavedSeasons.push(season);
@@ -152,12 +159,12 @@ jest.mock("@/lib/tierList/useTierList", () => ({
   useShareTierList: () => ({ mutateAsync: mockShareMutateAsync }),
 }));
 
-jest.mock("@/lib/tierList/share", () => {
+jest.mock("@/features/tier-lists/share", () => {
   const { useTierUrlShare } = jest.requireActual(
-    "@/lib/tierList/share/urlShare.web",
+    "@/features/tier-lists/share/urlShare.web",
   );
   const { presentTierShareOptions } = jest.requireActual(
-    "@/lib/tierList/share/options.web",
+    "@/features/tier-lists/share/options.web",
   );
   return {
     buildTierListShareUrl: () => "https://example.com/share/tier-lists/token",

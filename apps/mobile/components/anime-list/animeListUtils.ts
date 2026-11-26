@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { AnimeTitle } from "@/lib/useAnimeList";
+import type { AnimeTitle } from "@/features/works/useAnimeList";
 import type { TranslationKey } from "@/lib/i18n/keys";
 
 export const SEASONS: Record<string, TranslationKey> = {

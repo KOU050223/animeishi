@@ -14,10 +14,17 @@ import {
   useAnimeList,
   usePrefetchSeasonWorks,
   useSortedAnimeList,
-} from "@/lib/useAnimeList";
-import type { AnimeTitle, SortKey, SortOrder } from "@/lib/useAnimeList";
+} from "@/features/works/useAnimeList";
+import type {
+  AnimeTitle,
+  SortKey,
+  SortOrder,
+} from "@/features/works/useAnimeList";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
-import { isAnnictRateLimitedError, isAnnictTokenError } from "@/lib/annict";
+import {
+  isAnnictRateLimitedError,
+  isAnnictTokenError,
+} from "@/features/annict";
 import { Input } from "@/components/ui";
 import { CardPressable } from "@/components/ui/card-pressable";
 import { AnimeListSkeleton } from "./AnimeListSkeleton";
@@ -34,8 +41,11 @@ import { WatchedStamp } from "./WatchedStamp";
 import { SeasonFilter } from "./SeasonFilter";
 import { SortButton } from "./SortButton";
 import { trackEvent } from "@/lib/events";
-import { useWatchHistory } from "@/lib/useWatchHistory";
-import { WATCH_STATUS_LABELS, type WatchState } from "@/lib/watchStatusLabels";
+import { useWatchHistory } from "@/features/watch-history/useWatchHistory";
+import {
+  WATCH_STATUS_LABELS,
+  type WatchState,
+} from "@/features/watch-history/watchStatusLabels";
 import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
 import {
   adjacentSeasonParams,
@@ -56,7 +66,7 @@ import {
   filterAnimeList,
   isAnimeListFilterActive,
   type AnimeListFilters,
-} from "@/lib/animeListSortFilter";
+} from "@/features/works/animeListSortFilter";
 
 export function AnimeListContent({
   favoriteIds,

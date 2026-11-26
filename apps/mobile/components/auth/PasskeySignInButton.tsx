@@ -8,9 +8,9 @@ import {
   getClerkErrorCode,
   throwIfAuthError,
   toAuthErrorMessage,
-} from "@/lib/authErrors";
-import { recoverExistingSession } from "@/lib/recoverExistingSession";
-import { useSignOut } from "@/lib/useSignOut";
+} from "@/features/auth/authErrors";
+import { recoverExistingSession } from "@/features/auth/recoverExistingSession";
+import { useSignOut } from "@/features/auth/useSignOut";
 import { useThemeColors } from "@/lib/theme";
 
 type Props = {

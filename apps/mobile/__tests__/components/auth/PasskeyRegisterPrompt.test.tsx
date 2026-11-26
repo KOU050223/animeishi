@@ -6,7 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react-native";
 import { PasskeyRegisterPrompt } from "@/components/auth/PasskeyRegisterPrompt";
-import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
+import { passkeyPromptPending } from "@/features/auth/passkeyPromptPending";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 // issue #326: サインアップ直後のパスキー登録促進ステップ。

@@ -13,7 +13,7 @@
 | アプリ名 | アニ名刺（英語圏: Animeishi） |
 | プライバシーポリシー URL | https://animeishi.uomi.dev/privacy |
 | 利用規約 URL | https://animeishi.uomi.dev/terms（App Store は標準 EULA、Play Console の各所やフッター参照用） |
-| サポート URL | https://animeishi.uomi.dev/support（`apps/mobile/app/support.tsx`。未ログイン閲覧可。連絡先メールは `support@uomi.dev`（`apps/mobile/lib/legal/operator.ts`）） |
+| サポート URL | https://animeishi.uomi.dev/support（`apps/mobile/app/support.tsx`。未ログイン閲覧可。連絡先メールは `support@uomi.dev`（`apps/mobile/features/legal/operator.ts`）） |
 | カテゴリ | App Store: エンターテイメント（主）/ ソーシャルネットワーキング（副）。Play: エンターテイメント |
 
 > dアニメストアからの視聴履歴取り込みは v1.0 からネイティブでも有効（#751。#158 の無効化を戻す）。
@@ -28,7 +28,7 @@ App Store の年齢レーティング質問票は `store.config.json` の `advis
 | --- | --- | --- |
 | ユーザー生成コンテンツ（UGC） | **あり（Yes）** | ユーザー名・bio・名言・プロフィール画像・名刺が他ユーザーに公開される。通報・ブロックは実装済み（導線は下の Review Notes 参照）。 |
 | メッセージ・チャット | なし | アプリ内にユーザー間メッセージ機能はない。 |
-| 制限なしの Web アクセス | なし | アプリ内に任意 URL を自由に閲覧するブラウザ機能はない。dアニメ取り込みの WebView は遷移先を dアニメストアと dアカウント認証（`*.smt.docomo.ne.jp`）の docomo ドメインに限定し、それ以外のドメインは外部ブラウザで開く（`apps/mobile/app/danime-import.native.tsx`・`apps/mobile/lib/danime/webviewAllowlist.ts`、#751）ため `unrestrictedWebAccess: false` とした。 |
+| 制限なしの Web アクセス | なし | アプリ内に任意 URL を自由に閲覧するブラウザ機能はない。dアニメ取り込みの WebView は遷移先を dアニメストアと dアカウント認証（`*.smt.docomo.ne.jp`）の docomo ドメインに限定し、それ以外のドメインは外部ブラウザで開く（`apps/mobile/app/danime-import.native.tsx`・`apps/mobile/features/import/webviewAllowlist.ts`、#751）ため `unrestrictedWebAccess: false` とした。 |
 | 暴力（カートゥーン/ファンタジー）・成熟/示唆的・性的コンテンツ・ホラー | INFREQUENT_OR_MILD | Annict 作品カタログに全ジャンルの作品が含まれ、キービジュアル（サムネイル）を表示するため。実コンテンツは作品名・ポスター画像のみ。 |
 | その他（アルコール/薬物・ギャンブル・医療情報・下品なユーモア・リアルな暴力等） | NONE | 該当機能なし。 |
 | 広告 | なし | 広告表示なし。 |
@@ -196,7 +196,7 @@ Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Clo
 
 補足（提出者向け、notes には含めない）:
 
-- デモアカウントの認証情報は App Store Connect の「App Review に関する情報 → サインイン情報」欄に入れる（メールアドレス + パスワード）。`pnpm task review-account:seed` で本番に作るゲストアカウントは、サインイン画面にそのままメール・パスワードを入れるだけで Device Trust のメールコードなしにログインできる（`POST /auth/demo-sign-in` の ticket 経由。`apps/mobile/lib/reviewAccount.ts`）。
+- デモアカウントの認証情報は App Store Connect の「App Review に関する情報 → サインイン情報」欄に入れる（メールアドレス + パスワード）。`pnpm task review-account:seed` で本番に作るゲストアカウントは、サインイン画面にそのままメール・パスワードを入れるだけで Device Trust のメールコードなしにログインできる（`POST /auth/demo-sign-in` の ticket 経由。`apps/mobile/features/auth/reviewAccount.ts`）。
 - デモアカウントに入るデータ: プロフィール（公開）・お気に入り 5 件・評価 5 件・作品リスト 2 件（公開 1 / 非公開 1）・公開 Tier 表 1 件・フレンド 1 名（`apps/api/scripts/review-account.mjs`）。名刺は端末内保存、視聴履歴は Annict 連携前提なのでシードしない。
 - モデレーション手順: 通報は Discord 通知（件数のみ）→ `pnpm task reports:list` で内容確認 → `pnpm task reports:resolve|dismiss|reopen` で対応（`docs/runbook/production-tasks.md`「通報モデレーション」）。
 - dアニメ取り込みの画面録画（#751）: 審査担当は dアカウントを持たないため、実機の Release ビルドで「プロフィール → データの取り込み → WebView で dアカウントログイン → 読み取り開始 → レビュー画面まで」の一連の操作を画面収録し、App Store Connect の「App Review に関する情報」の添付ファイルとして提出に含める。
@@ -224,7 +224,7 @@ Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Clo
 | Identifiers → User ID | Clerk のアカウント ID。PostHog には生 ID でなくソルト付き SHA-256 先頭 16 文字の user key を distinct_id として送る（`lib/events.ts`、API は `src/lib/posthog.ts`）。user key は同一利用者のイベントを結び付ける ID のため Analytics 目的でも申告する | App Functionality / Analytics |
 | User Content → Photos or Videos | 任意のプロフィール画像を R2 に保存（`apps/api` の `AVATARS` バケット） | App Functionality |
 | User Content → Other User Content | プロフィール（自己紹介・好きなセリフ・ジャンル・公開設定）、お気に入り・評価・視聴ステータス・フレンド関係・Tier 表・作品リスト、通報・不具合報告フォームの投稿内容。dアニメ取り込みでは抽出した作品タイトル・作品 ID・視聴ステータスを Annict 作品との照合・記録のためサーバーへ送信する（認証情報・Cookie は WebView 内に留まり送信しない）。名刺は端末内（AsyncStorage）保存で、共有時は利用者が選んだ共有先へ渡す | App Functionality |
-| Usage Data → Product Interaction | 起動・画面・主要操作・オンボーディング完了等のイベントを PostHog に送信（platform・アプリ版・screen・イベント属性、SDK が付ける端末種別・OS 版・言語、distinct_id に仮名化 user key。`lib/events.ts`、`lib/annict/funnel.ts`）。サインアップ完了・名刺交換の成立は API が PostHog へ送る（`apps/api/src/lib/posthog.ts`）。自動収集（autocapture）・セッションリプレイ・アンケートは無効。EAS Observe にもルート名・画面遷移タイミングが送られるが、そちらは紐づけなし（下表）。仮名化キーで紐づく PostHog 側があるため全体として「紐づく」で申告する | Analytics |
+| Usage Data → Product Interaction | 起動・画面・主要操作・オンボーディング完了等のイベントを PostHog に送信（platform・アプリ版・screen・イベント属性、SDK が付ける端末種別・OS 版・言語、distinct_id に仮名化 user key。`lib/events.ts`、`features/annict/funnel.ts`）。サインアップ完了・名刺交換の成立は API が PostHog へ送る（`apps/api/src/lib/posthog.ts`）。自動収集（autocapture）・セッションリプレイ・アンケートは無効。EAS Observe にもルート名・画面遷移タイミングが送られるが、そちらは紐づけなし（下表）。仮名化キーで紐づく PostHog 側があるため全体として「紐づく」で申告する | Analytics |
 
 ### ユーザーに紐づかないデータ（Data Not Linked to the User）
 
@@ -241,7 +241,7 @@ Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Clo
 
 - EAS Observe（`expo-observe`）は Expo のサービスプロバイダとしてデータを処理し、90 日で削除される。Expo は広告利用・データブローカーへの提供を行わない（[Expo の申告ガイド](https://docs.expo.dev/eas/observe/reference/store-privacy-declarations/)）。本アプリは `errorHandlingEnabled: false` で JS エラー収集を切り、ネットワークトレース・ユーザー定義イベントも使っていないため、ルート名・タイミング系とネイティブクラッシュのみが送信対象。ユーザー ID を載せる送信はない。
 - PostHog（`posthog-react-native`）は `disableGeoip: true` で IP から所在地を引かせず、プロジェクト設定でも「Discard client IP data」を ON にする（`docs/runbook/posthog.md`）。このため PostHog 由来の Location は申告しない。プロジェクトキー未設定のビルドでは SDK を読み込まず何も送らない。
-- Annict アクセストークンは iOS では SecureStore にのみ保持し、サーバーには保存しない。Annict API への送信は連携した利用者の操作時のみ（`lib/annict/storage.native.ts`）。
+- Annict アクセストークンは iOS では SecureStore にのみ保持し、サーバーには保存しない。Annict API への送信は連携した利用者の操作時のみ（`features/annict/storage.native.ts`）。
 - AniList・Jikan（MyAnimeList）には作品 ID のみをサーバー経由で送信し、個人情報は含まない（`privacy.tsx` 第4条）。
 - Cloudflare Workers のアクセスログ（リクエスト IP 等）はホスティング基盤側の処理で、ポリシーには記載済み。ASC の質問で第三者による収集に当たると判断された場合は回答を調整する。
 - dアニメ取り込みの作品タイトル送信は #751 で iOS でも有効になったため、User Content → Other User Content（App Functionality）の申告対象に含めた。Apple Wallet 追加は iOS ではフラグ無効のため引き続き申告対象外。

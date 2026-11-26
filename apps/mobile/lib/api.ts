@@ -11,7 +11,7 @@ import {
   readRetryAfterSeconds,
 } from "@/lib/apiError";
 import { apiErrorMessage } from "@/lib/apiErrorMessages";
-import { buildAnnictAuthHeader } from "@/lib/annict/buildAnnictAuthHeader";
+import { buildAnnictAuthHeader } from "@/features/annict/buildAnnictAuthHeader";
 import type { TranslationKey } from "@/lib/i18n/keys";
 
 type RpcSchema = typeof rpcSchema;

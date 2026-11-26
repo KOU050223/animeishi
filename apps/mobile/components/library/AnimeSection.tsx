@@ -1,6 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { AnimeListContent } from "@/components/anime-list";
-import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
+import {
+  useFavoriteIds,
+  useToggleFavorite,
+} from "@/features/favorites/useFavorites";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert } from "@/lib/dialog";
 

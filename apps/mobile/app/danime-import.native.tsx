@@ -32,7 +32,7 @@ import { useDanimeImportStore } from "@/store/danimeImportStore";
 import { BackButton } from "@/components/ui";
 import { DanimeEpisodeJobStatus } from "@/components/danime/EpisodeJobStatus";
 import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
-import { isDanimeWebViewUrlAllowed } from "@/lib/danime/webviewAllowlist";
+import { isDanimeWebViewUrlAllowed } from "@/features/import/webviewAllowlist";
 import { useThemeColors } from "@/lib/theme";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 

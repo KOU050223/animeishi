@@ -11,7 +11,7 @@ import {
   useDeleteExchangeRecord,
   type ExchangeRecordItem,
   type ExchangeRecordUpdate,
-} from "@/lib/useExchangeRecords";
+} from "@/features/exchange-records/useExchangeRecords";
 import { ExchangeRecordSheet } from "./ExchangeRecordSheet";
 
 // 会った日時の表示（「2026年11月21日 14:30」形式）。同日の再会も

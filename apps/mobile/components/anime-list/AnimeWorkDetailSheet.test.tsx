@@ -31,7 +31,7 @@ const mockFunnelTrack = jest.fn();
 const mockUseAnnictTokenErrorPrompt = jest.fn();
 const mockPromptAnnictTokenError = jest.fn();
 
-jest.mock("@/lib/useWorkDetail", () => ({
+jest.mock("@/features/works/useWorkDetail", () => ({
   useWorkDetail: (...args: unknown[]) => mockUseWorkDetail(...args),
   WORK_DETAIL_QUERY_KEY: ["works", "detail"],
   workDetailQueryKey: (userId: string, annictWorkId: number) => [
@@ -48,7 +48,7 @@ const mockUseWorkEpisodes = jest.fn();
 const mockRecordEpisodeAsync = jest.fn();
 const mockUnrecordEpisodeAsync = jest.fn();
 
-jest.mock("@/lib/useWorkEpisodes", () => ({
+jest.mock("@/features/works/useWorkEpisodes", () => ({
   useWorkEpisodes: (...args: unknown[]) => mockUseWorkEpisodes(...args),
   useRecordEpisode: () => ({
     mutateAsync: mockRecordEpisodeAsync,
@@ -66,7 +66,7 @@ const mockUseWorkRating = jest.fn();
 const mockRatingUpsertAsync = jest.fn();
 const mockRatingDeleteAsync = jest.fn();
 
-jest.mock("@/lib/useWorkRating", () => ({
+jest.mock("@/features/work-ratings/useWorkRating", () => ({
   useWorkRating: (...args: unknown[]) => mockUseWorkRating(...args),
   useUpsertWorkRating: () => ({
     mutateAsync: mockRatingUpsertAsync,
@@ -79,7 +79,7 @@ jest.mock("@/lib/useWorkRating", () => ({
   WORK_RATING_LABELS: { bad: "イマイチ", good: "良い", great: "最高" },
 }));
 
-jest.mock("@/lib/useWatchHistory", () => ({
+jest.mock("@/features/watch-history/useWatchHistory", () => ({
   useUpsertWatchHistory: () => ({
     mutateAsync: mockMutateAsync,
     isPending: false,
@@ -137,13 +137,13 @@ jest.mock("@/components/ui/bottom-sheet", () => {
 
 // Annict 連携系はネイティブ依存（SecureStore / expo-web-browser）を持つため
 // フックを差し替える。連携状態・再連携プロンプトの分岐だけをここで制御する。
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useAnnictConnection: () => mockUseAnnictConnection(),
   useAnnictConnect: () => mockUseAnnictConnect(),
   useAnnictFunnel: () => mockFunnelTrack,
   useAnnictTokenErrorPrompt: (...args: unknown[]) =>
     mockUseAnnictTokenErrorPrompt(...args),
-  annictErrorKey: jest.requireActual("@/lib/annict/errorMessages")
+  annictErrorKey: jest.requireActual("@/features/annict/errorMessages")
     .annictErrorKey,
 }));
 

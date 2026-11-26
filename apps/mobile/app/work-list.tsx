@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 import { webUrl } from "@/lib/webUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
-import { useWorkCatalogAccess } from "@/lib/annict";
+import { useWorkCatalogAccess } from "@/features/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { BackButton, Input } from "@/components/ui";
 import { WorkAddSheet } from "@/components/tier-list/WorkAddSheet";
@@ -23,15 +23,15 @@ import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { useThemeColors } from "@/lib/theme";
 import { featureFlags } from "@/lib/featureFlags";
-import { buildWorkListShareUrl } from "@/lib/workList/shareUrl";
-import type { TierItem } from "@/lib/tierList/types";
-import type { WorkListEntry } from "@/lib/workList/types";
+import { buildWorkListShareUrl } from "@/features/work-lists/shareUrl";
+import type { TierItem } from "@/features/tier-lists/types";
+import type { WorkListEntry } from "@/features/work-lists/types";
 import {
   useSavedWorkList,
   useSaveWorkList,
   useShareWorkList,
   useUnshareWorkList,
-} from "@/lib/workList/useWorkLists";
+} from "@/features/work-lists/useWorkLists";
 
 /**
  * オリジナル作品リストの編集画面（issue #349）。

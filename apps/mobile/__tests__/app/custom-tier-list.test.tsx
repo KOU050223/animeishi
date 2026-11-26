@@ -8,8 +8,8 @@ import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import TierListScreen from "@/app/tier-list";
 import { alert, confirm } from "@/lib/dialog";
-import { DEFAULT_TIERS } from "@/lib/tierList/defaults";
-import type { TierAssignment, TierRow } from "@/lib/tierList/types";
+import { DEFAULT_TIERS } from "@/features/tier-lists/defaults";
+import type { TierAssignment, TierRow } from "@/features/tier-lists/types";
 
 let mockParams: { kind?: string; id?: string; workIds?: string } = {
   kind: "custom",
@@ -45,7 +45,7 @@ jest.mock("@/components/AnnictSoftGate", () => ({
   AnnictSoftGate: () => null,
 }));
 
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useWorkCatalogAccess: () => ({
     canBrowseWorks: true,
     isConnected: true,
@@ -82,7 +82,7 @@ const mockBeginShare = jest.fn();
 const mockCancelShare = jest.fn();
 const mockPresentShareUrl = jest.fn();
 const mockPresentOptions = jest.fn();
-jest.mock("@/lib/tierList/useTierList", () => ({
+jest.mock("@/features/tier-lists/useTierList", () => ({
   useSavedTierList: () => ({
     data: mockSaved,
     isLoading: mockSavedLoading,
@@ -98,7 +98,7 @@ jest.mock("@/lib/tierList/useTierList", () => ({
 }));
 
 // custom 以外の候補ソースはこのテストでは使わない。
-jest.mock("@/lib/tierList/useSeasonWorks", () => ({
+jest.mock("@/features/tier-lists/useSeasonWorks", () => ({
   useSeasonWorks: () => ({
     works: [],
     isLoading: false,
@@ -108,7 +108,7 @@ jest.mock("@/lib/tierList/useSeasonWorks", () => ({
   }),
 }));
 
-jest.mock("@/lib/tierList/useWorkCharacters", () => ({
+jest.mock("@/features/tier-lists/useWorkCharacters", () => ({
   useWorkCharacters: () => ({
     characters: [],
     workTitle: null,
@@ -119,13 +119,13 @@ jest.mock("@/lib/tierList/useWorkCharacters", () => ({
   }),
 }));
 
-jest.mock("@/lib/useAnimeList", () => ({
+jest.mock("@/features/works/useAnimeList", () => ({
   usePrefetchSeasonWorks: jest.fn(),
 }));
 
 let mockLookupWorks: { annictWorkId: number; title: string }[] = [];
 const mockLookupIds: number[][] = [];
-jest.mock("@/lib/tierList/useWorksLookup", () => ({
+jest.mock("@/features/tier-lists/useWorksLookup", () => ({
   useWorksLookup: (ids: number[]) => {
     mockLookupIds.push(ids);
     // 本物は ids が空の間クエリを無効化して data 無しになる。
@@ -138,7 +138,7 @@ jest.mock("@/lib/tierList/useWorksLookup", () => ({
   },
 }));
 
-jest.mock("@/lib/tierList/share", () => ({
+jest.mock("@/features/tier-lists/share", () => ({
   buildTierListShareUrl: () => "https://example.com/share/tier-lists/token",
   captureTierListImageFile: jest.fn(),
   presentTierShareOptions: (options: unknown) => mockPresentOptions(options),

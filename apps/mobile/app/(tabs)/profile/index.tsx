@@ -29,37 +29,40 @@ import { DeleteAccountSection } from "@/components/profile/DeleteAccountSection"
 import { MalAttribution } from "@/components/profile/MalAttribution";
 import { PasskeySection } from "@/components/profile/PasskeySection";
 import { AppVersionFooter } from "@/components/AppVersionFooter";
-import { useProfile, useUpdateProfile } from "@/lib/useProfile";
-import { useSignOut } from "@/lib/useSignOut";
+import { useProfile, useUpdateProfile } from "@/features/me/useProfile";
+import { useSignOut } from "@/features/auth/useSignOut";
 import { ApiRequestError } from "@/lib/apiError";
-import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
-import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
+import { useProfileAvatarUpload } from "@/features/me/useProfileAvatar";
+import { useMeishiLibrary } from "@/features/meishi/useMeishiLibrary";
 import { buildProfileUrl } from "@/lib/profileUrl";
-import { useAddToAppleWallet } from "@/lib/wallet";
-import type { AddToWalletResult } from "@/lib/wallet";
+import { useAddToAppleWallet } from "@/features/pass";
+import type { AddToWalletResult } from "@/features/pass";
 import { featureFlags } from "@/lib/featureFlags";
 import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
-import { useDanimeEpisodeJob } from "@/lib/danime/useDanimeImport";
-import { episodeJobStatusText } from "@/lib/danime/episodeJobStatus";
+import { useDanimeEpisodeJob } from "@/features/import/useDanimeImport";
+import { episodeJobStatusText } from "@/features/import/episodeJobStatus";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";
 import type { WorkDetailSheetTarget } from "@/components/anime-list";
-import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
+import {
+  useFavoriteIds,
+  useToggleFavorite,
+} from "@/features/favorites/useFavorites";
 import { alert } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
-import { resolveMeishiDocument } from "@/lib/meishi/templates";
-import type { ImageElement } from "@/lib/meishi/types";
+import { resolveMeishiDocument } from "@/features/meishi/templates";
+import type { ImageElement } from "@/features/meishi/types";
 import { PublicSettingsSection } from "@/components/profile/PublicSettingsSection";
 import type { PublicSettingItem } from "@/components/profile/PublicSettingsSection";
-import { usePublicSettings } from "@/lib/usePublicSettings";
-import { useSocialLinks } from "@/lib/socialLinks";
+import { usePublicSettings } from "@/features/me/usePublicSettings";
+import { useSocialLinks } from "@/features/social-links/socialLinks";
 
 type Toast = { type: "success" | "error"; message: string };
 
 // Apple Wallet 追加の結果コードを、この画面で表示する文言へマッピングする。
-// 文言は低レベル基盤 (lib/wallet) には持たせず、呼び出し側で組み立てる。
+// 文言は低レベル基盤 (features/pass) には持たせず、呼び出し側で組み立てる。
 // 成功・非対応端末 (ボタン非表示) はトーストを出さないため null を返す。
 // t はキー補完つきの厳密な型（ReturnType<typeof useTranslation>["t"]）ではなく
 // TFunction で受ける。キー数が増えると厳密な型の展開が TypeScript の

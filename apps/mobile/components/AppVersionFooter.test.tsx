@@ -10,7 +10,7 @@ jest.mock("@/lib/appInfo", () => ({
   getAppInfo: () => mockGetAppInfo(),
 }));
 
-jest.mock("@/lib/useApiVersion", () => ({
+jest.mock("@/features/health/useApiVersion", () => ({
   useApiVersion: () => mockUseApiVersion(),
 }));
 

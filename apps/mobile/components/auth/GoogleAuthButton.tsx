@@ -4,11 +4,14 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useAuth, useClerk } from "@clerk/expo";
 import { useTranslation } from "react-i18next";
-import { useGoogleAuth } from "@/lib/googleAuth";
-import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
-import { recoverExistingSession } from "@/lib/recoverExistingSession";
-import { useSignOut } from "@/lib/useSignOut";
-import { onboardingPending } from "@/lib/onboarding";
+import { useGoogleAuth } from "@/features/auth/googleAuth";
+import {
+  getClerkErrorCode,
+  toAuthErrorMessage,
+} from "@/features/auth/authErrors";
+import { recoverExistingSession } from "@/features/auth/recoverExistingSession";
+import { useSignOut } from "@/features/auth/useSignOut";
+import { onboardingPending } from "@/features/onboarding";
 import { useThemeColors } from "@/lib/theme";
 
 type Props = {
@@ -18,7 +21,7 @@ type Props = {
 
 /**
  * 「Google で続ける」ボタン（issue #89）。
- * フロー本体は lib/googleAuth の拡張子分割実装（native: SSO ブラウザセッション /
+ * フロー本体は features/auth/googleAuth の拡張子分割実装（native: SSO ブラウザセッション /
  * web: ページリダイレクト）に委譲し、ここでは結果の遷移とエラー整形だけを扱う。
  */
 export function GoogleAuthButton({ onError }: Props) {

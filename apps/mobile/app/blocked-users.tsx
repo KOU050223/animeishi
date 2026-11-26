@@ -9,8 +9,11 @@ import {
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useRouter } from "expo-router";
 import { BackButton } from "@/components/ui";
-import { useBlockedUsers, useUnblockUser } from "@/lib/useModeration";
-import type { BlockedUserItem } from "@/lib/useModeration";
+import {
+  useBlockedUsers,
+  useUnblockUser,
+} from "@/features/users/useModeration";
+import type { BlockedUserItem } from "@/features/users/useModeration";
 import { alert, confirm } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
 import { useTranslation } from "react-i18next";

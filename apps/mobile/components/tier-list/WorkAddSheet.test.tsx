@@ -1,12 +1,12 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import { WorkAddSheet } from "./WorkAddSheet";
-import type { TierItem } from "@/lib/tierList/types";
+import type { TierItem } from "@/features/tier-lists/types";
 
 // 実際の検索（API / Annict 連携 / デバウンス）は useWorkSearch のテストで
 // 検証する。シート側は「結果の描画と追加の受け渡し」だけを見るため、
 // フックは状態ごとに差し替えられるモックにする。
 const mockUseWorkSearch = jest.fn();
-jest.mock("@/lib/tierList/useWorkSearch", () => ({
+jest.mock("@/features/tier-lists/useWorkSearch", () => ({
   useWorkSearch: (...args: unknown[]) => mockUseWorkSearch(...args),
 }));
 

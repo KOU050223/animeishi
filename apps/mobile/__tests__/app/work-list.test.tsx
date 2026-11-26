@@ -61,7 +61,7 @@ jest.mock("@/components/AnnictSoftGate", () => {
 
 let mockConnected = true;
 let mockCanBrowseWorks = true;
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useWorkCatalogAccess: () => ({
     canBrowseWorks: mockCanBrowseWorks,
     isConnected: mockConnected,
@@ -94,7 +94,7 @@ const mockSaveMutate = jest.fn();
 const mockSaveMutateAsync = jest.fn();
 const mockShareMutateAsync = jest.fn();
 const mockUnshareMutateAsync = jest.fn();
-jest.mock("@/lib/workList/useWorkLists", () => ({
+jest.mock("@/features/work-lists/useWorkLists", () => ({
   useSavedWorkList: () => ({
     data: mockSaved,
     isLoading: mockSavedLoading,

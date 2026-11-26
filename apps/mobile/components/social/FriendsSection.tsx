@@ -11,12 +11,15 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { selectionAccessibilityProps } from "@/lib/accessibility";
-import { useFriends, useRemoveFriend } from "@/lib/useFriends";
-import type { FriendItem } from "@/lib/useFriends";
-import { useExchangeRecords } from "@/lib/useExchangeRecords";
-import { useFriendThanks, useUnreadThanksCount } from "@/lib/useFriendThanks";
-import { useFriendRequests } from "@/lib/useFriendRequests";
-import type { FriendRequestItem } from "@/lib/useFriendRequests";
+import { useFriends, useRemoveFriend } from "@/features/friends/useFriends";
+import type { FriendItem } from "@/features/friends/useFriends";
+import { useExchangeRecords } from "@/features/exchange-records/useExchangeRecords";
+import {
+  useFriendThanks,
+  useUnreadThanksCount,
+} from "@/features/friend-thanks/useFriendThanks";
+import { useFriendRequests } from "@/features/friend-requests/useFriendRequests";
+import type { FriendRequestItem } from "@/features/friend-requests/useFriendRequests";
 import { alert, confirm } from "@/lib/dialog";
 import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
 import { MeishiCard } from "@/components/MeishiCard";

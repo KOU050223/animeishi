@@ -36,13 +36,13 @@ jest.mock("expo-router", () => ({
   }),
 }));
 
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useProfile: () => ({ data: { username: "テスト太郎" } }),
 }));
 
-jest.mock("@/lib/nearbyExchange", () => ({
+jest.mock("@/features/friends/nearbyExchange", () => ({
   // 純ロジック（閾値・ハプティクス状態機械）は本物を使う。
-  ...jest.requireActual("@/lib/nearbyExchange/proximityLevel"),
+  ...jest.requireActual("@/features/friends/nearbyExchange/proximityLevel"),
   nearbyExchange: {
     start: (...args: unknown[]) => mockStart(...args),
     stop: () => mockStop(),

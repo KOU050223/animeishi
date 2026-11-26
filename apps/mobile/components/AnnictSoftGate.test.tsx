@@ -8,14 +8,14 @@ import {
 import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
-import type { AnnictConnectResult } from "@/lib/annict";
+import type { AnnictConnectResult } from "@/features/annict";
 
 // useAnnictConnect は expo-web-browser / SecureStore 等のネイティブ依存を持つため、
 // connect の戻り値だけ差し替えてソフトゲートの UI/分岐を検証する。
 const mockConnect = jest.fn<Promise<AnnictConnectResult>, []>();
 const mockUseAnnictConnect = jest.fn();
 
-jest.mock("@/lib/annict/useAnnictConnect", () => ({
+jest.mock("@/features/annict/useAnnictConnect", () => ({
   useAnnictConnect: () => mockUseAnnictConnect(),
 }));
 

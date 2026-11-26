@@ -1,7 +1,7 @@
 import { apiFetch } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
-import { setMockClerkState } from "../__mocks__/@clerk/expo";
+import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 
 // 共通 fetch（apiFetch、issue #726）の振る舞いを検証する。
 // - Clerk セッショントークンの Authorization 付与（getClerkInstance 経由。
@@ -12,7 +12,7 @@ import { setMockClerkState } from "../__mocks__/@clerk/expo";
 //   Error にする（observability の 4xx ドロップ対象にしないため）
 
 const mockBuildAnnictAuthHeader = jest.fn();
-jest.mock("@/lib/annict/buildAnnictAuthHeader", () => ({
+jest.mock("@/features/annict/buildAnnictAuthHeader", () => ({
   buildAnnictAuthHeader: () => mockBuildAnnictAuthHeader(),
 }));
 

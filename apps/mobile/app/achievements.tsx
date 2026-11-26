@@ -14,9 +14,12 @@ import {
   achievementDescription,
   achievementIconName,
   achievementName,
-} from "@/lib/achievements/definitions";
-import { useAchievements } from "@/lib/achievements/useAchievements";
-import type { Achievement, AchievementKind } from "@/lib/achievements/types";
+} from "@/features/achievements/definitions";
+import { useAchievements } from "@/features/achievements/useAchievements";
+import type {
+  Achievement,
+  AchievementKind,
+} from "@/features/achievements/types";
 import { useThemeColors } from "@/lib/theme";
 import type { TFunction } from "i18next";
 

@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react-native";
 
 import IncomingShareScreen from "@/app/incoming-share";
-import { scanQrFromImage } from "@/lib/incomingShare";
+import { scanQrFromImage } from "@/features/friends/incomingShare";
 
 const CLERK_ID = "user_2abcDEF1234567890ghijKLMN";
 const WEB_CARD_URL = `https://animeishi.uomi.dev/user/${CLERK_ID}`;
@@ -32,7 +32,7 @@ jest.mock("expo-sharing", () => ({
   useIncomingShare: () => mockShare,
 }));
 
-jest.mock("@/lib/incomingShare", () => ({
+jest.mock("@/features/friends/incomingShare", () => ({
   scanQrFromImage: jest.fn(),
 }));
 

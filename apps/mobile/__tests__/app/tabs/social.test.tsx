@@ -47,7 +47,7 @@ jest.mock("@/components/social/ActivityFeedSection", () => ({
 }));
 
 // セグメントのバッジ件数（フレンド申請）は本テストの関心外のため 0 固定にする。
-jest.mock("@/lib/useFriendRequests", () => ({
+jest.mock("@/features/friend-requests/useFriendRequests", () => ({
   useReceivedFriendRequestCount: () => mockFriendRequestCount,
 }));
 

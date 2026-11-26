@@ -11,7 +11,7 @@ import {
 import Animated, { useReducedMotion, ZoomIn } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import { haptics } from "@/lib/haptics";
-import type { MiniMeishi } from "@/lib/qrParser";
+import type { MiniMeishi } from "@/features/friends/qrParser";
 import { useThemeColors } from "@/lib/theme";
 
 export type ExchangeQueuedOverlayProps = {

@@ -29,7 +29,7 @@ jest.mock("expo-router", () => ({
   }),
 }));
 
-jest.mock("@/lib/useSendFeedback", () => ({
+jest.mock("@/features/feedback/useSendFeedback", () => ({
   FEEDBACK_BODY_MAX_LENGTH: 2000,
   useSendFeedback: () => ({
     mutate: (...args: unknown[]) => mockMutate(...args),

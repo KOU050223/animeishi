@@ -10,8 +10,8 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ back: jest.fn() }),
 }));
 
-jest.mock("@/lib/socialLinks", () => ({
-  ...jest.requireActual("@/lib/socialLinks"),
+jest.mock("@/features/social-links/socialLinks", () => ({
+  ...jest.requireActual("@/features/social-links/socialLinks"),
   useSocialLinks: () => mockUseSocialLinks(),
   useSaveSocialLinks: () => mockUseSaveSocialLinks(),
 }));

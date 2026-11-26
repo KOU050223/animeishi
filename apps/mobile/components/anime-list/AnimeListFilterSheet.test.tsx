@@ -4,7 +4,7 @@ import { AnimeListFilterSheet } from "./AnimeListFilterSheet";
 import {
   NO_ANIME_LIST_FILTERS,
   UNKNOWN_GENRE_KEY,
-} from "@/lib/animeListSortFilter";
+} from "@/features/works/animeListSortFilter";
 import i18n from "@/lib/i18n";
 
 jest.mock("@/components/ui/bottom-sheet", () => ({

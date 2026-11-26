@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Text, TouchableOpacity } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { currentAccessibilityProps } from "@/lib/accessibility";
-import type { SortOrder } from "@/lib/useAnimeList";
+import type { SortOrder } from "@/features/works/useAnimeList";
 import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
 
 export function SortButton({

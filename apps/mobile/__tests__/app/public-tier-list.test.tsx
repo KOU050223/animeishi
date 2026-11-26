@@ -131,7 +131,7 @@ let mockError = false;
 const mockToggleMutate = jest.fn();
 const mockReportSubmit = jest.fn();
 
-jest.mock("@/lib/tierList/usePublicTierLists", () => ({
+jest.mock("@/features/tier-lists/usePublicTierLists", () => ({
   usePublicTierList: () => ({
     data: mockData,
     isLoading: mockLoading,
@@ -143,7 +143,7 @@ jest.mock("@/lib/tierList/usePublicTierLists", () => ({
   }),
 }));
 
-jest.mock("@/lib/tierList/useReportTierListFlow", () => ({
+jest.mock("@/features/tier-lists/useReportTierListFlow", () => ({
   useReportTierListFlow: () => ({
     submit: mockReportSubmit,
     isPending: false,

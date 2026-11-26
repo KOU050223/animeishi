@@ -53,14 +53,14 @@ jobs:
           # プロダクト計測（issue #758）。未登録なら空になり、計測は何もしない（no-op）
           EXPO_PUBLIC_POSTHOG_KEY: ${{ vars.EXPO_PUBLIC_POSTHOG_KEY }}
           EXPO_PUBLIC_POSTHOG_HOST: ${{ vars.EXPO_PUBLIC_POSTHOG_HOST }}
-          # App Store 審査・Expo Explore 用デモアカウント（apps/mobile/lib/reviewAccount.ts）。
+          # App Store 審査・Expo Explore 用デモアカウント（apps/mobile/features/auth/reviewAccount.ts）。
           # 秘密ではない。native は eas.json に同じ値を持つ
           EXPO_PUBLIC_REVIEW_ACCOUNT_EMAIL: ${{ vars.EXPO_PUBLIC_REVIEW_ACCOUNT_EMAIL || 'animeishi-demodemo-account@uomi.dev' }}
           # プロフィール画面のバージョン表示（lib/appInfo）に出すデプロイ元コミット
           EXPO_PUBLIC_COMMIT_SHA: ${{ github.sha }}
           # Annict の正規 redirect_uri を固定する。canonical が独自ドメインでも
           # この登録済み URL 経由に揃え、正規側 /annict が本来のオリジンへ中継する
-          # （preview-web.yml と同じ既定値・apps/mobile/lib/annict/oauth.ts 参照）。
+          # （preview-web.yml と同じ既定値・apps/mobile/features/annict/oauth.ts 参照）。
           EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI: ${{ vars.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI || format('https://animeishi-web-production.{0}.workers.dev/annict', vars.CLOUDFLARE_WORKERS_SUBDOMAIN || 'uozumi05') }}
 
       # Worker が CSP（Report-Only）の許可先と違反レポート先をビルド時と同じ

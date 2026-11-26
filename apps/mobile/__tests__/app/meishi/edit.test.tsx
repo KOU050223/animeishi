@@ -83,7 +83,7 @@ jest.mock("@/components/meishi/AnimeImagePicker", () => ({
   AnimeImagePicker: () => null,
 }));
 
-jest.mock("@/lib/useMeishiAssetUpload", () => ({
+jest.mock("@/features/meishi/useMeishiAssetUpload", () => ({
   useMeishiAssetUpload: () => ({ mutateAsync: jest.fn() }),
   pickMeishiImage: jest.fn(),
 }));
@@ -104,7 +104,7 @@ jest.mock("@/components/meishi/TextEditSheet", () => ({
   TextEditSheet: () => null,
 }));
 
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useProfile: () => ({
     data: {
       id: "user_1",
@@ -116,15 +116,15 @@ jest.mock("@/lib/useProfile", () => ({
   }),
 }));
 
-jest.mock("@/lib/useFavorites", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
   useFavorites: () => ({ data: [] }),
 }));
 
-jest.mock("@/lib/useWatchHistory", () => ({
+jest.mock("@/features/watch-history/useWatchHistory", () => ({
   useWatchHistory: () => ({ data: [] }),
 }));
 
-jest.mock("@/lib/achievements/useAchievements", () => ({
+jest.mock("@/features/achievements/useAchievements", () => ({
   useAchievements: () => ({ data: undefined }),
 }));
 
@@ -134,14 +134,14 @@ jest.mock("@/lib/profileUrl", () => ({
 }));
 
 // 画像共有のスナップショット描画・撮像は本テストの対象外。
-jest.mock("@/lib/meishi/imageShare", () => ({
+jest.mock("@/features/meishi/imageShare", () => ({
   useMeishiImageShare: () => ({
     shareImage: mockShareMeishiImage,
     isSharing: false,
     snapshotElement: null,
   }),
 }));
-jest.mock("@/lib/meishi/publicSnapshot/usePublicMeishiSnapshot", () => ({
+jest.mock("@/features/meishi/publicSnapshot/usePublicMeishiSnapshot", () => ({
   usePublicMeishiSnapshot: () => ({
     publish: jest.fn(),
     clear: jest.fn(),
@@ -149,14 +149,14 @@ jest.mock("@/lib/meishi/publicSnapshot/usePublicMeishiSnapshot", () => ({
   }),
 }));
 // 印刷用書き出しのスナップショット描画・撮像は本テストの対象外。
-jest.mock("@/lib/meishi/printExport", () => ({
+jest.mock("@/features/meishi/printExport", () => ({
   useMeishiPrintExport: () => ({
     exportPrintImages: jest.fn(),
     isExporting: false,
     snapshotElement: null,
   }),
 }));
-jest.mock("@/lib/meishi/storage", () => ({
+jest.mock("@/features/meishi/storage", () => ({
   loadMeishiLibrary: jest.fn().mockResolvedValue(null),
 }));
 
@@ -192,7 +192,7 @@ let mockDoc: Record<string, unknown> | null = defaultDoc;
 let mockDocLoaded = true;
 
 const mockUseMeishiDocument = jest.fn();
-jest.mock("@/lib/meishi/useMeishiDocument", () => ({
+jest.mock("@/features/meishi/useMeishiDocument", () => ({
   useMeishiDocument: (options?: unknown) => {
     mockUseMeishiDocument(options);
     return {

@@ -27,7 +27,7 @@ const mockIsReviewAccountEmail = jest.fn((_email: string) => false);
 const mockRequestDemoSignInTicket = jest.fn(
   async (_email: string, _password: string) => "ticket_demo",
 );
-jest.mock("@/lib/reviewAccount", () => ({
+jest.mock("@/features/auth/reviewAccount", () => ({
   isReviewAccountEmail: (email: string) => mockIsReviewAccountEmail(email),
   requestDemoSignInTicket: (email: string, password: string) =>
     mockRequestDemoSignInTicket(email, password),

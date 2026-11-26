@@ -7,9 +7,9 @@ Issue: https://github.com/KOU050223/animeishi/issues/83
 > `EXPO_PUBLIC_FEATURE_DANIME_IMPORT_NATIVE=false` で切り戻して再提出する。
 > ネイティブ側の WebView は遷移先を dアニメストアと dアカウント認証
 > （`*.smt.docomo.ne.jp`）に限定し、それ以外のドメインは外部ブラウザで開く
-> （`apps/mobile/lib/danime/webviewAllowlist.ts`）。なお話数記録
+> （`apps/mobile/features/import/webviewAllowlist.ts`）。なお話数記録
 > （バックグラウンドジョブ）はサーバー保存トークン前提のため Web 版のみで、
-> ネイティブではジョブ登録を送らない（`lib/danime/episodeJobSupported`）。
+> ネイティブではジョブ登録を送らない（`features/import/episodeJobSupported`）。
 
 ## 目的
 

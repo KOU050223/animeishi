@@ -526,7 +526,7 @@ API の送信は `c.executionCtx.waitUntil` に積み、応答を待たせない
 ```
 
 命名・surface 一覧は `@animeishi/observability`（`src/funnel.ts`）で管理し、
-送信ロジックは `apps/mobile/lib/annict/funnel.ts` に集約する。
+送信ロジックは `apps/mobile/features/annict/funnel.ts` に集約する。
 
 ### 送信点
 

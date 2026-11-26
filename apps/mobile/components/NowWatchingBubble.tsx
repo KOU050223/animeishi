@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
-import { episodeLabel } from "@/lib/episodeLabel";
-import type { NowWatching } from "@/lib/publicProfile";
+import { episodeLabel } from "@/features/works/episodeLabel";
+import type { NowWatching } from "@/features/user/publicProfile";
 import { useThemeColors } from "@/lib/theme";
-import { useWorkEpisodes } from "@/lib/useWorkEpisodes";
+import { useWorkEpisodes } from "@/features/works/useWorkEpisodes";
 
 const TAIL_WIDTH = 7;
 const TAIL_HEIGHT = 7;

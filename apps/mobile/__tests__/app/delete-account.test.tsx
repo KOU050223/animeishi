@@ -7,7 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react-native";
 import DeleteAccountScreen from "@/app/delete-account";
-import type { MeishiLibrary } from "@/lib/meishi/types";
+import type { MeishiLibrary } from "@/features/meishi/types";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const mockBack = jest.fn();
@@ -50,7 +50,7 @@ jest.mock("expo-router", () => ({
   }),
 }));
 
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useDeletionSummary: () => mockSummary,
   submitDeletionFeedback: (input: unknown) => mockSubmitFeedback(input),
   useDeleteAccount: () => ({
@@ -63,7 +63,7 @@ jest.mock("@/lib/dialog", () => ({
   alert: (...args: unknown[]) => mockAlert(...args),
 }));
 
-jest.mock("@/lib/annict/storage", () => ({
+jest.mock("@/features/annict/storage", () => ({
   annictTokenStorage: {
     get: jest.fn(async () => null),
     set: jest.fn(async () => {}),
@@ -71,7 +71,7 @@ jest.mock("@/lib/annict/storage", () => ({
   },
 }));
 
-jest.mock("@/lib/meishi/storage", () => ({
+jest.mock("@/features/meishi/storage", () => ({
   loadMeishiLibrary: () => mockLoadMeishiLibrary(),
   clearMeishiDocument: () => mockClearMeishiDocument(),
 }));

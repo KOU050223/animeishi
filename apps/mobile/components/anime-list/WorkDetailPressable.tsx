@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { TouchableOpacity } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useOpenWorkDetail } from "@/lib/workDetailContext";
-import type { WorkDetailTarget } from "@/lib/workDetailContext";
+import { useOpenWorkDetail } from "@/features/works/workDetailContext";
+import type { WorkDetailTarget } from "@/features/works/workDetailContext";
 
 export function WorkDetailPressable({
   work,
