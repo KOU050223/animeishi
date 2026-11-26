@@ -115,7 +115,10 @@ export default function SocialLinksScreen() {
                 {SOCIAL_LINK_KINDS.map((kind: SocialLinkKind) => (
                   <Pressable
                     key={kind}
-                    onPress={() => update(index, { kind, value: "" })}
+                    onPress={() => {
+                      if (item.kind !== kind)
+                        update(index, { kind, value: "" });
+                    }}
                     accessibilityRole="button"
                     className={`rounded-full px-3 py-2 ${item.kind === kind ? "bg-indigo-600" : "bg-slate-100 dark:bg-slate-800"}`}
                   >
