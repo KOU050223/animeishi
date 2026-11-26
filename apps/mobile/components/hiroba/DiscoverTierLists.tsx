@@ -23,9 +23,9 @@ import {
   useToggleTierListLike,
   type PublicTierListItem,
   type PublicTierListsSort,
-} from "@/lib/tierList/usePublicTierLists";
-import { useReportTierListFlow } from "@/lib/tierList/useReportTierListFlow";
-import { TIER_KIND_LABELS } from "@/lib/tierList/useMergedTierLists";
+} from "@/features/tier-lists/usePublicTierLists";
+import { useReportTierListFlow } from "@/features/tier-lists/useReportTierListFlow";
+import { TIER_KIND_LABELS } from "@/features/tier-lists/useMergedTierLists";
 import type { ReportReason } from "@/lib/useModeration";
 import { DiscoverReportSheet } from "./DiscoverReportSheet";
 

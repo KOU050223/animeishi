@@ -171,7 +171,7 @@ jest.mock("@/lib/dialog", () => ({
 
 // 共有・画像保存の実体は lib 側で担保済み。ここでは呼び出しの結線だけを見る。
 const mockShareTierListUrl = jest.fn();
-jest.mock("@/lib/tierList/share", () => ({
+jest.mock("@/features/tier-lists/share", () => ({
   shareTierListUrl: (url: string) => mockShareTierListUrl(url),
 }));
 

@@ -1,7 +1,7 @@
 import {
   captureTierListImageFile,
   downloadImageFile,
-} from "@/lib/tierList/share/image";
+} from "@/features/tier-lists/share/image";
 import type { SaveQrImage } from "./types";
 
 /**

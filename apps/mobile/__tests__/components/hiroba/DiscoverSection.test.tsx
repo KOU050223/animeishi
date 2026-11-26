@@ -129,12 +129,12 @@ const inertList = () => ({
   refetch: jest.fn(async () => ({})),
 });
 
-jest.mock("@/lib/tierList/usePublicTierLists", () => ({
+jest.mock("@/features/tier-lists/usePublicTierLists", () => ({
   usePublicTierLists: () => inertList(),
   useToggleTierListLike: () => ({ mutate: jest.fn() }),
 }));
 
-jest.mock("@/lib/tierList/useReportTierListFlow", () => ({
+jest.mock("@/features/tier-lists/useReportTierListFlow", () => ({
   useReportTierListFlow: () => ({ submit: jest.fn(), isPending: false }),
 }));
 

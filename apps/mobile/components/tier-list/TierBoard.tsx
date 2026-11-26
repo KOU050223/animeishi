@@ -21,15 +21,22 @@ import { WorkAddSheet } from "./WorkAddSheet";
 import { useTierListStyles } from "./tierListStyles";
 import { trackEvent } from "@/lib/events";
 import { haptics } from "@/lib/haptics";
-import { UNASSIGNED_LABEL } from "@/lib/tierList/defaults";
+import { UNASSIGNED_LABEL } from "@/features/tier-lists/defaults";
 import {
   mergeBoardItems,
   unassignedItems,
   itemsInTier,
   dropInsertAnchor,
-} from "@/lib/tierList/board";
-import { tierLabelFontSize, tierLabelTextColor } from "@/lib/tierList/label";
-import type { TierAssignment, TierRow, TierItem } from "@/lib/tierList/types";
+} from "@/features/tier-lists/board";
+import {
+  tierLabelFontSize,
+  tierLabelTextColor,
+} from "@/features/tier-lists/label";
+import type {
+  TierAssignment,
+  TierRow,
+  TierItem,
+} from "@/features/tier-lists/types";
 
 export type TierBoardProps = {
   header?: ReactNode;

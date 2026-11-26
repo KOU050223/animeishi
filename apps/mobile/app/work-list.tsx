@@ -24,7 +24,7 @@ import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable
 import { useThemeColors } from "@/lib/theme";
 import { featureFlags } from "@/lib/featureFlags";
 import { buildWorkListShareUrl } from "@/lib/workList/shareUrl";
-import type { TierItem } from "@/lib/tierList/types";
+import type { TierItem } from "@/features/tier-lists/types";
 import type { WorkListEntry } from "@/lib/workList/types";
 import {
   useSavedWorkList,

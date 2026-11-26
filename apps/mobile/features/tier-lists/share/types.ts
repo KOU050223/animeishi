@@ -4,7 +4,7 @@ import type { ViewInstance } from "react-native";
 /**
  * tier 表の共有に関するプラットフォーム差異吸収の共通インターフェース。
  * 実装は拡張子分割（.native.ts / .web.ts）で切り替わる。
- * 呼び出し側は常に `@/lib/tierList/share` から import する。
+ * 呼び出し側は常に `@/features/tier-lists/share` から import する。
  */
 
 /**

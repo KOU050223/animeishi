@@ -4,7 +4,7 @@
  * /share/* を API へ転送して OGP 付きの静的 HTML を返す（issue #408）。
  * webBaseUrl には webUrl（@/lib/webUrl）を渡す。引数にしているのは、
  * expo-constants への依存をこの純関数から切り離すため。
- * （lib/tierList/share/shareUrl.ts と同じ方式。エンドポイントだけが違う。）
+ * （features/tier-lists/share/shareUrl.ts と同じ方式。エンドポイントだけが違う。）
  */
 export function buildWorkListShareUrl(
   shareToken: string,

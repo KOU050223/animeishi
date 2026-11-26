@@ -6,7 +6,7 @@ import { alert } from "@/lib/dialog";
 import {
   captureTierListImageFile,
   downloadImageFile,
-} from "@/lib/tierList/share/image";
+} from "@/features/tier-lists/share/image";
 import { resolveMeishiDocument } from "../templates";
 import { runMeishiPrintExport } from "./capture";
 import type { UseMeishiPrintExport } from "./types";

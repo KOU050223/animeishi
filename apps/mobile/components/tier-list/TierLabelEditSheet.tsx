@@ -12,7 +12,10 @@ import {
 import { Input } from "@/components/ui";
 import { initialWindowMetrics } from "react-native-safe-area-context";
 import { useThemeColors } from "@/lib/theme";
-import { TIER_LABEL_MAX_LENGTH, tierLabelError } from "@/lib/tierList/label";
+import {
+  TIER_LABEL_MAX_LENGTH,
+  tierLabelError,
+} from "@/features/tier-lists/label";
 
 /**
  * tier 名を編集するボトムシート。

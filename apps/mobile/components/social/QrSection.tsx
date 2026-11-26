@@ -34,7 +34,7 @@ import { MeishiCard } from "@/components/MeishiCard";
 import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { publicProfileQueries } from "@/lib/queries/publicProfile";
-import { shareTierListUrl } from "@/lib/tierList/share";
+import { shareTierListUrl } from "@/features/tier-lists/share";
 import { saveQrImage } from "@/features/friends/qrImage";
 import { alert } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
@@ -235,7 +235,7 @@ function GenerateView() {
   async function onShareLink() {
     try {
       // native は OS 共有シート、web は Web Share API → クリップボードの順に
-      // フォールバックする（lib/tierList/share の ShareTierListUrl）。
+      // フォールバックする（features/tier-lists/share の ShareTierListUrl）。
       const result = await shareTierListUrl(shareUrl);
       if (result === "copied") {
         showCopied();

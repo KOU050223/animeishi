@@ -8,7 +8,7 @@ import { saveReceivedMeishi } from "./saveReceivedMeishi.web";
 // ダウンロードへの受け渡しは tierList/share 側の責務なのでモックし、
 // 渡した File の中身（名前・型）だけを見る。
 const mockDownloadImageFile = jest.fn();
-jest.mock("@/lib/tierList/share/image", () => ({
+jest.mock("@/features/tier-lists/share/image", () => ({
   downloadImageFile: (file: File) => mockDownloadImageFile(file),
 }));
 

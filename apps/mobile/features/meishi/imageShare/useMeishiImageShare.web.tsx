@@ -13,7 +13,7 @@ import type { UseMeishiImageShare } from "./types";
  * native と違ってスナップショットは共有ボタンを押す前から画面外に
  * 常時描画しておく。押下から撮影・共有までを即座に終えないと期限が切れ、
  * 共有シートではなくダウンロードへフォールバックしてしまう。
- * 画像化と共有の方式は Tier 表の基盤（lib/tierList/share）をそのまま使う。
+ * 画像化と共有の方式は Tier 表の基盤（features/tier-lists/share）をそのまま使う。
  */
 export const useMeishiImageShare: UseMeishiImageShare = ({
   document,

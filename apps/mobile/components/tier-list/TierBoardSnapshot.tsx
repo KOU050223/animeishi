@@ -2,8 +2,11 @@ import { forwardRef, useEffect, useRef } from "react";
 import { StyleSheet, Text, View, type ViewInstance } from "react-native";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import { useThemeColors, type ThemeColors } from "@/lib/theme";
-import { tierLabelFontSize, tierLabelTextColor } from "@/lib/tierList/label";
-import type { TierRow } from "@/lib/tierList/types";
+import {
+  tierLabelFontSize,
+  tierLabelTextColor,
+} from "@/features/tier-lists/label";
+import type { TierRow } from "@/features/tier-lists/types";
 
 /** 画像共有でスナップショットに並べるアイテム。保存済み tier 表の items と同じ形。 */
 export type SnapshotItem = {

@@ -1,7 +1,7 @@
 import type { ShareAchievementMessage } from "./types";
 
 // RN 向け tsconfig の DOM lib では Navigator.share / clipboard が
-// 型に無いことがあるため、自前で補う（lib/tierList/share/sheet.web.ts と同じ）。
+// 型に無いことがあるため、自前で補う（features/tier-lists/share/sheet.web.ts と同じ）。
 type WebNavigator = Navigator & {
   share?: (data: { text: string }) => Promise<void>;
   clipboard?: { writeText(text: string): Promise<void> };

@@ -2,7 +2,7 @@
  * 実績の共有に関するプラットフォーム差異吸収の共通インターフェース。
  * 実装は拡張子分割（.native.ts / .web.ts）で切り替わる。
  * 呼び出し側は常に `@/features/achievements/share` から import する
- * （lib/tierList/share と同じ構造）。
+ * （features/tier-lists/share と同じ構造）。
  */
 
 /**

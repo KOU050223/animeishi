@@ -2,7 +2,7 @@ import type { MutableRefObject, RefObject } from "react";
 import type { ViewInstance } from "react-native";
 import { alert } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
-import { shareTierListImage } from "@/lib/tierList/share";
+import { shareTierListImage } from "@/features/tier-lists/share";
 
 /**
  * 画像キャプチャ前にスナップショットの画像読み込みを待つ上限（native のみ）。

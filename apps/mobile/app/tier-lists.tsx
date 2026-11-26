@@ -14,14 +14,14 @@ import { alert, confirm } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
 import { featureFlags } from "@/lib/featureFlags";
-import { useDeleteTierList } from "@/lib/tierList/useTierList";
+import { useDeleteTierList } from "@/features/tier-lists/useTierList";
 import {
   useMergedTierLists,
   TIER_KIND_LABELS,
   type MergedTierListItem,
-} from "@/lib/tierList/useMergedTierLists";
+} from "@/features/tier-lists/useMergedTierLists";
 import { CharacterTierWorkPicker } from "@/components/tier-list/CharacterTierWorkPicker";
-import type { TierItem } from "@/lib/tierList/types";
+import type { TierItem } from "@/features/tier-lists/types";
 
 const KIND_BADGE_STYLES: Record<MergedTierListItem["kind"], string> = {
   season:

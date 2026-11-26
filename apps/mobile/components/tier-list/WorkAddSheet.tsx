@@ -18,8 +18,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useThemeColors } from "@/lib/theme";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import { dedupeWorksById } from "@/lib/useAnimeList";
-import { useWorkSearch } from "@/lib/tierList/useWorkSearch";
-import type { TierItem } from "@/lib/tierList/types";
+import { useWorkSearch } from "@/features/tier-lists/useWorkSearch";
+import type { TierItem } from "@/features/tier-lists/types";
 import { formatYearSeason } from "@/components/anime-list/animeListUtils";
 
 /**

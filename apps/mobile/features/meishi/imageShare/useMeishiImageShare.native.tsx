@@ -10,7 +10,7 @@ import type { UseMeishiImageShare } from "./types";
 /**
  * 名刺の画像共有フロー（issue #425）。共有実行の瞬間だけスナップショットを
  * 画面外に描画 → 画像の読み込みを待って撮影 → 共有までをまとめて行う。
- * 画像化と共有の方式は Tier 表の基盤（lib/tierList/share の
+ * 画像化と共有の方式は Tier 表の基盤（features/tier-lists/share の
  * shareTierListImage。native は view-shot + expo-sharing、web は
  * html-to-image + Web Share API / ダウンロード）をそのまま使う。
  */

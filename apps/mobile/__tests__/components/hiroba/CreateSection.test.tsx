@@ -4,7 +4,7 @@
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { CreateSection } from "@/components/hiroba/CreateSection";
-import type { MergedTierListItem } from "@/lib/tierList/useMergedTierLists";
+import type { MergedTierListItem } from "@/features/tier-lists/useMergedTierLists";
 import { featureFlags } from "@/lib/featureFlags";
 
 const mockPush = jest.fn();
@@ -13,8 +13,8 @@ jest.mock("expo-router", () => ({
 }));
 
 let mockTierItems: MergedTierListItem[] = [];
-jest.mock("@/lib/tierList/useMergedTierLists", () => {
-  const actual = jest.requireActual("@/lib/tierList/useMergedTierLists");
+jest.mock("@/features/tier-lists/useMergedTierLists", () => {
+  const actual = jest.requireActual("@/features/tier-lists/useMergedTierLists");
   return {
     ...actual,
     useMergedTierLists: () => ({

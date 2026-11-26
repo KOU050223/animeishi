@@ -1,4 +1,4 @@
-import { shareTierListImage } from "@/lib/tierList/share";
+import { shareTierListImage } from "@/features/tier-lists/share";
 import type { SaveReceivedMeishi } from "./types";
 
 /**

@@ -1,4 +1,4 @@
-import { captureTierListImageFile } from "@/lib/tierList/share";
+import { captureTierListImageFile } from "@/features/tier-lists/share";
 import type { RefObject } from "react";
 import type { ViewInstance } from "react-native";
 

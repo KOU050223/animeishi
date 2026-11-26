@@ -93,7 +93,7 @@ describe("tierLabelFontSize", () => {
 });
 
 describe("tierLabelTextColor", () => {
-  // 既定 tier 色（lib/tierList/defaults.ts の DEFAULT_TIERS）を網羅する。
+  // 既定 tier 色（features/tier-lists/defaults.ts の DEFAULT_TIERS）を網羅する。
   it("暗い背景色には白を返す", () => {
     expect(tierLabelTextColor("#ff0000")).toBe("#ffffff"); // S（赤）
     expect(tierLabelTextColor("#0000ff")).toBe("#ffffff"); // D（青）
