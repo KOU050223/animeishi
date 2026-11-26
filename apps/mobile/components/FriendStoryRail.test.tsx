@@ -72,10 +72,17 @@ function loadedStories(friends: FriendWatchStory[]) {
 }
 
 beforeEach(async () => {
+  // ビューアを開くテストでは RN Animated が rAF を繰り返し予約する。
+  // 実タイマーだと waitFor の待機中に act 外で進むため、fake timers にする。
+  jest.useFakeTimers();
   resetAuth();
   loggedInUser({ userId: VIEWER_ID });
   mockStories = loadedStories([]);
   await AsyncStorage.clear();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 describe("FriendStoryRail", () => {
