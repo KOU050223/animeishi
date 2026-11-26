@@ -52,7 +52,13 @@ const rateLimitedSchema = z.object({
 
 const recommendationUnauthorizedSchema = z.object({
   error: z.string(),
-  code: z.enum(["annict_token_required", "annict_token_invalid"]),
+  // 認証ミドルウェアの unauthorized も返りうる（セッション切れ時は
+  // Annict の検査より先に 401 になる）。
+  code: z.enum([
+    "unauthorized",
+    "annict_token_required",
+    "annict_token_invalid",
+  ]),
 });
 
 // おすすめ 1 作品の応答形（issue #335）。

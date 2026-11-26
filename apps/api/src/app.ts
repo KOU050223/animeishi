@@ -82,8 +82,8 @@ app.use("*", (c, next) => {
       "X-Annict-Token",
       "X-Request-Id",
     ],
-    // ブラウザから採番された requestId を読めるよう公開する。
-    exposeHeaders: ["X-Request-Id"],
+    // ブラウザから採番された requestId と 429 の再試行秒数を読めるよう公開する。
+    exposeHeaders: ["X-Request-Id", "Retry-After"],
   })(c, next);
 });
 

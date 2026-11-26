@@ -49,7 +49,8 @@ const jsonError = (description: string) => ({
 
 const addFavoriteUnauthorizedSchema = z.object({
   error: z.string(),
-  code: z.enum(["annict_token_invalid"]),
+  // 認証ミドルウェアの unauthorized も返りうる。
+  code: z.enum(["unauthorized", "annict_token_invalid"]),
 });
 
 export const getFavoritesRoute = createRoute({

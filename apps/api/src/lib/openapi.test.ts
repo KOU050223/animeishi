@@ -176,7 +176,7 @@ describe("OpenAPI 3.1 契約", () => {
 
     expect(schema?.properties?.code).toEqual({
       type: "string",
-      enum: ["annict_token_required", "annict_token_invalid"],
+      enum: ["unauthorized", "annict_token_required", "annict_token_invalid"],
     });
     expect(schema?.required).toEqual(["error", "code"]);
   });
@@ -189,7 +189,7 @@ describe("OpenAPI 3.1 契約", () => {
 
     expect(schema?.properties?.code).toEqual({
       type: "string",
-      enum: ["annict_token_invalid"],
+      enum: ["unauthorized", "annict_token_invalid"],
     });
     expect(schema?.required).toEqual(["error", "code"]);
   });

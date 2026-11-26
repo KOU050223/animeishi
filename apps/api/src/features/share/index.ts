@@ -1,6 +1,19 @@
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
+
+// zValidator の既定の 400 応答は zod の issues 形で {error, code} の契約に
+// 合わないため、共通フックで揃える（issue #838）。詳細な issues は開発者向け
+// の error には載せず invalid_request で統一する（他ルートの共通フックと同じ）。
+const shareValidationHook = (
+  result: { success: boolean },
+  c: Context,
+): Response | undefined => {
+  if (!result.success) {
+    return c.json({ error: "Invalid request", code: "invalid_request" }, 400);
+  }
+  return undefined;
+};
 import { createDb } from "@/db/client";
 import type { Env } from "@/db/client";
 import {
@@ -60,7 +73,7 @@ type ShareBindings = {
 const share = new Hono<ShareBindings>()
   .get(
     "/tier-lists/:token",
-    zValidator("param", shareTokenParamSchema),
+    zValidator("param", shareTokenParamSchema, shareValidationHook),
     async (c) => {
       const { token } = c.req.valid("param");
       const db = createDb(c.env.DB);
@@ -153,7 +166,7 @@ const share = new Hono<ShareBindings>()
   )
   .get(
     "/work-lists/:token",
-    zValidator("param", shareTokenParamSchema),
+    zValidator("param", shareTokenParamSchema, shareValidationHook),
     async (c) => {
       const { token } = c.req.valid("param");
       const db = createDb(c.env.DB);
@@ -209,7 +222,7 @@ const share = new Hono<ShareBindings>()
   // AI 用途を優先して Markdown に倒す。
   .get(
     "/watch-history/:token",
-    zValidator("param", shareTokenParamSchema),
+    zValidator("param", shareTokenParamSchema, shareValidationHook),
     async (c) => {
       const { token } = c.req.valid("param");
       const db = createDb(c.env.DB);
@@ -269,7 +282,11 @@ const share = new Hono<ShareBindings>()
   )
   .get(
     "/image-proxy",
-    zValidator("query", z.object({ url: z.string().min(1).max(2048) })),
+    zValidator(
+      "query",
+      z.object({ url: z.string().min(1).max(2048) }),
+      shareValidationHook,
+    ),
     async (c) => {
       const { url } = c.req.valid("query");
       const db = createDb(c.env.DB);

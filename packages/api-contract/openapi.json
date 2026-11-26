@@ -516,9 +516,7 @@
                 "type": "object",
                 "properties": {
                   "username": {
-                    "type": "string",
-                    "minLength": 2,
-                    "maxLength": 20
+                    "type": "string"
                   },
                   "selectedGenres": {
                     "type": "array",
@@ -545,12 +543,10 @@
                     "maxItems": 15
                   },
                   "bio": {
-                    "type": "string",
-                    "maxLength": 500
+                    "type": "string"
                   },
                   "favoriteQuote": {
-                    "type": "string",
-                    "maxLength": 500
+                    "type": "string"
                   },
                   "isPublic": {
                     "type": "boolean"
@@ -4995,6 +4991,7 @@
                     "code": {
                       "type": "string",
                       "enum": [
+                        "unauthorized",
                         "annict_token_required",
                         "annict_token_invalid"
                       ]
@@ -7090,6 +7087,7 @@
                     "code": {
                       "type": "string",
                       "enum": [
+                        "unauthorized",
                         "annict_token_invalid"
                       ]
                     }
