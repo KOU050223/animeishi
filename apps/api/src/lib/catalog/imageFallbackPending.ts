@@ -57,9 +57,11 @@ function warnImageFallbackDeferred(stage: string, err: unknown): void {
  * image_source が立つため pending から自然に外れる）。
  *
  * D1 の internal error はストレージ層の一過性エラーが大半なので、D1 呼び出しは
- * 1 回だけ実行し直す。それでも失敗した場合はこの実行を諦めて次回 cron に回す
- * （画像はキャッシュ的な補完データで、1 回分の遅延で済むため。issue #833）。
- * internal error 以外の失敗は握らず投げ、runCronJob 経由で Sentry に送る。
+ * 1 回だけ実行し直す。対象取得と試行時刻の記録で internal error が続いた場合は
+ * この実行を諦めて次回 cron に回し、それ以外の失敗は握らず投げて runCronJob
+ * 経由で Sentry に送る。解決結果の保存に失敗した行は attempted マーカーが
+ * 残るため、クールダウン後の実行で再処理する（画像はキャッシュ的な補完データで、
+ * 1 回分の遅延で済むため。issue #833）。
  */
 export async function resolvePendingImageFallbacks(
   db: DrizzleDb,
