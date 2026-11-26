@@ -22,19 +22,19 @@ import {
   useExchangedEventFriends,
   useSetEventParticipation,
   useUpdateEventParticipationVisibility,
-} from "@/lib/useEvents";
+} from "@/features/events/useEvents";
 import type {
   EventDetail,
   EventParticipantItem,
   EventParticipantsResponse,
   EventParticipationVisibility,
-} from "@/lib/useEvents";
+} from "@/features/events/useEvents";
 import type {
   InfiniteData,
   UseInfiniteQueryResult,
 } from "@tanstack/react-query";
 import { MenuPicker } from "@/components/ui/menu-picker";
-import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
+import { formatEventPeriod, eventPhase } from "@/features/events/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
 import { alert } from "@/lib/dialog";
 import type { TranslationKey } from "@/lib/i18n/keys";

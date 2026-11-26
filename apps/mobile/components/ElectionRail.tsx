@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useElections } from "@/features/elections/useElections";
 import type { ElectionListItem } from "@/features/elections/useElections";
 import { WorkImage } from "@/components/anime-list/WorkImage";
-import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
+import { formatEventPeriod, eventPhase } from "@/features/events/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
 
 // カードの大きさ。カバー画像は 16:9（ArticleRail / EventRail と同じ比率）。

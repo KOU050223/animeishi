@@ -13,7 +13,7 @@ import {
   useExchangedEventFriends,
   useSetEventParticipation,
   useUpdateEventParticipationVisibility,
-} from "@/lib/useEvents";
+} from "@/features/events/useEvents";
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -62,7 +62,7 @@ jest.mock("@/components/ui/menu-picker", () => {
   };
 });
 
-jest.mock("@/lib/useEvents", () => ({
+jest.mock("@/features/events/useEvents", () => ({
   useEvent: jest.fn(),
   useEventParticipants: jest.fn(),
   useEventParticipatingFriends: jest.fn(),

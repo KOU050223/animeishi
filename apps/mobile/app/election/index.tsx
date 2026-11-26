@@ -12,7 +12,7 @@ import { BackButton } from "@/components/ui";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import { useElectionList } from "@/features/elections/useElections";
 import type { ElectionListItem } from "@/features/elections/useElections";
-import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
+import { formatEventPeriod, eventPhase } from "@/features/events/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
 import { FeatureUnavailableScreen } from "@/components/FeatureUnavailableScreen";
 import { featureFlags } from "@/lib/featureFlags";

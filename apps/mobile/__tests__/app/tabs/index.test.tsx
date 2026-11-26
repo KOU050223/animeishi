@@ -159,7 +159,7 @@ let mockEvents: {
       }
     | undefined;
 };
-jest.mock("@/lib/useEvents", () => ({
+jest.mock("@/features/events/useEvents", () => ({
   useEvents: () => mockEvents,
   EVENTS_QUERY_KEY: ["events"],
 }));

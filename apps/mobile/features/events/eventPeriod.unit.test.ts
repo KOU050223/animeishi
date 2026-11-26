@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { eventPhase, formatEventPeriod } from "@/lib/eventPeriod";
+import { eventPhase, formatEventPeriod } from "@/features/events/eventPeriod";
 
 // イベント（issue #411）の会期表示。「2026年12月20日(日)〜12月21日(月)」
 // のような表記と、開催前/開催中/終了の状態を検証する。

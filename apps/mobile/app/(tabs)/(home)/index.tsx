@@ -24,7 +24,7 @@ import { EventRail } from "@/components/EventRail";
 import { ACTIVITY_FEED_QUERY_KEY } from "@/lib/useActivityFeed";
 import { ARTICLES_QUERY_KEY } from "@/features/articles/useArticles";
 import { ELECTIONS_QUERY_KEY } from "@/features/elections/useElections";
-import { EVENTS_QUERY_KEY } from "@/lib/useEvents";
+import { EVENTS_QUERY_KEY } from "@/features/events/useEvents";
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "@/lib/useFriendWatchStories";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/useWatchHistory";
 import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";

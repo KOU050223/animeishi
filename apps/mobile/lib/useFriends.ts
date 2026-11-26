@@ -6,7 +6,7 @@ import { ACTIVITY_FEED_QUERY_KEY } from "@/lib/useActivityFeed";
 import {
   EVENT_EXCHANGED_FRIENDS_QUERY_KEY,
   EVENT_PARTICIPANTS_QUERY_KEY,
-} from "@/lib/useEvents";
+} from "@/features/events/useEvents";
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "@/lib/useFriendWatchStories";
 import { EXCHANGE_RECORDS_QUERY_KEY } from "@/lib/useExchangeRecords";
 import { FRIEND_THANKS_QUERY_KEY } from "@/lib/useFriendThanks";

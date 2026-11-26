@@ -1,14 +1,14 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import { EventRail } from "@/components/EventRail";
-import type { EventListItem } from "@/lib/useEvents";
+import type { EventListItem } from "@/features/events/useEvents";
 
-// API・認証の振る舞いは lib/useEvents の結合部なので、ここではフックの
+// API・認証の振る舞いは features/events/useEvents の結合部なので、ここではフックの
 // 戻り値を差し替えてレールの UI 分岐と遷移を検証する。
 let mockEvents: { data?: { items: EventListItem[] } };
 const mockPush = jest.fn();
 
-jest.mock("@/lib/useEvents", () => ({
+jest.mock("@/features/events/useEvents", () => ({
   useEvents: () => mockEvents,
 }));
 

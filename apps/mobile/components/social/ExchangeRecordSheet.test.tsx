@@ -2,9 +2,9 @@ import React from "react";
 import { render, screen } from "@testing-library/react-native";
 import { ExchangeRecordSheet } from "@/components/social/ExchangeRecordSheet";
 import { featureFlags } from "@/lib/featureFlags";
-import { useEventList } from "@/lib/useEvents";
+import { useEventList } from "@/features/events/useEvents";
 
-jest.mock("@/lib/useEvents", () => ({
+jest.mock("@/features/events/useEvents", () => ({
   useEventList: jest.fn(),
 }));
 

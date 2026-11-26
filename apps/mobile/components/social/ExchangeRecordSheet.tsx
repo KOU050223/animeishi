@@ -17,7 +17,7 @@ import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { alert } from "@/lib/dialog";
 import { useThemeColors, type ThemeColors } from "@/lib/theme";
 import { featureFlags } from "@/lib/featureFlags";
-import { useEventList } from "@/lib/useEvents";
+import { useEventList } from "@/features/events/useEvents";
 import { resolvePlaceName } from "@/lib/exchangePlace";
 import {
   rankEventCandidates,

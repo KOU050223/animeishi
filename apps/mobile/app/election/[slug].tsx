@@ -24,7 +24,7 @@ import type {
   ElectionCandidate,
   ElectionDetail,
 } from "@/features/elections/useElections";
-import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
+import { formatEventPeriod, eventPhase } from "@/features/events/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
 import { alert } from "@/lib/dialog";
 import { FeatureUnavailableScreen } from "@/components/FeatureUnavailableScreen";

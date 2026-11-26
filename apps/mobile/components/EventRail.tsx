@@ -1,10 +1,10 @@
 import { FlatList, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useEvents } from "@/lib/useEvents";
-import type { EventListItem } from "@/lib/useEvents";
+import { useEvents } from "@/features/events/useEvents";
+import type { EventListItem } from "@/features/events/useEvents";
 import { WorkImage } from "@/components/anime-list/WorkImage";
-import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
+import { formatEventPeriod, eventPhase } from "@/features/events/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
 
 // カードの大きさ。カバー画像は 16:9（ArticleRail と同じ比率）。
