@@ -13,7 +13,7 @@
 | アプリ名 | アニ名刺（英語圏: Animeishi） |
 | プライバシーポリシー URL | https://animeishi.uomi.dev/privacy |
 | 利用規約 URL | https://animeishi.uomi.dev/terms（App Store は標準 EULA、Play Console の各所やフッター参照用） |
-| サポート URL | https://animeishi.uomi.dev/support（`apps/mobile/app/support.tsx`。未ログイン閲覧可。連絡先メールは `support@uomi.dev`（`apps/mobile/lib/legal/operator.ts`）） |
+| サポート URL | https://animeishi.uomi.dev/support（`apps/mobile/app/support.tsx`。未ログイン閲覧可。連絡先メールは `support@uomi.dev`（`apps/mobile/features/legal/operator.ts`）） |
 | カテゴリ | App Store: エンターテイメント（主）/ ソーシャルネットワーキング（副）。Play: エンターテイメント |
 
 > dアニメストアからの視聴履歴取り込みは v1.0 からネイティブでも有効（#751。#158 の無効化を戻す）。

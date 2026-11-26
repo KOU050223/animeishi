@@ -1,5 +1,5 @@
 import { LegalDocument, type LegalSection } from "@/components/LegalDocument";
-import { CONTACT_EMAIL, OPERATOR_NAME } from "@/lib/legal/operator";
+import { CONTACT_EMAIL, OPERATOR_NAME } from "@/features/legal/operator";
 import { publicMetadata } from "@/lib/web/publicMetadata";
 
 export function generateMetadata() {
