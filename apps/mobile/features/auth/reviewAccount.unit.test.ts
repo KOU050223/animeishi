@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { isReviewAccountEmail } from "@/lib/reviewAccount";
+import { isReviewAccountEmail } from "@/features/auth/reviewAccount";
 
 // reviewAccount は API クライアントを import する（vi.mock は先頭へ巻き上げられる）。
 vi.mock("@/lib/api", () => ({ apiClient: {} }));

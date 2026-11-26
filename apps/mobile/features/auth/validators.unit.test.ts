@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as v from "valibot";
-import { signInSchema, signUpSchema } from "@/lib/validators";
+import { signInSchema, signUpSchema } from "@/features/auth/validators";
 
 // ---- signInSchema ----
 describe("signInSchema", () => {

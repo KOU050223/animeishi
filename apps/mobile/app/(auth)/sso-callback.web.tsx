@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useTranslation } from "react-i18next";
-import { handleOAuthRedirect } from "@/lib/googleAuth";
+import { handleOAuthRedirect } from "@/features/auth/googleAuth";
 import { featureFlags } from "@/lib/featureFlags";
 import { useThemeColors } from "@/lib/theme";
 

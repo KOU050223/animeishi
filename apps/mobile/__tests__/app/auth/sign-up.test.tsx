@@ -8,7 +8,7 @@ import {
 import { Platform } from "react-native";
 import SignUpScreen from "@/app/(auth)/sign-up";
 import { resetAuth, getAuthMock, loggedInUser } from "@/test-utils/auth";
-import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
+import { passkeyPromptPending } from "@/features/auth/passkeyPromptPending";
 import { onboardingPending } from "@/lib/onboarding";
 import { trackEvent } from "@/lib/events";
 

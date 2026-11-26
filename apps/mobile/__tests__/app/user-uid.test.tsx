@@ -176,8 +176,8 @@ jest.mock("@/lib/useWorkEpisodes", () => ({
 jest.mock("@/lib/events", () => ({ trackEvent: jest.fn() }));
 
 const mockSavePendingReturn = jest.fn(async (_path: string) => {});
-jest.mock("@/lib/guestCta", () => ({
-  ...jest.requireActual("@/lib/guestCta/pendingReturn"),
+jest.mock("@/features/auth/guestCta", () => ({
+  ...jest.requireActual("@/features/auth/guestCta/pendingReturn"),
   savePendingReturn: (path: string) => mockSavePendingReturn(path),
 }));
 

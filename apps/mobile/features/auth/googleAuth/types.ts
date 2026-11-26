@@ -5,7 +5,7 @@
  * - useGoogleAuth.native.ts ... useSSO + startSSOFlow（expo-web-browser）
  * - useGoogleAuth.web.ts    ... signIn.sso（ページリダイレクト）
  *
- * 呼び出し側は常に `@/lib/googleAuth` から import する。
+ * 呼び出し側は常に `@/features/auth/googleAuth` から import する。
  */
 
 /**

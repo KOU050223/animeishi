@@ -30,7 +30,7 @@ import { MalAttribution } from "@/components/profile/MalAttribution";
 import { PasskeySection } from "@/components/profile/PasskeySection";
 import { AppVersionFooter } from "@/components/AppVersionFooter";
 import { useProfile, useUpdateProfile } from "@/lib/useProfile";
-import { useSignOut } from "@/lib/useSignOut";
+import { useSignOut } from "@/features/auth/useSignOut";
 import { ApiRequestError } from "@/lib/apiError";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";

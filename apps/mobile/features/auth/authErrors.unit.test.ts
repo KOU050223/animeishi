@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TranslationKey } from "@/lib/i18n/keys";
-import { toAuthErrorMessage } from "@/lib/authErrors";
+import { toAuthErrorMessage } from "@/features/auth/authErrors";
 
 // ja はキーそのものが文言になるため、恒等の t を注入すると
 // 選択された翻訳キー = 日本語の表示文言になる。

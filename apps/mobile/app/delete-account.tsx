@@ -18,7 +18,7 @@ import { haptics } from "@/lib/haptics";
 import { annictTokenStorage } from "@/features/annict/storage";
 import { clearMeishiDocument, loadMeishiLibrary } from "@/lib/meishi/storage";
 import { queryClient } from "@/lib/queryClient";
-import { useSignOut } from "@/lib/useSignOut";
+import { useSignOut } from "@/features/auth/useSignOut";
 import { useThemeColors } from "@/lib/theme";
 import {
   submitDeletionFeedback,

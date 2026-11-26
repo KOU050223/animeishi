@@ -11,7 +11,7 @@ appId: com.animeishi.app
 ---
 # 毎回ユニークなテストユーザーを生成する。
 # メールは +clerk_test サフィックスで Clerk テストモード（OTP 424242）が有効になる。
-# username は 2〜20 文字・英数字等（lib/validators.ts 参照）。
+# username は 2〜20 文字・英数字等（features/auth/validators.ts 参照）。
 # password は英字+数字で 8 文字以上。
 - evalScript: ${output.email = 'e2e' + Date.now() + '+clerk_test@example.com'}
 - evalScript: ${output.username = 'e2e' + Date.now()}

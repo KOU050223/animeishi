@@ -196,7 +196,7 @@ Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Clo
 
 補足（提出者向け、notes には含めない）:
 
-- デモアカウントの認証情報は App Store Connect の「App Review に関する情報 → サインイン情報」欄に入れる（メールアドレス + パスワード）。`pnpm task review-account:seed` で本番に作るゲストアカウントは、サインイン画面にそのままメール・パスワードを入れるだけで Device Trust のメールコードなしにログインできる（`POST /auth/demo-sign-in` の ticket 経由。`apps/mobile/lib/reviewAccount.ts`）。
+- デモアカウントの認証情報は App Store Connect の「App Review に関する情報 → サインイン情報」欄に入れる（メールアドレス + パスワード）。`pnpm task review-account:seed` で本番に作るゲストアカウントは、サインイン画面にそのままメール・パスワードを入れるだけで Device Trust のメールコードなしにログインできる（`POST /auth/demo-sign-in` の ticket 経由。`apps/mobile/features/auth/reviewAccount.ts`）。
 - デモアカウントに入るデータ: プロフィール（公開）・お気に入り 5 件・評価 5 件・作品リスト 2 件（公開 1 / 非公開 1）・公開 Tier 表 1 件・フレンド 1 名（`apps/api/scripts/review-account.mjs`）。名刺は端末内保存、視聴履歴は Annict 連携前提なのでシードしない。
 - モデレーション手順: 通報は Discord 通知（件数のみ）→ `pnpm task reports:list` で内容確認 → `pnpm task reports:resolve|dismiss|reopen` で対応（`docs/runbook/production-tasks.md`「通報モデレーション」）。
 - dアニメ取り込みの画面録画（#751）: 審査担当は dアカウントを持たないため、実機の Release ビルドで「プロフィール → データの取り込み → WebView で dアカウントログイン → 読み取り開始 → レビュー画面まで」の一連の操作を画面収録し、App Store Connect の「App Review に関する情報」の添付ファイルとして提出に含める。

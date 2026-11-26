@@ -8,7 +8,7 @@ import type { AddToWalletResult, UseAddToAppleWallet } from "./types";
 const FETCH_TIMEOUT_MS = 15_000;
 
 // try/finally を含むため React Compiler が最適化できず、フック内に置くと
-// 自動メモ化が効かなくなる。モジュール関数として切り出す（lib/useSignOut.ts と同じ形）。
+// 自動メモ化が効かなくなる。モジュール関数として切り出す（features/auth/useSignOut.ts と同じ形）。
 async function addToAppleWallet(
   setIsPending: (pending: boolean) => void,
 ): Promise<AddToWalletResult> {

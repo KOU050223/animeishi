@@ -17,20 +17,20 @@ import { DeviceTrustCodeForm } from "@/components/auth/DeviceTrustCodeForm";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { PasskeySignInButton } from "@/components/auth/PasskeySignInButton";
 import * as v from "valibot";
-import { signInSchema } from "@/lib/validators";
+import { signInSchema } from "@/features/auth/validators";
 import {
   getClerkErrorCode,
   throwIfAuthError,
   toAuthErrorMessage,
-} from "@/lib/authErrors";
-import { recoverExistingSession } from "@/lib/recoverExistingSession";
-import { useSignOut } from "@/lib/useSignOut";
+} from "@/features/auth/authErrors";
+import { recoverExistingSession } from "@/features/auth/recoverExistingSession";
+import { useSignOut } from "@/features/auth/useSignOut";
 import { featureFlags } from "@/lib/featureFlags";
 import {
   isReviewAccountEmail,
   requestDemoSignInTicket,
-} from "@/lib/reviewAccount";
-import { getIncompleteSignInMessage } from "@/lib/signInStatus";
+} from "@/features/auth/reviewAccount";
+import { getIncompleteSignInMessage } from "@/features/auth/signInStatus";
 import { useThemeColors } from "@/lib/theme";
 import type { TranslationKey } from "@/lib/i18n/keys";
 

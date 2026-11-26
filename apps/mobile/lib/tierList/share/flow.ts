@@ -10,7 +10,7 @@ const SNAPSHOT_WAIT_MAX_MS = 5000;
  * 共有 URL 発行フロー（保存 → トークン発行 → URL をユーザーへ届ける）。
  * try/finally を含むため React Compiler が最適化できず、画面側に置くと
  * コンポーネント全体の自動メモ化が効かなくなる。モジュール関数として
- * 切り出す（lib/useSignOut.ts と同じ形。issue #730）。
+ * 切り出す（features/auth/useSignOut.ts と同じ形。issue #730）。
  */
 export async function shareTierListViaUrl({
   beginShare,

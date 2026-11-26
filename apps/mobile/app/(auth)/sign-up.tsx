@@ -19,16 +19,16 @@ import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import * as v from "valibot";
-import { signUpSchema } from "@/lib/validators";
+import { signUpSchema } from "@/features/auth/validators";
 import {
   getClerkErrorCode,
   throwIfAuthError,
   toAuthErrorMessage,
-} from "@/lib/authErrors";
-import { recoverExistingSession } from "@/lib/recoverExistingSession";
-import { useSignOut } from "@/lib/useSignOut";
+} from "@/features/auth/authErrors";
+import { recoverExistingSession } from "@/features/auth/recoverExistingSession";
+import { useSignOut } from "@/features/auth/useSignOut";
 import { featureFlags } from "@/lib/featureFlags";
-import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
+import { passkeyPromptPending } from "@/features/auth/passkeyPromptPending";
 import { onboardingPending } from "@/lib/onboarding";
 import { PasskeyRegisterPrompt } from "@/components/auth/PasskeyRegisterPrompt";
 import { useThemeColors } from "@/lib/theme";

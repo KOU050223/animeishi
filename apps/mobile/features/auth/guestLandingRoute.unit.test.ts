@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { guestLandingPath as webGuestLandingPath } from "@/lib/guestLandingRoute.web";
-import { guestLandingPath as nativeGuestLandingPath } from "@/lib/guestLandingRoute.native";
+import { guestLandingPath as webGuestLandingPath } from "@/features/auth/guestLandingRoute.web";
+import { guestLandingPath as nativeGuestLandingPath } from "@/features/auth/guestLandingRoute.native";
 
 describe("guest landing route", () => {
   it("sends an unauthenticated web root to the separate welcome URL", () => {

@@ -1,5 +1,5 @@
 import { useSignIn } from "@clerk/expo";
-import { throwIfAuthError } from "@/lib/authErrors";
+import { throwIfAuthError } from "@/features/auth/authErrors";
 import type { GoogleAuthResult, UseGoogleAuth } from "./types";
 
 // Web の Google ログインはページリダイレクト方式（issue #89）。

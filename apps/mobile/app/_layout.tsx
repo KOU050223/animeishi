@@ -5,7 +5,7 @@ import { configureObserve, wrapWithObserveRoot } from "@/lib/observe";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import { useTranslation } from "react-i18next";
-import { tokenCache } from "@/lib/tokenCache";
+import { tokenCache } from "@/features/auth/tokenCache";
 import {
   DarkTheme,
   DefaultTheme,
@@ -27,16 +27,16 @@ import {
   asyncStoragePersister,
   queryCacheBuster,
 } from "@/lib/queryClient";
-import { useClearQueryCacheOnSignOut } from "@/lib/useSignOut";
-import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
+import { useClearQueryCacheOnSignOut } from "@/features/auth/useSignOut";
+import { passkeyPromptPending } from "@/features/auth/passkeyPromptPending";
 import { onboardingPending } from "@/lib/onboarding";
 import { useThemeColors } from "@/lib/theme";
 import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
 import { useAppOpenTracking } from "@/lib/useAppOpenTracking";
-import { useGuestCtaReturn } from "@/lib/guestCta";
+import { useGuestCtaReturn } from "@/features/auth/guestCta";
 import { useExchangeQueueSync } from "@/lib/useExchangeQueueSync";
-import { guestLandingPath } from "@/lib/guestLandingRoute";
+import { guestLandingPath } from "@/features/auth/guestLandingRoute";
 import { WorkDetailProvider } from "@/components/anime-list/WorkDetailProvider";
 import { shouldDeferRouteRender } from "@/lib/staticRendering/shouldDeferRouteRender";
 

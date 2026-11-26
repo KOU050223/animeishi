@@ -53,7 +53,7 @@ jobs:
           # プロダクト計測（issue #758）。未登録なら空になり、計測は何もしない（no-op）
           EXPO_PUBLIC_POSTHOG_KEY: ${{ vars.EXPO_PUBLIC_POSTHOG_KEY }}
           EXPO_PUBLIC_POSTHOG_HOST: ${{ vars.EXPO_PUBLIC_POSTHOG_HOST }}
-          # App Store 審査・Expo Explore 用デモアカウント（apps/mobile/lib/reviewAccount.ts）。
+          # App Store 審査・Expo Explore 用デモアカウント（apps/mobile/features/auth/reviewAccount.ts）。
           # 秘密ではない。native は eas.json に同じ値を持つ
           EXPO_PUBLIC_REVIEW_ACCOUNT_EMAIL: ${{ vars.EXPO_PUBLIC_REVIEW_ACCOUNT_EMAIL || 'animeishi-demodemo-account@uomi.dev' }}
           # プロフィール画面のバージョン表示（lib/appInfo）に出すデプロイ元コミット

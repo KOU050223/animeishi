@@ -49,7 +49,7 @@ export const asyncStoragePersister = createAsyncStoragePersister({
 
 /**
  * サインイン中ユーザーのクエリキャッシュを、メモリと端末（AsyncStorage）の
- * 両方から消す。サインアウト時に必ず通す（lib/useSignOut.ts）。
+ * 両方から消す。サインアウト時に必ず通す（features/auth/useSignOut.ts）。
  */
 export async function clearQueryCache(): Promise<void> {
   queryClient.clear();

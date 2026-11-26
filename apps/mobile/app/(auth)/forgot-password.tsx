@@ -17,12 +17,12 @@ import * as v from "valibot";
 import {
   passwordResetEmailSchema,
   passwordResetSchema,
-} from "@/lib/validators";
+} from "@/features/auth/validators";
 import {
   getClerkErrorCode,
   throwIfAuthError,
   toAuthErrorMessage,
-} from "@/lib/authErrors";
+} from "@/features/auth/authErrors";
 import { useThemeColors } from "@/lib/theme";
 import type { TranslationKey } from "@/lib/i18n/keys";
 

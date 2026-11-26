@@ -7,7 +7,10 @@ import {
   queryCacheBuster,
   queryClient,
 } from "@/lib/queryClient";
-import { useClearQueryCacheOnSignOut, useSignOut } from "@/lib/useSignOut";
+import {
+  useClearQueryCacheOnSignOut,
+  useSignOut,
+} from "@/features/auth/useSignOut";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
 
 const PERSISTED = JSON.stringify({

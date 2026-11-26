@@ -4,7 +4,7 @@ import { useAuth } from "@clerk/expo";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { trackEvent } from "@/lib/events";
-import { profileReturnPath, savePendingReturn } from "@/lib/guestCta";
+import { profileReturnPath, savePendingReturn } from "@/features/auth/guestCta";
 
 /**
  * 未ログインで公開プロフィールを開いた人向けの下部固定 CTA（issue #562）。
