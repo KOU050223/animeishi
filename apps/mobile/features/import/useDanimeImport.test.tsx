@@ -19,7 +19,7 @@ import type {
 } from "@animeishi/danime-core";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { createTestQueryClient } from "@/test-utils/queryClient";
-import { setMockClerkState } from "../../__mocks__/@clerk/expo";
+import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 
 const mockMatchPost = jest.fn();
 const mockBulkPost = jest.fn();

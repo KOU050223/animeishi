@@ -9,7 +9,7 @@ import {
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { createTestQueryClient } from "@/test-utils/queryClient";
-import { setMockClerkState } from "../../__mocks__/@clerk/expo";
+import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 
 const mockReportPost = jest.fn();
 const mockBlockPost = jest.fn();
