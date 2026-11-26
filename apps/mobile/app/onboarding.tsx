@@ -8,7 +8,7 @@ import {
   onboardingPending,
   saveOnboardingStatus,
   type OnboardingStatus,
-} from "@/lib/onboarding";
+} from "@/features/onboarding";
 import { getTemplate } from "@/features/meishi/templates";
 import { addCard, findCard } from "@/features/meishi/library";
 import {

@@ -29,7 +29,7 @@ import { recoverExistingSession } from "@/features/auth/recoverExistingSession";
 import { useSignOut } from "@/features/auth/useSignOut";
 import { featureFlags } from "@/lib/featureFlags";
 import { passkeyPromptPending } from "@/features/auth/passkeyPromptPending";
-import { onboardingPending } from "@/lib/onboarding";
+import { onboardingPending } from "@/features/onboarding";
 import { PasskeyRegisterPrompt } from "@/components/auth/PasskeyRegisterPrompt";
 import { useThemeColors } from "@/lib/theme";
 import { trackEvent } from "@/lib/events";

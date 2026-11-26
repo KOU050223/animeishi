@@ -11,7 +11,7 @@ import {
 } from "@/features/auth/authErrors";
 import { recoverExistingSession } from "@/features/auth/recoverExistingSession";
 import { useSignOut } from "@/features/auth/useSignOut";
-import { onboardingPending } from "@/lib/onboarding";
+import { onboardingPending } from "@/features/onboarding";
 import { useThemeColors } from "@/lib/theme";
 
 type Props = {

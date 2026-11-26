@@ -29,7 +29,7 @@ import {
 } from "@/lib/queryClient";
 import { useClearQueryCacheOnSignOut } from "@/features/auth/useSignOut";
 import { passkeyPromptPending } from "@/features/auth/passkeyPromptPending";
-import { onboardingPending } from "@/lib/onboarding";
+import { onboardingPending } from "@/features/onboarding";
 import { useThemeColors } from "@/lib/theme";
 import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
