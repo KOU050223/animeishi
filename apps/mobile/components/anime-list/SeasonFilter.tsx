@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { MenuPicker } from "@/components/ui/menu-picker";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import type { TranslationKey } from "@/lib/i18n/keys";
 import { haptics } from "@/lib/haptics";
 import { useAnimeListStyles } from "./animeListStyles";
@@ -135,6 +136,7 @@ export function SeasonFilter(props: SeasonFilterProps) {
                 disabled={disabled}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active, disabled }}
+                {...selectionAccessibilityProps(active)}
                 accessibilityLabel={t("{{label}}で絞り込む", {
                   label: t(SEASON_CHIP_LABELS[key]),
                 })}

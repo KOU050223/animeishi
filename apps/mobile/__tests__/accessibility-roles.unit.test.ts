@@ -83,6 +83,34 @@ function findElementsWithoutRole(
   return found;
 }
 
+function stripStringLiterals(source: string): string {
+  return source.replace(
+    /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`/g,
+    "",
+  );
+}
+
+// JSX 属性の object 式（foo={{ ... }}）の中身を返す。
+// 属性値は開始タグ内で入れ子のブレースを持つため、正規表現ではなく深度を数える。
+function readObjectAttribute(
+  attributesOnly: string,
+  name: string,
+): string | undefined {
+  const attribute = new RegExp(`\\b${name}\\s*=\\s*`).exec(attributesOnly);
+  if (!attribute) return undefined;
+  const start = attribute.index + attribute[0].length;
+  if (attributesOnly[start] !== "{") return undefined;
+  let depth = 0;
+  for (let i = start; i < attributesOnly.length; i++) {
+    if (attributesOnly[i] === "{") depth++;
+    if (attributesOnly[i] === "}") {
+      depth--;
+      if (depth === 0) return attributesOnly.slice(start + 1, i);
+    }
+  }
+  return undefined;
+}
+
 // 子を持たない（自己完結タグの）押下要素を返す。子テキストやアイコンで
 // 内容を示せないため、シートの背景（スクリム）のような名無しの押下領域は
 // accessibilityLabel が無いとスクリーンリーダーで意味を伝えられない
@@ -102,16 +130,54 @@ function findLeafElementsWithoutLabel(
     if (!/\/\s*>$/.test(tag)) continue;
     // 別属性の値の中に "accessibilityLabel=" が含まれても
     // 合格にしないよう、文字列リテラルを除いてから属性名を調べる
-    const attributesOnly = tag.replace(
-      /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`/g,
-      "",
-    );
+    const attributesOnly = stripStringLiterals(tag);
     if (!/\baccessibilityLabel\s*=/.test(attributesOnly)) {
       found.push({
         element,
         line: source.slice(0, match.index).split("\n").length,
       });
     }
+  }
+  return found;
+}
+
+type SelectedStateElement = {
+  element: string;
+  line: number;
+  attributesOnly: string;
+};
+
+// accessibilityState.selected を持つ開始タグを集める。選択式ボタンは
+// 見た目の枠や色だけでなく、名前と選択状態を支援技術へ伝える必要がある。
+function findSelectedStateElements(filePath: string): SelectedStateElement[] {
+  const source = fs.readFileSync(filePath, "utf8");
+  const found: SelectedStateElement[] = [];
+  const tagStart = /<([A-Za-z0-9_.]+)(?=[\s/>])/g;
+  let match: RegExpExecArray | null;
+  while ((match = tagStart.exec(source)) !== null) {
+    const element = match[1];
+    if (element === undefined || !PRESSABLE_ELEMENTS.has(element)) continue;
+    const tag = readOpeningTag(source, match.index);
+    const attributesOnly = stripStringLiterals(tag);
+    const objectExpression = readObjectAttribute(
+      attributesOnly,
+      "accessibilityState",
+    );
+    // checked: selected のように値の変数名が selected なだけのものは
+    // 選択状態ではないため、オブジェクトのキーにある selected だけを見る。
+    const trimmedObject = objectExpression?.trim();
+    const state =
+      trimmedObject?.startsWith("{") && trimmedObject.endsWith("}")
+        ? trimmedObject.slice(1, -1)
+        : undefined;
+    const hasSelectedKey =
+      state !== undefined && /(?:^|,)\s*selected\s*(?::|,|$)/.test(state);
+    if (!hasSelectedKey) continue;
+    found.push({
+      element,
+      line: source.slice(0, match.index).split("\n").length,
+      attributesOnly,
+    });
   }
   return found;
 }
@@ -137,6 +203,36 @@ describe("押せる要素の accessibilityRole（issue #722）", () => {
         ({ element, line }) =>
           `${path.relative(rootDir, file)}:${line} <${element}>`,
       ),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  test("選択状態を持つ押下要素は accessibilityLabel を持つ", () => {
+    const missing = files.flatMap((file) =>
+      findSelectedStateElements(file)
+        .filter(
+          ({ attributesOnly }) =>
+            !/\baccessibilityLabel\s*=/.test(attributesOnly),
+        )
+        .map(
+          ({ element, line }) =>
+            `${path.relative(rootDir, file)}:${line} <${element}>`,
+        ),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  test("選択状態を持つ押下要素は Web に選択状態を出す", () => {
+    const missing = files.flatMap((file) =>
+      findSelectedStateElements(file)
+        .filter(
+          ({ attributesOnly }) =>
+            !/\bselectionAccessibilityProps\s*\(/.test(attributesOnly),
+        )
+        .map(
+          ({ element, line }) =>
+            `${path.relative(rootDir, file)}:${line} <${element}>`,
+        ),
     );
     expect(missing).toEqual([]);
   });

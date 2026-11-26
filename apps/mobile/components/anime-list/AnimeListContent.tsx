@@ -15,6 +15,7 @@ import {
   usePrefetchSeasonWorks,
   useSortedAnimeList,
 } from "@/lib/useAnimeList";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import type { AnimeTitle, SortKey, SortOrder } from "@/lib/useAnimeList";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { isAnnictRateLimitedError, isAnnictTokenError } from "@/lib/annict";
@@ -301,6 +302,8 @@ export function AnimeListContent({
       cardWidth,
       favoriteIds,
       isToggling,
+      setListTarget,
+      setSelectedWork,
       styles,
       t,
       toggleFavorite,
@@ -463,6 +466,7 @@ export function AnimeListContent({
                   onPress={() => setFilterSheetOpen(true)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: filterActive }}
+                  {...selectionAccessibilityProps(filterActive)}
                   accessibilityLabel={t("メディア・ジャンルで絞り込む")}
                   testID="anime-filter-button"
                 >

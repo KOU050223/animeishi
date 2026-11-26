@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { TouchableOpacity } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
 
 export function FavoriteButton({
@@ -24,6 +25,7 @@ export function FavoriteButton({
       style={[styles.favoriteButton, isFavorite && styles.favoriteButtonActive]}
       accessibilityRole="button"
       accessibilityState={{ selected: isFavorite, disabled }}
+      {...selectionAccessibilityProps(isFavorite)}
       accessibilityLabel={
         isFavorite
           ? t("{{title}}を推しから解除", { title })

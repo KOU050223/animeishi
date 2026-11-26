@@ -10,6 +10,7 @@ import {
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
 import { useExchangeRecords } from "@/lib/useExchangeRecords";
@@ -296,6 +297,7 @@ function EventFilterChip({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected }}
+      {...selectionAccessibilityProps(selected)}
       className={`rounded-full border px-3 py-1.5 ${
         selected
           ? "border-indigo-600 bg-indigo-600"

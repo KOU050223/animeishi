@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { useWorkCandidates, type WorkCandidate } from "@/lib/useWorkCandidates";
 import { useThemeColors } from "@/lib/theme";
 import { OnboardingScaffold } from "./OnboardingScaffold";
@@ -116,7 +117,9 @@ export function FavoriteWorksStep({
                 className="flex-row items-center border-b border-slate-100 py-2 dark:border-slate-800"
                 testID={`onboarding-work-${item.annictWorkId}`}
                 accessibilityRole="button"
+                accessibilityLabel={item.title}
                 accessibilityState={{ selected: isSelected }}
+                {...selectionAccessibilityProps(isSelected)}
               >
                 <WorkThumbnail uri={item.hostedImageUrl} title={item.title} />
                 <View className="ml-3 flex-1">

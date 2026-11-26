@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import {
   useWatchHistory,
   useUpsertWatchHistory,
@@ -663,6 +664,7 @@ function SelectChip({
       }`}
       accessibilityRole="button"
       accessibilityState={{ selected }}
+      {...selectionAccessibilityProps(selected)}
       accessibilityLabel={accessibilityLabel ?? label}
       testID={testID}
     >

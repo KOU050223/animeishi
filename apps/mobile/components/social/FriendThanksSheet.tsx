@@ -11,6 +11,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { initialWindowMetrics } from "react-native-safe-area-context";
 import { Input } from "@/components/ui";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { useThemeColors } from "@/lib/theme";
 import {
   FRIEND_THANKS_BODY_MAX_LENGTH,
@@ -126,6 +127,7 @@ export function FriendThanksSheet({
                     accessibilityRole="button"
                     accessibilityLabel={t(THANKS_PRESET_TEXT[key])}
                     accessibilityState={{ selected }}
+                    {...selectionAccessibilityProps(selected)}
                     testID={`thanks-preset-${key}`}
                     style={{
                       borderWidth: 1,

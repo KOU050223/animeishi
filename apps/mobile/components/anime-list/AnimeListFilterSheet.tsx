@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import {
   animeGenreJapaneseName,
   matchesAnimeGenreSearch,
@@ -206,6 +207,7 @@ function SelectChip({
       }`}
       accessibilityRole="button"
       accessibilityState={{ selected }}
+      {...selectionAccessibilityProps(selected)}
       accessibilityLabel={accessibilityLabel ?? label}
       testID={testID}
     >
