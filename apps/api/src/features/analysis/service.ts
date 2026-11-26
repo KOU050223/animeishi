@@ -33,7 +33,7 @@ const MAX_INSIGHT_CHARS = 160;
 const MAX_TITLE_CHARS = 80;
 
 // watch_history.state をプロンプト用の日本語ラベルに変換する。
-// モバイル側の WATCH_STATUS_LABELS（lib/useWatchHistory.ts）と同じ対応。
+// モバイル側の WATCH_STATUS_LABELS（features/watch-history/watchStatusLabels.ts）と同じ対応。
 // おすすめ生成のプロンプトでも同じラベルを使うため export。
 export const STATE_LABELS: Record<(typeof WATCH_STATES)[number], string> = {
   WATCHING: "視聴中",

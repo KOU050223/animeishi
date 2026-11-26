@@ -258,7 +258,7 @@ function isSafeImageUrl(url: string): boolean {
   return /^https?:\/\//i.test(url.trim());
 }
 
-/** ラベル文字色の候補。アプリ側 lib/tierList/label.ts と同じ値。 */
+/** ラベル文字色の候補。アプリ側 features/tier-lists/label.ts と同じ値。 */
 const TIER_LABEL_TEXT_DARK = "#1f2937";
 const TIER_LABEL_TEXT_LIGHT = "#ffffff";
 
@@ -287,7 +287,7 @@ function contrastRatio(l1: number, l2: number): number {
 /**
  * tier ラベルセルの文字色。tier.color はユーザーが自由に変えられるため、
  * 背景とのコントラストが高い側を濃色/白から選ぶ（アプリ側
- * lib/tierList/label.ts の tierLabelTextColor と同じ判定）。
+ * features/tier-lists/label.ts の tierLabelTextColor と同じ判定）。
  * パース不能な色はアプリ側と同じく濃色に倒す。
  */
 function tierLabelTextColor(backgroundColor: string): string {
@@ -633,7 +633,7 @@ function notFoundPage(kind: string): string {
 // ---- 視聴履歴の共有（issue #236） ----
 // AI が URL だけで読めるよう、Markdown / 素の HTML の表で返す。
 
-/** 視聴状態の日本語ラベル。アプリ側 lib/useWatchHistory の WATCH_STATUS_LABELS と同じ値。 */
+/** 視聴状態の日本語ラベル。アプリ側 features/watch-history/useWatchHistory の WATCH_STATUS_LABELS と同じ値。 */
 const WATCH_STATE_LABELS: Record<string, string> = {
   WATCHING: "視聴中",
   WATCHED: "視聴済",
