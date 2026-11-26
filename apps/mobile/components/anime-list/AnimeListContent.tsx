@@ -301,6 +301,8 @@ export function AnimeListContent({
       cardWidth,
       favoriteIds,
       isToggling,
+      setListTarget,
+      setSelectedWork,
       styles,
       t,
       toggleFavorite,
@@ -462,8 +464,13 @@ export function AnimeListContent({
                   ]}
                   onPress={() => setFilterSheetOpen(true)}
                   accessibilityRole="button"
-                  accessibilityState={{ selected: filterActive }}
-                  accessibilityLabel={t("メディア・ジャンルで絞り込む")}
+                  accessibilityLabel={
+                    filterActive
+                      ? t("メディア・ジャンルで絞り込む（{{count}}件適用中）", {
+                          count: filterCount,
+                        })
+                      : t("メディア・ジャンルで絞り込む")
+                  }
                   testID="anime-filter-button"
                 >
                   <Text

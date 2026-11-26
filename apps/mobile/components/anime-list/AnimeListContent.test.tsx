@@ -298,6 +298,25 @@ describe("AnimeListContent", () => {
     ).toBeTruthy();
   });
 
+  it("絞り込みシートを開くボタンは選択状態ではなく適用件数を名前で伝える", async () => {
+    await render(contentElement({ initialSeason: "2025-winter" }));
+
+    const inactiveButton = screen.getByTestId("anime-filter-button");
+    expect(inactiveButton.props.accessibilityState?.selected).toBeUndefined();
+    expect(inactiveButton.props.accessibilityLabel).toBe(
+      "メディア・ジャンルで絞り込む",
+    );
+
+    await fireEvent.press(inactiveButton);
+    await fireEvent.press(screen.getByTestId("anime-filter-media-TV"));
+
+    const activeButton = screen.getByTestId("anime-filter-button");
+    expect(activeButton.props.accessibilityState?.selected).toBeUndefined();
+    expect(activeButton.props.accessibilityLabel).toBe(
+      "メディア・ジャンルで絞り込む（1件適用中）",
+    );
+  });
+
   it("シーズン表示の絞り込み中は「絞り込み後 / 全件」で出す（issue #602）", async () => {
     await render(contentElement({ initialSeason: "2025-winter" }));
 

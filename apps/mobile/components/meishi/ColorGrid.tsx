@@ -1,5 +1,6 @@
-import { Platform, Pressable, ScrollView } from "react-native";
+import { Pressable, ScrollView } from "react-native";
 import { useTranslation } from "react-i18next";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { COLOR_PALETTE } from "@/lib/meishi/defaults";
 import { useThemeColors } from "@/lib/theme";
 
@@ -32,9 +33,7 @@ export function ColorGrid({
             accessibilityRole="button"
             accessibilityLabel={t(name)}
             accessibilityState={{ selected }}
-            // React Native Web は accessibilityState を DOM に出さないため、
-            // Web ではトグルボタンの aria-pressed を別途渡す（issue #809）
-            {...(Platform.OS === "web" ? { "aria-pressed": selected } : {})}
+            {...selectionAccessibilityProps(selected)}
             style={{
               width: 26,
               height: 26,

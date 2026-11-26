@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button } from "@/components/ui";
 import { MeishiRenderer } from "@/components/meishi/MeishiRenderer";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useThemeColors } from "@/lib/theme";
 import { OnboardingScaffold } from "./OnboardingScaffold";
@@ -90,7 +91,11 @@ export function TemplateStep({
                 gap: 8,
               }}
               accessibilityRole="button"
+              accessibilityLabel={t("{{name}}テンプレートを選ぶ", {
+                name: t(templateNameKeys[tpl.id] ?? "テンプレート"),
+              })}
               accessibilityState={{ selected: isSelected }}
+              {...selectionAccessibilityProps(isSelected)}
               testID={`onboarding-template-${tpl.id}`}
             >
               <View className="flex-row items-center gap-1.5">

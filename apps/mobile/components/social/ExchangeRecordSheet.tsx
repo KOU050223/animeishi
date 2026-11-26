@@ -13,6 +13,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { initialWindowMetrics } from "react-native-safe-area-context";
 import { Input } from "@/components/ui";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { alert } from "@/lib/dialog";
 import { useThemeColors, type ThemeColors } from "@/lib/theme";
 import { featureFlags } from "@/lib/featureFlags";
@@ -123,6 +124,7 @@ function EventCandidateChips({
             accessibilityRole="button"
             accessibilityLabel={candidate.title}
             accessibilityState={{ selected }}
+            {...selectionAccessibilityProps(selected)}
             style={{
               paddingHorizontal: 12,
               paddingVertical: 8,

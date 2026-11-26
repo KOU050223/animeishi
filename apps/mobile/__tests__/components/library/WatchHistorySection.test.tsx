@@ -460,14 +460,18 @@ describe("WatchHistorySection", () => {
       await render(<WatchHistorySection />);
 
       // 登録済みなら解除導線のラベルになる。
-      expect(screen.getByLabelText("テスト作品を推しから解除")).toBeTruthy();
+      expect(
+        screen.getByLabelText("テスト作品の推し登録を切り替える"),
+      ).toBeTruthy();
       expect(screen.getByTestId("watch-history-add-to-list-1")).toBeTruthy();
     });
 
     it("推しボタンを押すとその作品のトグルが呼ばれる", async () => {
       await render(<WatchHistorySection />);
 
-      await fireEvent.press(screen.getByLabelText("テスト作品を推しに登録"));
+      await fireEvent.press(
+        screen.getByLabelText("テスト作品の推し登録を切り替える"),
+      );
 
       expect(mockToggleFavorite).toHaveBeenCalledWith(1);
     });
@@ -604,6 +608,28 @@ describe("WatchHistorySection", () => {
         flexGrow: 0,
         flexShrink: 0,
       });
+    });
+
+    it("絞り込みシートを開くボタンは選択状態ではなく適用中であることを名前で伝える", async () => {
+      mockHistories = [
+        { annictWorkId: 1, title: "作品1", state: "WATCHED", seasonYear: 2024 },
+      ];
+      await render(<WatchHistorySection />);
+
+      const inactiveButton = screen.getByTestId("watch-history-filter-button");
+      expect(inactiveButton.props.accessibilityState?.selected).toBeUndefined();
+      expect(inactiveButton.props.accessibilityLabel).toBe(
+        "視聴履歴を絞り込む",
+      );
+
+      await fireEvent.press(inactiveButton);
+      await fireEvent.press(screen.getByLabelText("視聴済で絞り込む"));
+
+      const activeButton = screen.getByTestId("watch-history-filter-button");
+      expect(activeButton.props.accessibilityState?.selected).toBeUndefined();
+      expect(activeButton.props.accessibilityLabel).toBe(
+        "視聴履歴を絞り込む（適用中）",
+      );
     });
 
     it("絞り込みシートで視聴状態を選ぶと該当作品だけになる", async () => {

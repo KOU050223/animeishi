@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { useThemeColors } from "@/lib/theme";
 import type { MenuPickerProps } from "./types";
 
@@ -132,6 +133,7 @@ export function MenuPicker<T extends string | number>({
                     onPress={() => select(option.value)}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
+                    {...selectionAccessibilityProps(active)}
                     accessibilityLabel={
                       option.accessibilityLabel ?? `${option.label}を選択`
                     }

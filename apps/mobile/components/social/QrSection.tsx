@@ -17,6 +17,7 @@ import QRCode from "react-native-qrcode-svg";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { useQrScanner } from "@/lib/useQrScanner";
 import { useAddFriend } from "@/lib/useFriends";
 import { useExchangeQrValue } from "@/lib/useExchangeQrValue";
@@ -355,6 +356,7 @@ function GenerateView() {
                     name: card.name,
                   })}
                   accessibilityState={{ selected: active }}
+                  {...selectionAccessibilityProps(active)}
                   testID={`qr-meishi-pick-${card.id}`}
                 >
                   <Text

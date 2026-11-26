@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity } from "react-native";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { haptics } from "@/lib/haptics";
 
 export type SegmentItem = {
@@ -38,6 +39,7 @@ export function SegmentedControl({ items }: { items: SegmentItem[] }) {
               : item.label)
           }
           accessibilityState={{ selected: item.active }}
+          {...selectionAccessibilityProps(item.active)}
           testID={item.testID}
         >
           <View className="flex-row items-center gap-1">

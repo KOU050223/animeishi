@@ -16,6 +16,11 @@ jest.doMock("@/lib/theme", () => ({
 jest.doMock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
+// jest の resolver は iOS 固定で .native 実装を選ぶため、Web DOM のテストでは
+// ブラウザのバンドルで選ばれる .web 実装を明示的に使う。
+jest.doMock("@/lib/accessibility", () =>
+  jest.requireActual("@/lib/accessibility/selection.web"),
+);
 
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 

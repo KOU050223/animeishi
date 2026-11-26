@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Text, TouchableOpacity } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { currentAccessibilityProps } from "@/lib/accessibility";
 import type { SortOrder } from "@/lib/useAnimeList";
 import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
 
@@ -34,6 +35,7 @@ export function SortButton({
             : label
       }
       accessibilityState={{ selected: active }}
+      {...currentAccessibilityProps(active)}
     >
       <Ionicons name={icon} size={14} color={iconColor} />
       <Text style={[styles.sortText, active && styles.sortTextActive]}>

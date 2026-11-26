@@ -15,6 +15,11 @@
 // 同じく require する。
 // （JSX の要素はプレーンなオブジェクトなので React コピー間で共有できる）
 jest.doMock("react-native", () => jest.requireActual("react-native-web"));
+// jest の resolver は iOS 固定で .native 実装を選ぶため、Web DOM のテストでは
+// ブラウザのバンドルで選ばれる .web 実装を明示的に使う。
+jest.doMock("@/lib/accessibility", () =>
+  jest.requireActual("@/lib/accessibility/selection.web"),
+);
 jest.doMock("@expo/vector-icons/Ionicons", () => ({
   __esModule: true,
   default: () => null,
@@ -141,6 +146,27 @@ describe("MenuPicker (web DOM)", () => {
     );
     expect(nested).toHaveLength(0);
     expect(optionElement()).not.toBeNull();
+  });
+
+  it("選択中の選択肢だけ aria-pressed が true になる", async () => {
+    await renderPicker();
+    openPicker();
+
+    expect(
+      document.querySelector(
+        '[data-testid="test-menu-option-2026"][aria-pressed="true"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      document.querySelector(
+        '[data-testid="test-menu-option-2025"][aria-pressed="true"]',
+      ),
+    ).toBeNull();
+    expect(
+      document.querySelector(
+        '[data-testid="test-menu-option-2025"][aria-pressed="false"]',
+      ),
+    ).not.toBeNull();
   });
 
   it("選択肢をクリックすると onValueChange が呼ばれて閉じる", async () => {

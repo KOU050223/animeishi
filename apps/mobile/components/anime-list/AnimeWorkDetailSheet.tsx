@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { useThemeColors } from "@/lib/theme";
 import {
   useWorkDetail,
@@ -543,6 +544,7 @@ function StatusSection({
               }`}
               accessibilityRole="button"
               accessibilityState={{ selected: currentState === s }}
+              {...selectionAccessibilityProps(currentState === s)}
               accessibilityLabel={t("視聴ステータスを{{state}}にする", {
                 state: t(WATCH_STATUS_LABELS[s]),
               })}
@@ -731,6 +733,7 @@ function RatingSection({
               }`}
               accessibilityRole="button"
               accessibilityState={{ selected: displayedRating === r }}
+              {...selectionAccessibilityProps(displayedRating === r)}
               accessibilityLabel={t("この作品を{{rating}}と評価する", {
                 rating: t(WORK_RATING_LABELS[r]),
               })}
