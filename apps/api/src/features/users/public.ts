@@ -86,11 +86,18 @@ const publicUsersRoute = app
     const db = createDb(getBindings(c).DB);
     const repo = usersRepository(db, c.var.clerkUserId);
     if (id === c.var.clerkUserId) {
-      return c.json({ error: "自分の名刺にいいねはできません" }, 400);
+      return c.json(
+        {
+          error: "Cannot like your own profile",
+          code: "cannot_like_own_profile",
+        },
+        400,
+      );
     }
     // 公開範囲外（非公開・ブロック関係）は 404。存在自体を隠す。
     const target = await repo.findPublicUser(id);
-    if (!target) return c.json({ error: "User not found" }, 404);
+    if (!target)
+      return c.json({ error: "User not found", code: "user_not_found" }, 404);
     await repo.likeUser(id);
     const likeCount = await repo.countUserLikes(id);
     return c.json({ likeCount, likedByMe: true }, 200);
@@ -102,7 +109,8 @@ const publicUsersRoute = app
     const db = createDb(getBindings(c).DB);
     const repo = usersRepository(db, c.var.clerkUserId);
     const target = await repo.findPublicUser(id);
-    if (!target) return c.json({ error: "User not found" }, 404);
+    if (!target)
+      return c.json({ error: "User not found", code: "user_not_found" }, 404);
     await repo.unlikeUser(id);
     const likeCount = await repo.countUserLikes(id);
     return c.json({ likeCount, likedByMe: false }, 200);

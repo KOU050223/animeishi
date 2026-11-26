@@ -102,12 +102,13 @@ describe("useReportUser", () => {
     return options!.onHttpError!;
   }
 
-  it("429 のときサーバーの error メッセージをそのままエラーにする", async () => {
+  it("429 のときサーバーの error ではなく code から表示文言を引く", async () => {
     const onHttpError = await getReportHttpError();
     const err = (await onHttpError(
       new Response(
         JSON.stringify({
-          error: "同じユーザーへの通報は24時間に1回までです",
+          // error は開発者向け英語（issue #838）。画面には出さない。
+          error: "Duplicate report target",
           code: "duplicate_target",
         }),
         { status: 429 },

@@ -45,7 +45,7 @@ export type AnnictWorkCatalogVariables = {
 
 function annictTokenRequired(c: Context) {
   return c.json(
-    { error: "Annict 連携が必要です", code: "annict_token_required" },
+    { error: "Annict token is required", code: "annict_token_required" },
     401,
   );
 }

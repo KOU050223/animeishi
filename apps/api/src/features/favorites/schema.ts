@@ -1,5 +1,8 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import {
+  annictRateLimitedResponse,
+  annictSharedTokenUnavailableResponse,
+  annictUpstreamErrorResponse,
   bearerAuth,
   bearerAuthWithAnnict,
   errorResponseSchema,
@@ -46,7 +49,8 @@ const jsonError = (description: string) => ({
 
 const addFavoriteUnauthorizedSchema = z.object({
   error: z.string(),
-  code: z.enum(["annict_token_invalid"]).optional(),
+  // 認証ミドルウェアの unauthorized も返りうる。
+  code: z.enum(["unauthorized", "annict_token_invalid"]),
 });
 
 export const getFavoritesRoute = createRoute({
@@ -84,6 +88,9 @@ export const addFavoriteRoute = createRoute({
       description: "未認証 / Annict 連携が無効",
     },
     404: jsonError("作品が見つからない"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
+    503: annictSharedTokenUnavailableResponse,
   },
 });
 

@@ -182,6 +182,60 @@ describe("GET /me/profile & PUT /me/profile", () => {
       expect(body.bio).toBe("自己紹介");
     });
 
+    it("PUT /me/profile: バリデーション失敗は理由別の code を返す", async () => {
+      const app = buildApp();
+      const put = (username: string) =>
+        app.request(
+          "/me/profile",
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username }),
+          },
+          {
+            DB: env.DB,
+            CLERK_SECRET_KEY: "test_secret",
+            CLERK_PUBLISHABLE_KEY: "test_pub",
+          },
+        );
+
+      // 使用できない文字（issue #838: mobile は code から表示文言を引く）
+      const res = await put("名前!");
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: string; code: string };
+      expect(body.code).toBe("username_invalid_chars");
+      expect(body.error).toBe("Username contains invalid characters");
+
+      // 1 文字は too_short、予約語は username_reserved
+      const codeOf = async (username: string) => {
+        const r = await put(username);
+        const b = (await r.json()) as { code: string };
+        return b.code;
+      };
+      expect(await codeOf("a")).toBe("username_too_short");
+      expect(await codeOf("admin")).toBe("username_reserved");
+    });
+
+    it("PUT /me/profile: コメントの文字数超過は comment_too_long を返す", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/profile",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bio: "あ".repeat(501) }),
+        },
+        {
+          DB: env.DB,
+          CLERK_SECRET_KEY: "test_secret",
+          CLERK_PUBLISHABLE_KEY: "test_pub",
+        },
+      );
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { code: string };
+      expect(body.code).toBe("comment_too_long");
+    });
+
     it("GET /me/profile: 作成後に取得できる", async () => {
       // 事前にプロフィールを作成
       const now = new Date();

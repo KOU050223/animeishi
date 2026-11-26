@@ -1,9 +1,10 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import {
+  annictRateLimitedResponse,
+  annictUpstreamErrorResponse,
   bearerAuth,
   bearerAuthWithAnnict,
-  codedErrorResponseSchema,
   errorResponseSchema,
   successResponseSchema,
 } from "@/lib/openapi";
@@ -12,7 +13,7 @@ import { ANNICT_STATUS_STATES } from "@/lib/annict/statusState";
 
 export const watchHistoryUpsertSchema = z.object({
   state: z.enum(ANNICT_STATUS_STATES, {
-    error: () => "有効なステータスを選択してください",
+    error: () => "Invalid status",
   }),
 });
 
@@ -40,24 +41,19 @@ const watchHistoryBulkSchema = z.object({
       z.object({
         annictWorkId: z.number().int().positive(),
         state: z.enum(ANNICT_STATUS_STATES, {
-          error: () => "有効なステータスを選択してください",
+          error: () => "Invalid status",
         }),
       }),
     )
     .min(1)
     .max(
       WATCH_HISTORY_BULK_MAX_ENTRIES,
-      `一度に登録できるのは${WATCH_HISTORY_BULK_MAX_ENTRIES}作品までです`,
+      `Up to ${WATCH_HISTORY_BULK_MAX_ENTRIES} works per request`,
     ),
 });
 
 const jsonError = (description: string) => ({
   content: { "application/json": { schema: errorResponseSchema } },
-  description,
-});
-
-const codedJsonError = (description: string) => ({
-  content: { "application/json": { schema: codedErrorResponseSchema } },
   description,
 });
 
@@ -117,9 +113,9 @@ export const listWatchHistoryRoute = createRoute({
       },
       description: "視聴記録（更新日時の降順）",
     },
-    401: codedJsonError("未認証・Annict 未連携"),
-    429: codedJsonError("Annict のレート制限（混雑）"),
-    502: codedJsonError("Annict の障害"),
+    401: jsonError("未認証・Annict 未連携"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
   },
 });
 
@@ -143,10 +139,10 @@ export const upsertWatchHistoryRoute = createRoute({
       description: "保存した視聴記録",
     },
     400: jsonError("入力エラー"),
-    401: codedJsonError("未認証・Annict 未連携"),
+    401: jsonError("未認証・Annict 未連携"),
     404: jsonError("作品が見つからない"),
-    429: codedJsonError("Annict のレート制限（混雑）"),
-    502: codedJsonError("Annict の障害"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
   },
 });
 
@@ -188,9 +184,9 @@ export const bulkWatchHistoryRoute = createRoute({
       description: "作品ごとの結果（入力順）",
     },
     400: jsonError("入力エラー"),
-    401: codedJsonError("未認証・Annict 未連携"),
-    429: codedJsonError("Annict のレート制限（混雑）"),
-    502: codedJsonError("Annict の障害"),
+    401: jsonError("未認証・Annict 未連携"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
   },
 });
 
@@ -250,9 +246,9 @@ export const deleteWatchHistoryRoute = createRoute({
       description: "外した",
     },
     400: jsonError("annictWorkId が不正"),
-    401: codedJsonError("未認証・Annict 未連携"),
+    401: jsonError("未認証・Annict 未連携"),
     404: jsonError("作品が見つからない"),
-    429: codedJsonError("Annict のレート制限（混雑）"),
-    502: codedJsonError("Annict の障害"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
   },
 });

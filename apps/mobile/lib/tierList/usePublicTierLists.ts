@@ -6,7 +6,12 @@ import {
 } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient, apiFetch } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import {
+  ApiRequestError,
+  readApiErrorCode,
+  readRetryAfterSeconds,
+} from "@/lib/apiError";
+import { apiErrorMessage } from "@/lib/apiErrorMessages";
 import { tierListQueries } from "@/lib/queries/tierLists";
 import type {
   PublicTierListsResponse,
@@ -66,17 +71,16 @@ export function useToggleTierListLike() {
 
   return useMutation({
     mutationFn: async (input: { id: number; like: boolean }) => {
-      // 流量制限ミドルウェアの 429 は {error} に理由が入るため、
-      // 標準の ApiRequestError 化ではなく応答の文言を拾う。
+      // 流量制限ミドルウェアの 429 は code から表示文言を引く（issue #838）。
       const fetch = apiFetch({
         onHttpError: async (errorRes) => {
           if (errorRes.status === 429) {
-            const body = (await errorRes.json().catch(() => null)) as {
-              error?: string;
-            } | null;
+            const code = await readApiErrorCode(errorRes);
             return new ApiRequestError(
               errorRes.status,
-              body?.error ?? "いいねの更新に失敗しました",
+              apiErrorMessage(code) ?? "いいねの更新に失敗しました",
+              code,
+              readRetryAfterSeconds(errorRes),
             );
           }
           return new ApiRequestError(
@@ -152,12 +156,12 @@ export function useReportTierList() {
           fetch: apiFetch({
             onHttpError: async (errorRes) => {
               if (errorRes.status === 429) {
-                const body = (await errorRes.json().catch(() => null)) as {
-                  error?: string;
-                } | null;
+                const code = await readApiErrorCode(errorRes);
                 return new ApiRequestError(
                   errorRes.status,
-                  body?.error ?? "通報の送信回数が上限に達しました",
+                  apiErrorMessage(code) ?? "通報の送信回数が上限に達しました",
+                  code,
+                  readRetryAfterSeconds(errorRes),
                 );
               }
               return new ApiRequestError(errorRes.status, "通報に失敗しました");

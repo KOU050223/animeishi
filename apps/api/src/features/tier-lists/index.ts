@@ -40,14 +40,18 @@ async function validateItems(
     annictWorkId?: number | undefined;
     annictCharacterId?: number | undefined;
   }[],
-): Promise<{ error: string; ids: number[] } | null> {
+): Promise<{ error: string; code: string; ids: number[] } | null> {
   const worksRepo = worksRepository(db);
   if (kind === "character") {
     const characterIds = items
       .map((item) => item.annictCharacterId)
       .filter((id): id is number => id !== undefined);
     if (characterIds.length !== items.length) {
-      return { error: "character 表にはキャラクターのみ配置できます", ids: [] };
+      return {
+        error: "Only characters can be placed in a character tier list",
+        code: "invalid_item_type",
+        ids: [],
+      };
     }
     // 親表の annict_work_id は annict_works への FK。名簿取得
     // （/works/:id/characters）を経ない直接 POST やキャッシュ消失では
@@ -58,6 +62,7 @@ async function validateItems(
     ) {
       return {
         error: "Unknown work",
+        code: "unknown_work",
         ids: [],
       };
     }
@@ -67,6 +72,7 @@ async function validateItems(
       if (outside.length > 0) {
         return {
           error: "Characters not in this work's casts",
+          code: "characters_not_in_work",
           ids: outside,
         };
       }
@@ -78,14 +84,18 @@ async function validateItems(
     .map((item) => item.annictWorkId)
     .filter((id): id is number => id !== undefined);
   if (workIds.length !== items.length) {
-    return { error: "season / custom 表には作品のみ配置できます", ids: [] };
+    return {
+      error: "Only works can be placed in a season/custom tier list",
+      code: "invalid_item_type",
+      ids: [],
+    };
   }
   // items は annict_works への FK を持つ。/works/search 経由で表示した作品は
   // read-through でキャッシュ済みのはずだが、キャッシュが消えている・改竄された
   // リクエストでは FK 違反になるため、事前に存在チェックして 400 で返す。
   const missing = await unknownWorkIds(db, workIds);
   if (missing.length > 0) {
-    return { error: "Unknown works", ids: missing };
+    return { error: "Unknown works", code: "unknown_works", ids: missing };
   }
   return null;
 }
@@ -177,22 +187,18 @@ const tierListsRoute = app
       input.items,
     );
     if (itemError) {
-      return itemError.error === "Unknown work"
-        ? c.json({ error: itemError.error }, 400)
-        : itemError.error === "Unknown works"
-          ? c.json(
-              { error: itemError.error, annictWorkIds: itemError.ids },
-              400,
-            )
-          : itemError.ids.length > 0
-            ? c.json(
-                {
-                  error: itemError.error,
-                  annictCharacterIds: itemError.ids,
-                },
-                400,
-              )
-            : c.json({ error: itemError.error }, 400);
+      return c.json(
+        {
+          error: itemError.error,
+          code: itemError.code,
+          ...(itemError.ids.length > 0
+            ? itemError.code === "unknown_works"
+              ? { annictWorkIds: itemError.ids }
+              : { annictCharacterIds: itemError.ids }
+            : {}),
+        },
+        400,
+      );
     }
 
     const repo = tierListsRepository(db, c.var.clerkUserId);
@@ -229,7 +235,11 @@ const tierListsRoute = app
     const db = createDb(getBindings(c).DB);
     const repo = tierListsRepository(db, c.var.clerkUserId);
     const data = await repo.getMyTierList(id);
-    if (!data) return c.json({ error: "Tier list not found" }, 404);
+    if (!data)
+      return c.json(
+        { error: "Tier list not found", code: "tier_list_not_found" },
+        404,
+      );
     return c.json(withHostedImageUrls(data, c.req.url), 200);
   })
   // 全置換更新。並べ替えは 1 操作で多数の position が動くため、部分更新
@@ -242,7 +252,11 @@ const tierListsRoute = app
     const repo = tierListsRepository(db, c.var.clerkUserId);
 
     const existing = await repo.getMyTierList(id);
-    if (!existing) return c.json({ error: "Tier list not found" }, 404);
+    if (!existing)
+      return c.json(
+        { error: "Tier list not found", code: "tier_list_not_found" },
+        404,
+      );
 
     const itemError = await validateItems(
       db,
@@ -251,17 +265,18 @@ const tierListsRoute = app
       input.items,
     );
     if (itemError) {
-      return itemError.ids.length > 0
-        ? c.json(
-            {
-              error: itemError.error,
-              ...(itemError.error === "Unknown works"
-                ? { annictWorkIds: itemError.ids }
-                : { annictCharacterIds: itemError.ids }),
-            },
-            400,
-          )
-        : c.json({ error: itemError.error }, 400);
+      return c.json(
+        {
+          error: itemError.error,
+          code: itemError.code,
+          ...(itemError.ids.length > 0
+            ? itemError.code === "unknown_works"
+              ? { annictWorkIds: itemError.ids }
+              : { annictCharacterIds: itemError.ids }
+            : {}),
+        },
+        400,
+      );
     }
 
     const saved = await repo.updateMyTierList(id, {
@@ -272,7 +287,11 @@ const tierListsRoute = app
       isPublic: input.isPublic,
       items: withPositions(input.items),
     });
-    if (!saved) return c.json({ error: "Tier list not found" }, 404);
+    if (!saved)
+      return c.json(
+        { error: "Tier list not found", code: "tier_list_not_found" },
+        404,
+      );
     return c.json(withHostedImageUrls(saved, c.req.url), 200);
   })
   // 削除。items / いいね / 通報は FK の CASCADE で消える。
@@ -281,7 +300,11 @@ const tierListsRoute = app
     const db = createDb(getBindings(c).DB);
     const repo = tierListsRepository(db, c.var.clerkUserId);
     const deleted = await repo.deleteMyTierList(id);
-    if (!deleted) return c.json({ error: "Tier list not found" }, 404);
+    if (!deleted)
+      return c.json(
+        { error: "Tier list not found", code: "tier_list_not_found" },
+        404,
+      );
     return c.json({ success: true }, 200);
   })
   // 共有リンクの発行・破棄。トークンは冪等（再発行しても変わらない）なので
@@ -291,7 +314,11 @@ const tierListsRoute = app
     const db = createDb(getBindings(c).DB);
     const repo = tierListsRepository(db, c.var.clerkUserId);
     const result = await repo.shareMyTierList(id);
-    if (!result) return c.json({ error: "Tier list not found" }, 404);
+    if (!result)
+      return c.json(
+        { error: "Tier list not found", code: "tier_list_not_found" },
+        404,
+      );
     if (result.issuedNow) {
       const list = await repo.getMyTierList(id);
       const feedInput: RecordActivityInput = {
@@ -310,7 +337,11 @@ const tierListsRoute = app
     const db = createDb(getBindings(c).DB);
     const repo = tierListsRepository(db, c.var.clerkUserId);
     const found = await repo.unshareMyTierList(id);
-    if (!found) return c.json({ error: "Tier list not found" }, 404);
+    if (!found)
+      return c.json(
+        { error: "Tier list not found", code: "tier_list_not_found" },
+        404,
+      );
     return c.json({ success: true }, 200);
   });
 

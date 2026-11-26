@@ -210,7 +210,8 @@ const works = app
   .openapi(workDetailRoute, async (c) => {
     const { annictWorkId } = c.req.valid("param");
     const detail = await fetchWorkDetail(c.var.annictWorkCatalog, annictWorkId);
-    if (!detail) return c.json({ error: "Work not found" }, 404);
+    if (!detail)
+      return c.json({ error: "Work not found", code: "work_not_found" }, 404);
 
     const db = createDb(getBindings(c).DB);
     const repo = worksRepository(db);
@@ -227,7 +228,8 @@ const works = app
   .openapi(workCharactersRoute, async (c) => {
     const { annictWorkId } = c.req.valid("param");
     const result = await c.var.annictWorkCatalog.fetchWorkCasts(annictWorkId);
-    if (!result) return c.json({ error: "Work not found" }, 404);
+    if (!result)
+      return c.json({ error: "Work not found", code: "work_not_found" }, 404);
     const { work, characters } = result;
 
     const db = createDb(getBindings(c).DB);

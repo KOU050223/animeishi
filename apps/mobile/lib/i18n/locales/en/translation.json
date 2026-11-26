@@ -1568,5 +1568,11 @@
   "作品ページを見る": "View work page",
   "現在は利用できません": "Currently unavailable",
   "この機能は現在利用できません。": "This feature is currently unavailable.",
-  "ホームへ戻る": "Back to home"
+  "ホームへ戻る": "Back to home",
+  "画像サイズが大きすぎます": "The image is too large",
+  "対応していない画像形式です": "This image format is not supported",
+  "アップロードできる画像数の上限に達しました": "You have reached the maximum number of images you can upload",
+  "ジャンルが重複しています": "Genres must not contain duplicates",
+  "分析するには視聴履歴が必要です。まず Annict と連携して作品を記録してください": "Watch history is required for analysis. Connect with Annict and record your works first",
+  "おすすめには視聴履歴が必要です。まず Annict と連携して作品を記録してください": "Watch history is required for recommendations. Connect with Annict and record your works first"
 }

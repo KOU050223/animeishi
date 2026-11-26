@@ -73,7 +73,7 @@ describe("handleError", () => {
     expect(res.status).toBe(500);
     expect(res.headers.get("X-Request-Id")).toBe("req-test-1");
     expect(await res.json()).toEqual({
-      error: "サーバーエラーが発生しました",
+      error: "Internal server error",
       code: "internal_error",
       requestId: "req-test-1",
     });
@@ -85,7 +85,7 @@ describe("handleError", () => {
 
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({
-      error: "Annict 連携が無効です",
+      error: "Annict token is invalid",
       code: "annict_token_invalid",
     });
     expect(captureException).not.toHaveBeenCalled();
@@ -96,7 +96,7 @@ describe("handleError", () => {
 
     expect(res.status).toBe(502);
     expect(await res.json()).toEqual({
-      error: "Annict との通信に失敗しました",
+      error: "Annict upstream request failed",
       code: "annict_upstream",
     });
     expect(captureException).toHaveBeenCalledTimes(1);
@@ -107,7 +107,7 @@ describe("handleError", () => {
 
     expect(res.status).toBe(502);
     expect(await res.json()).toEqual({
-      error: "Annict との通信に失敗しました",
+      error: "Annict upstream request failed",
       code: "annict_upstream",
     });
     expect(captureException).toHaveBeenCalledTimes(1);
@@ -118,7 +118,7 @@ describe("handleError", () => {
 
     expect(res.status).toBe(429);
     expect(await res.json()).toEqual({
-      error: "Annict が混み合っています",
+      error: "Annict rate limit exceeded",
       code: "annict_rate_limited",
     });
     expect(captureException).toHaveBeenCalledTimes(1);
@@ -129,7 +129,7 @@ describe("handleError", () => {
 
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({
-      error: "作品情報を取得できません",
+      error: "The shared Annict token was rejected",
       code: "annict_shared_token_unavailable",
     });
     expect(captureException).toHaveBeenCalledTimes(1);
@@ -160,7 +160,10 @@ describe("handleError", () => {
     const res = await app.request("/deleted-user");
 
     expect(res.status).toBe(401);
-    expect(await res.json()).toEqual({ error: "Unauthorized" });
+    expect(await res.json()).toEqual({
+      error: "Unauthorized",
+      code: "unauthorized",
+    });
     expect(captureException).not.toHaveBeenCalled();
   });
 
@@ -250,7 +253,10 @@ describe("handleError の Discord 通知", () => {
     await settle();
 
     expect(res.status).toBe(503);
-    expect(await res.json()).toEqual({ error: "unavailable" });
+    expect(await res.json()).toEqual({
+      error: "unavailable",
+      code: "internal_error",
+    });
     expect(captureException).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(fetchSpy.mock.calls[0]![1]?.body as string).toContain(

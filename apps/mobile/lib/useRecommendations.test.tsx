@@ -193,7 +193,7 @@ describe("useRecommendations / useGenerateRecommendations", () => {
     );
   });
 
-  it("useGenerateRecommendations: onHttpError は応答 body の error 文言を使う", async () => {
+  it("useGenerateRecommendations: onHttpError は code から表示文言を引く", async () => {
     mockPost.mockResolvedValue({
       ok: true,
       json: async () => ({ ...RECOMMENDATIONS_BODY, cached: false }),
@@ -219,15 +219,17 @@ describe("useRecommendations / useGenerateRecommendations", () => {
     const error = await genOptions!.onHttpError!(
       new Response(
         JSON.stringify({
-          error:
-            "おすすめ生成の実行回数が上限に達しました。しばらくしてから再度お試しください",
+          error: "Generation rate limit reached",
+          code: "generation_limit",
         }),
         { status: 429 },
       ),
     );
     expect(error).toBeInstanceOf(ApiRequestError);
     expect((error as ApiRequestError).status).toBe(429);
-    expect(error.message).toContain("実行回数が上限");
+    expect(error.message).toBe(
+      "試行回数が上限に達しました。しばらくしてからお試しください",
+    );
   });
 
   it("useGenerateRecommendations: 成功したらおすすめクエリを無効化する", async () => {

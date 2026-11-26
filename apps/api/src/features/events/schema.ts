@@ -16,7 +16,7 @@ const participationVisibilitySchema = z.enum(EVENT_PARTICIPATION_VISIBILITIES);
 const listQuerySchema = z.object({
   limit: z
     .string()
-    .regex(/^[1-9]\d*$/, "limit は 1 以上の整数で指定してください")
+    .regex(/^[1-9]\d*$/, "limit must be a positive integer")
     .optional(),
 });
 
@@ -28,7 +28,7 @@ const optionalInt = (name: string, min: number) =>
     .string()
     .regex(
       min === 0 ? /^\d+$/ : /^[1-9]\d*$/,
-      `${name} は ${min} 以上の整数で指定してください`,
+      `${name} must be an integer of ${min} or more`,
     )
     .optional();
 
@@ -124,9 +124,7 @@ const jsonError = (description: string) => ({
 // slug は URL セグメントにそのまま載るため、投入側
 // （scripts/publish-event.mjs）と同じ [a-z0-9-] 系の文字だけを許す。
 const slugParamSchema = z.object({
-  slug: z
-    .string()
-    .regex(/^[a-z0-9][a-z0-9-]*$/, "slug の形式が正しくありません"),
+  slug: z.string().regex(/^[a-z0-9][a-z0-9-]*$/, "Invalid slug format"),
 });
 
 export const listEventsRoute = createRoute({

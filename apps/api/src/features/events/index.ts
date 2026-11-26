@@ -76,7 +76,7 @@ const events = app
 
     const event = await repo.getPublished({ slug, now: new Date() });
     if (!event) {
-      return c.json({ error: "Event not found" }, 404);
+      return c.json({ error: "Event not found", code: "event_not_found" }, 404);
     }
 
     return c.json(
@@ -103,7 +103,7 @@ const events = app
     // 公開期間外・存在しないイベントへの表明は詳細と同じく 404 に寄せる。
     const event = await repo.getPublished({ slug, now: new Date() });
     if (!event) {
-      return c.json({ error: "Event not found" }, 404);
+      return c.json({ error: "Event not found", code: "event_not_found" }, 404);
     }
 
     await repo.addParticipation(slug);
@@ -117,13 +117,13 @@ const events = app
 
     const event = await repo.getPublished({ slug, now: new Date() });
     if (!event) {
-      return c.json({ error: "Event not found" }, 404);
+      return c.json({ error: "Event not found", code: "event_not_found" }, 404);
     }
     if (!event.participating) {
       // 公開範囲の変更は表明済みの参加だけに許す。未表明への PATCH で
       // 参加表明が新規に作られないようにする（issue #440）。
       return c.json(
-        { error: "イベントに参加表明していません", code: "not_participating" },
+        { error: "Not participating in the event", code: "not_participating" },
         403,
       );
     }
@@ -154,7 +154,7 @@ const events = app
 
     const event = await repo.getPublished({ slug, now: new Date() });
     if (!event) {
-      return c.json({ error: "Event not found" }, 404);
+      return c.json({ error: "Event not found", code: "event_not_found" }, 404);
     }
 
     const [participants, participantTotal, friends, friendsTotal] =
@@ -188,12 +188,12 @@ const events = app
 
     const event = await repo.getPublished({ slug, now: new Date() });
     if (!event) {
-      return c.json({ error: "Event not found" }, 404);
+      return c.json({ error: "Event not found", code: "event_not_found" }, 404);
     }
     if (!event.participating) {
       // 名刺まとめは参加表明したイベントだけに出す（issue #411）。
       return c.json(
-        { error: "イベントに参加表明していません", code: "not_participating" },
+        { error: "Not participating in the event", code: "not_participating" },
         403,
       );
     }

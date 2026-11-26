@@ -2,13 +2,14 @@ import { createRoute, z } from "@hono/zod-openapi";
 import {
   bearerAuth,
   errorResponseSchema,
+  rateLimitedErrorResponse,
   successResponseSchema,
 } from "@/lib/openapi";
 import { userRateLimit } from "@/middleware/rateLimit";
 
 // POST /me/friend-requests のボディ。userId は申請先（addressee）の Clerk user ID。
 const friendRequestCreateSchema = z.object({
-  userId: z.string().min(1, "userId を指定してください"),
+  userId: z.string().min(1, "userId is required"),
 });
 
 // friend_requests 行（Drizzle FriendRequest 型の JSON 表現）。createdAt は ISO 文字列。
@@ -95,7 +96,7 @@ export const sendFriendRequestRoute = createRoute({
     403: jsonError("ブロック関係にある相手"),
     404: jsonError("対象ユーザーが存在しない"),
     409: jsonError("すでにフレンド"),
-    429: jsonError("レート制限（Retry-After ヘッダ付き）"),
+    429: rateLimitedErrorResponse("レート制限"),
   },
 });
 

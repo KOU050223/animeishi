@@ -61,7 +61,7 @@ export const userRateLimit = (name: UserRateLimiterName) =>
       c.header("Retry-After", "60");
       return c.json(
         {
-          error: "リクエストが多すぎます。しばらくしてからお試しください",
+          error: "Too many requests",
           code: "rate_limited",
         },
         429,

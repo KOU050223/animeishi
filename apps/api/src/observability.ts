@@ -268,7 +268,7 @@ export function handleError(err: Error, c: Context): Response {
     // 削除済みユーザーの残存 JWT による書き込み（issue #144）。
     // requireAuth 通過後に DELETE /me が割り込んだ race で到達する。
     // ユーザー要因なので Sentry には送らず 401 を返す。
-    return c.json({ error: "Unauthorized" }, 401);
+    return c.json({ error: "Unauthorized", code: "unauthorized" }, 401);
   }
   captureApiError(err, c);
   alertApiFailure(err, c, 500);
@@ -278,7 +278,7 @@ export function handleError(err: Error, c: Context): Response {
 function internalError(c: Context): Response {
   return c.json(
     {
-      error: "サーバーエラーが発生しました",
+      error: "Internal server error",
       code: "internal_error",
       requestId: c.get("requestId"),
     },

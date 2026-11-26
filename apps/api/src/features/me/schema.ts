@@ -3,14 +3,20 @@ import { bearerAuth, errorResponseSchema } from "@/lib/openapi";
 
 const INAPPROPRIATE_PATTERNS = [/死ね|殺す|バカ|アホ/, /https?:\/\/[^\s]+/];
 
+// zod v4 は標準チェック（min/max）の params を issue に残さないため、
+// 利用者向けの理由を code で返したいルールは refine + params.code で書く
+// （issue #838。mobile は code から表示文言を引く）。
 const commentSchema = z
   .string()
   .trim()
-  .max(500, "コメントは500文字以内で入力してください")
-  .refine(
-    (v) => !INAPPROPRIATE_PATTERNS.some((p) => p.test(v)),
-    "不適切な内容が含まれています",
-  )
+  .refine((v) => v.length <= 500, {
+    error: "Comment must be 500 characters or less",
+    params: { code: "comment_too_long" },
+  })
+  .refine((v) => !INAPPROPRIATE_PATTERNS.some((p) => p.test(v)), {
+    error: "Comment contains inappropriate content",
+    params: { code: "inappropriate_content" },
+  })
   .optional();
 
 const RESERVED_WORDS = ["admin", "root", "test", "system", "null", "undefined"];
@@ -18,17 +24,29 @@ const RESERVED_WORDS = ["admin", "root", "test", "system", "null", "undefined"];
 const usernameSchema = z
   .string()
   .trim()
-  .min(1, "ユーザー名を入力してください")
-  .min(2, "ユーザー名は2文字以上で入力してください")
-  .max(20, "ユーザー名は20文字以内で入力してください")
+  .refine((v) => v.length >= 1, {
+    error: "Username is required",
+    params: { code: "username_required" },
+  })
+  .refine((v) => v.length >= 2, {
+    error: "Username must be at least 2 characters",
+    params: { code: "username_too_short" },
+  })
+  .refine((v) => v.length <= 20, {
+    error: "Username must be 20 characters or less",
+    params: { code: "username_too_long" },
+  })
   .refine(
     (v) => /^[a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\-_ @]+$/.test(v),
-    "ユーザー名に使用できない文字が含まれています",
+    {
+      error: "Username contains invalid characters",
+      params: { code: "username_invalid_chars" },
+    },
   )
-  .refine(
-    (v) => !RESERVED_WORDS.includes(v.trim().toLowerCase()),
-    "別のユーザー名を選択してください",
-  );
+  .refine((v) => !RESERVED_WORDS.includes(v.trim().toLowerCase()), {
+    error: "This username is reserved",
+    params: { code: "username_reserved" },
+  });
 
 export const VALID_GENRES = [
   "アクション",
@@ -51,7 +69,7 @@ export const VALID_GENRES = [
 export type Genre = (typeof VALID_GENRES)[number];
 
 const genreSchema = z.enum(VALID_GENRES, {
-  error: () => "有効なジャンルを選択してください",
+  error: () => "Invalid genre",
 });
 
 export const profileUpdateSchema = z.object({
@@ -59,10 +77,10 @@ export const profileUpdateSchema = z.object({
   selectedGenres: z
     .array(genreSchema)
     .max(15)
-    .refine(
-      (genres) => new Set(genres).size === genres.length,
-      "ジャンルが重複しています",
-    )
+    .refine((genres) => new Set(genres).size === genres.length, {
+      error: "Genres must not contain duplicates",
+      params: { code: "duplicate_genre" },
+    })
     .optional(),
   bio: commentSchema,
   favoriteQuote: commentSchema,
@@ -311,7 +329,7 @@ const deletionFeedbackSchema = z
     freeText: z.string().trim().min(1).max(500).optional(),
   })
   .refine((v) => v.reasons.length > 0 || v.freeText !== undefined, {
-    message: "理由または自由記述のどちらかを入力してください",
+    message: "Reason or comment is required",
   });
 
 export const getDeletionSummaryRoute = createRoute({

@@ -1,9 +1,10 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import {
+  annictRateLimitedResponse,
+  annictUpstreamErrorResponse,
   bearerAuth,
   bearerAuthWithAnnict,
-  codedErrorResponseSchema,
   errorResponseSchema,
 } from "@/lib/openapi";
 import { DANIME_EPISODE_JOB_STATUSES } from "./schema.db";
@@ -28,7 +29,7 @@ const danimeMatchRequestSchema = z.object({
   works: z
     .array(danimeMatchWorkSchema)
     .min(1)
-    .max(500, "一度に照合できるのは500作品までです"),
+    .max(500, "Up to 500 works per request"),
   // ユーザーの Annict ライブラリに登録済みの annictWorkId（任意）。
   // 入力タイトルが期数を明示しているとき「登録済みの別シーズン」を候補から
   // 外すためのヒントに使う。照合の絞り込み用途のみで、登録処理には使わない。
@@ -61,11 +62,6 @@ const danimeEpisodeJobCreateSchema = z.object({
 
 const jsonError = (description: string) => ({
   content: { "application/json": { schema: errorResponseSchema } },
-  description,
-});
-
-const codedJsonError = (description: string) => ({
-  content: { "application/json": { schema: codedErrorResponseSchema } },
   description,
 });
 
@@ -123,9 +119,9 @@ export const danimeMatchRoute = createRoute({
       description: "照合結果（入力順）と検索の観測情報",
     },
     400: jsonError("入力エラー"),
-    401: codedJsonError("未認証・Annict 未連携"),
-    429: codedJsonError("Annict のレート制限（混雑）"),
-    502: codedJsonError("Annict の障害"),
+    401: jsonError("未認証・Annict 未連携"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
   },
 });
 
@@ -180,7 +176,7 @@ export const createDanimeEpisodeJobRoute = createRoute({
       description: "新規に登録したジョブ（created:true）",
     },
     400: jsonError("入力エラー"),
-    401: codedJsonError("未認証・Web の Annict 連携が無い"),
+    401: jsonError("未認証・Web の Annict 連携が無い"),
     503: jsonError("バックグラウンド処理が利用できない"),
   },
 });

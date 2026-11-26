@@ -1,7 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient, apiFetch } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import {
+  ApiRequestError,
+  readApiErrorCode,
+  readRetryAfterSeconds,
+} from "@/lib/apiError";
+import { apiErrorMessage } from "@/lib/apiErrorMessages";
 import { useAnnictConnection } from "@/lib/annict";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import {
@@ -69,15 +74,17 @@ export function useGenerateRecommendations() {
       const res = await apiClient.me.analysis.recommendations.$post(undefined, {
         fetch: apiFetch({
           annict: true,
-          // 429 等は {error} に制限理由が入るため、標準の
-          // ApiRequestError 化ではなく応答の文言を拾う。
+          // 429（生成回数制限）等は code から表示文言を引く（issue #838）。
           onHttpError: async (errorRes) => {
-            const body = (await errorRes.json().catch(() => null)) as {
-              error?: string;
-            } | null;
+            const code = await readApiErrorCode(errorRes);
             return new ApiRequestError(
               errorRes.status,
-              body?.error ?? "おすすめの生成に失敗しました",
+              apiErrorMessage(code) ??
+                (code === "watch_history_required"
+                  ? "おすすめには視聴履歴が必要です。まず Annict と連携して作品を記録してください"
+                  : "おすすめの生成に失敗しました。時間をおいて再度お試しください"),
+              code,
+              readRetryAfterSeconds(errorRes),
             );
           },
         }),

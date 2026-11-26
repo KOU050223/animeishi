@@ -1,6 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
 import { apiClient, apiFetch } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import {
+  ApiRequestError,
+  readApiErrorCode,
+  readRetryAfterSeconds,
+} from "@/lib/apiError";
+import { apiErrorMessage } from "@/lib/apiErrorMessages";
 
 // API 側（db/schema.ts の FEEDBACK_CATEGORIES、features/feedback/schema.ts）と揃える。
 export type FeedbackCategory = "bug" | "request" | "other";
@@ -22,18 +27,16 @@ export function useSendFeedback() {
         {
           fetch: apiFetch({
             onHttpError: async (errorRes) => {
-              // 400（入力エラー）と 429（送信回数の上限）はサーバーの文言を
-              // そのまま見せる。
-              const body = (await errorRes.json().catch(() => null)) as {
-                error?: string;
-              } | null;
-              if (errorRes.status === 400 || errorRes.status === 429) {
-                return new ApiRequestError(
-                  errorRes.status,
-                  body?.error ?? "送信に失敗しました",
-                );
-              }
-              return new ApiRequestError(errorRes.status, "送信に失敗しました");
+              // サーバーの error は開発者向け英語なので画面には出さず、
+              // code から表示文言を引く（429 は画面側がステータスで
+              // 文言を出し分ける。issue #838）。
+              const code = await readApiErrorCode(errorRes);
+              return new ApiRequestError(
+                errorRes.status,
+                apiErrorMessage(code) ?? "送信に失敗しました",
+                code,
+                readRetryAfterSeconds(errorRes),
+              );
             },
           }),
         },

@@ -96,7 +96,11 @@ const episodeRecords = episodeRecordsApp
 
     // Episode の Node ID・所属作品・本人の記録状況を解決する。
     const episode = await fetchAnnictEpisodeByAnnictId(token, annictEpisodeId);
-    if (!episode) return c.json({ error: "Episode not found" }, 404);
+    if (!episode)
+      return c.json(
+        { error: "Episode not found", code: "episode_not_found" },
+        404,
+      );
 
     // チェック UI の二重 submit や「次の話」ボタンの連打で同じ話に
     // 複数 record を作らないよう、記録済みなら no-op にする。
@@ -148,7 +152,11 @@ const episodeRecords = episodeRecordsApp
     const repo = episodeRecordsRepository(db, c.var.clerkUserId);
 
     const episode = await fetchAnnictEpisodeByAnnictId(token, annictEpisodeId);
-    if (!episode) return c.json({ error: "Episode not found" }, 404);
+    if (!episode)
+      return c.json(
+        { error: "Episode not found", code: "episode_not_found" },
+        404,
+      );
 
     // 消す record の Node ID を viewer.records から解決する。
     // 対象話の記録を辿り切れない部分取得では「見つからなかった分」が
@@ -163,7 +171,10 @@ const episodeRecords = episodeRecordsApp
       });
       if (!complete) {
         return c.json(
-          { error: "Annict の記録一覧を取得しきれませんでした" },
+          {
+            error: "Failed to fetch all Annict records",
+            code: "annict_records_incomplete",
+          },
           502,
         );
       }
@@ -212,7 +223,8 @@ const workEpisodes = workEpisodesApp.openapi(
     const worksRepo = worksRepository(db);
 
     const episodes = await fetchAnnictWorkEpisodes(token, annictWorkId);
-    if (!episodes) return c.json({ error: "Work not found" }, 404);
+    if (!episodes)
+      return c.json({ error: "Work not found", code: "work_not_found" }, 404);
 
     // Annict 側の既存記録を D1 ログに同期する。対象はこの作品の record のみ。
     // viewer.records は CREATED_AT 降順なので、期待件数（作品の全話の

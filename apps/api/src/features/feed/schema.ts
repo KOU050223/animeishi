@@ -6,13 +6,10 @@ import { ACTIVITY_TYPES } from "@/db/schema";
 // 件数の指定（サーバー側で上限を設ける）。いずれも省略可。
 // limit は正の整数に限定する（0 だと空ページで次ページへ進めなくなる）。
 const feedQuerySchema = z.object({
-  cursor: z
-    .string()
-    .regex(/^\d+$/, "cursor の形式が正しくありません")
-    .optional(),
+  cursor: z.string().regex(/^\d+$/, "Invalid cursor format").optional(),
   limit: z
     .string()
-    .regex(/^[1-9]\d*$/, "limit は 1 以上の整数で指定してください")
+    .regex(/^[1-9]\d*$/, "limit must be a positive integer")
     .optional(),
 });
 

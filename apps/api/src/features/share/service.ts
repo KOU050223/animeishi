@@ -96,7 +96,7 @@ export async function proxyImage(
   try {
     target = new URL(url);
   } catch {
-    return c.json({ error: "Invalid url" }, 400);
+    return c.json({ error: "Invalid URL", code: "invalid_url" }, 400);
   }
 
   // 自前の作品画像 URL（同一オリジンの /images/works/:id）は、Annict 由来の
@@ -122,27 +122,51 @@ export async function proxyImage(
     );
     if (served.status === 200) return served;
     if (served.status !== 302) {
-      return c.json({ error: "Upstream image not available" }, 502);
+      return c.json(
+        {
+          error: "Upstream image not available",
+          code: "upstream_image_not_available",
+        },
+        502,
+      );
     }
     try {
       target = new URL(served.headers.get("location") ?? "");
     } catch {
-      return c.json({ error: "Upstream image not available" }, 502);
+      return c.json(
+        {
+          error: "Upstream image not available",
+          code: "upstream_image_not_available",
+        },
+        502,
+      );
     }
     resolvedInternally = true;
   }
 
   if (target.protocol !== "https:") {
-    return c.json({ error: "Only https URLs are allowed" }, 400);
+    return c.json(
+      { error: "Only https URLs are allowed", code: "https_url_required" },
+      400,
+    );
   }
   // 画像 CDN は https の公開ホストのみ。内部宛先（IP リテラル・
   // localhost 系・標準外ポート）を指す既知 URL が紛れていても fetch しない
   // （SSRF 対策、Devin Review 指摘）。
   if (!isPublicImageUrl(target.toString())) {
-    return c.json({ error: "Only public https URLs are allowed" }, 400);
+    return c.json(
+      {
+        error: "Only public https URLs are allowed",
+        code: "public_https_url_required",
+      },
+      400,
+    );
   }
   if (!resolvedInternally && !(await isKnownImageUrl(db, target.toString()))) {
-    return c.json({ error: "Image URL is not a known image" }, 403);
+    return c.json(
+      { error: "Image URL is not a known image", code: "unknown_image_url" },
+      403,
+    );
   }
 
   // リダイレクトは自動追従しない。遷移先が公開ホスト検証・DB 照合の
@@ -163,11 +187,20 @@ export async function proxyImage(
       blocked: "Redirect target is not allowed",
       too_many_redirects: "Too many redirects",
     }[followed.reason];
-    return c.json({ error: message }, 502);
+    return c.json(
+      { error: message, code: "upstream_image_not_available" },
+      502,
+    );
   }
   const upstream = followed.response;
   if (!upstream.ok) {
-    return c.json({ error: "Upstream image not available" }, 502);
+    return c.json(
+      {
+        error: "Upstream image not available",
+        code: "upstream_image_not_available",
+      },
+      502,
+    );
   }
 
   const contentType = upstream.headers.get("content-type") ?? "";
@@ -177,12 +210,18 @@ export async function proxyImage(
     !IMAGE_CONTENT_TYPE_PATTERN.test(contentType) ||
     /svg/i.test(contentType)
   ) {
-    return c.json({ error: "Upstream response is not an image" }, 502);
+    return c.json(
+      {
+        error: "Upstream response is not an image",
+        code: "upstream_not_image",
+      },
+      502,
+    );
   }
 
   const declaredLength = Number(upstream.headers.get("content-length") ?? 0);
   if (declaredLength > IMAGE_PROXY_MAX_BYTES) {
-    return c.json({ error: "Image too large" }, 502);
+    return c.json({ error: "Image too large", code: "image_too_large" }, 502);
   }
   // content-length が無い応答を arrayBuffer() で読むと全量メモリに乗るため、
   // ストリームで上限まで読み、超過した時点で中断する。読み取り中の切断・
@@ -190,7 +229,12 @@ export async function proxyImage(
   const read = await readBodyWithLimit(upstream.body, IMAGE_PROXY_MAX_BYTES);
   if (!read.ok) {
     return c.json(
-      { error: read.tooLarge ? "Image too large" : "Failed to fetch image" },
+      read.tooLarge
+        ? { error: "Image too large", code: "image_too_large" }
+        : {
+            error: "Failed to fetch image",
+            code: "upstream_image_not_available",
+          },
       502,
     );
   }

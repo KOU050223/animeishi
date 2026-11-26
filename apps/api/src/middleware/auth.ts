@@ -96,11 +96,11 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
     // その場合 auth が未設定で getAuth が throw するため、API としては
     // handshake 応答をそのまま返さず 401 にする（issue #154）。
     if (await middleware(c, async () => {})) {
-      return c.json({ error: "Unauthorized" }, 401);
+      return c.json({ error: "Unauthorized", code: "unauthorized" }, 401);
     }
     const auth = getAuth(c as unknown as Context);
     if (!auth?.userId) {
-      return c.json({ error: "Unauthorized" }, 401);
+      return c.json({ error: "Unauthorized", code: "unauthorized" }, 401);
     }
     userId = auth.userId;
     // JWT の発行時刻（秒）。削除済み判定で「削除後に発行されたトークンか」
@@ -109,7 +109,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   } catch {
     // authenticateRequest / getAuth の例外は 401 に丸める。
     // 以前は getAuth の throw が未処理で 500 になっていた。
-    return c.json({ error: "Unauthorized" }, 401);
+    return c.json({ error: "Unauthorized", code: "unauthorized" }, 401);
   }
 
   c.set("clerkUserId", userId);
@@ -137,7 +137,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
     // アカウントの公開プロフィールが復活しうる）。deleteUser の完了は
     // 通常数百msなので猶予はそれより十分大きく取る。
     if (issuedAtMs <= deletedAt.getTime() + SELF_HEAL_TOKEN_GRACE_MS) {
-      return c.json({ error: "Unauthorized" }, 401);
+      return c.json({ error: "Unauthorized", code: "unauthorized" }, 401);
     }
     // 削除後に発行された JWT = Clerk 側でユーザーが生存している可能性が
     // 高い（削除済みユーザーには新しいトークンを発行できないため）。
@@ -147,7 +147,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
     try {
       await c.get("clerk").users.getUser(userId);
     } catch {
-      return c.json({ error: "Unauthorized" }, 401);
+      return c.json({ error: "Unauthorized", code: "unauthorized" }, 401);
     }
     // Clerk 削除失敗の自己修復。
     await repo.clearMyDeletedAt();
@@ -189,7 +189,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
       if (created) captureServerEvent(c, "sign_up_complete", userId);
     } catch (err) {
       if (err instanceof DeletedUserError) {
-        return c.json({ error: "Unauthorized" }, 401);
+        return c.json({ error: "Unauthorized", code: "unauthorized" }, 401);
       }
       throw err;
     }

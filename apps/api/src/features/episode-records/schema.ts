@@ -1,8 +1,9 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import {
+  annictRateLimitedResponse,
+  annictUpstreamErrorResponse,
   bearerAuthWithAnnict,
-  codedErrorResponseSchema,
   errorResponseSchema,
   successResponseSchema,
 } from "@/lib/openapi";
@@ -16,11 +17,6 @@ const annictEpisodeIdParamSchema = z.object({
 
 const jsonError = (description: string) => ({
   content: { "application/json": { schema: errorResponseSchema } },
-  description,
-});
-
-const codedJsonError = (description: string) => ({
-  content: { "application/json": { schema: codedErrorResponseSchema } },
   description,
 });
 
@@ -46,10 +42,10 @@ export const recordEpisodeRoute = createRoute({
       description: "記録結果（記録済みだった場合は recorded:false）",
     },
     400: jsonError("入力エラー"),
-    401: codedJsonError("未認証・Annict 未連携"),
+    401: jsonError("未認証・Annict 未連携"),
     404: jsonError("話が見つからない"),
-    429: codedJsonError("Annict のレート制限（混雑）"),
-    502: codedJsonError("Annict の障害"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
   },
 });
 
@@ -67,10 +63,10 @@ export const unrecordEpisodeRoute = createRoute({
       description: "消した",
     },
     400: jsonError("入力エラー"),
-    401: codedJsonError("未認証・Annict 未連携"),
+    401: jsonError("未認証・Annict 未連携"),
     404: jsonError("話が見つからない"),
-    429: codedJsonError("Annict のレート制限（混雑）"),
-    502: codedJsonError("Annict の障害・記録一覧を取得しきれなかった"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
   },
 });
 
@@ -105,9 +101,9 @@ export const getWorkEpisodesRoute = createRoute({
       description: "話数一覧（sortNumber 順）",
     },
     400: jsonError("入力エラー"),
-    401: codedJsonError("未認証・Annict 未連携"),
+    401: jsonError("未認証・Annict 未連携"),
     404: jsonError("作品が見つからない"),
-    429: codedJsonError("Annict のレート制限（混雑）"),
-    502: codedJsonError("Annict の障害"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
   },
 });

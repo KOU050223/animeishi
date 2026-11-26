@@ -12,10 +12,7 @@ import { TIER_LIST_KINDS } from "@/db/schema";
 const seasonSchema = z
   .string()
   .trim()
-  .regex(
-    /^\d{4}-(winter|spring|summer|autumn)$/,
-    "シーズンの形式が正しくありません",
-  );
+  .regex(/^\d{4}-(winter|spring|summer|autumn)$/, "Invalid season format");
 
 // tier 表の 1 行（S / A / B ...）。key は items.tierKey から参照される識別子で、
 // ラベル・色はユーザーが自由に変えられるため key とは別に持つ。
@@ -23,18 +20,18 @@ export const tierRowSchema = z.object({
   key: z
     .string()
     .trim()
-    .min(1, "tier のキーが必要です")
-    .max(32, "tier のキーが長すぎます"),
+    .min(1, "Tier key is required")
+    .max(32, "Tier key is too long"),
   label: z
     .string()
     .trim()
-    .min(1, "tier のラベルを入力してください")
-    .max(24, "tier のラベルは24文字以内で入力してください"),
+    .min(1, "Tier label is required")
+    .max(24, "Tier label must be 24 characters or less"),
   // #RRGGBB 形式。クライアントのカラーピッカーが生成する形式に合わせる。
   color: z
     .string()
     .trim()
-    .regex(/^#[0-9a-fA-F]{6}$/, "色の形式が正しくありません"),
+    .regex(/^#[0-9a-fA-F]{6}$/, "Invalid color format"),
 });
 
 // 配置アイテムは作品（season / custom）かキャラクター（character）の
@@ -49,20 +46,20 @@ const tierListItemSchema = z
   .refine(
     (v) =>
       (v.annictWorkId !== undefined) !== (v.annictCharacterId !== undefined),
-    { error: "作品かキャラクターのどちらか一方を指定してください" },
+    { error: "Specify either a work or a character" },
   );
 
 const tierListFields = z.object({
   title: z
     .string()
     .trim()
-    .min(1, "タイトルを入力してください")
-    .max(50, "タイトルは50文字以内で入力してください"),
+    .min(1, "Title is required")
+    .max(50, "Title must be 50 characters or less"),
   // 表の説明文（issue #476）。上限は作品リストと同じ 500 文字。
   description: z
     .string()
     .trim()
-    .max(500, "説明は500文字以内で入力してください")
+    .max(500, "Description must be 500 characters or less")
     .nullish(),
   // ひろばの公開一覧に載るか（issue #476）。description / isPublic は
   // どちらも省略時は新規作成=既定値、更新=既存値を維持する
@@ -71,15 +68,15 @@ const tierListFields = z.object({
   isPublic: z.boolean().optional(),
   tiers: z
     .array(tierRowSchema)
-    .min(1, "tier を1つ以上設定してください")
-    .max(12, "tier は12個までです")
+    .min(1, "At least one tier is required")
+    .max(12, "Up to 12 tiers")
     .refine(
       (rows) => new Set(rows.map((r) => r.key)).size === rows.length,
-      "tier のキーが重複しています",
+      "Tier keys must not contain duplicates",
     ),
   // position はサーバが配列順から採番する。クライアントが送ってきた値は使わない
   // （順序の正が配列順とカラムの2か所に分かれると必ずズレるため）。
-  items: z.array(tierListItemSchema).max(500, "アイテム数が多すぎます"),
+  items: z.array(tierListItemSchema).max(500, "Too many items"),
 });
 
 const tierKeyRefinement = (v: {
@@ -125,15 +122,15 @@ export const tierListCreateSchema = z
         v.annictWorkId === undefined),
     {
       error:
-        "kind に対応する対象（season / annictWorkId）だけを指定してください",
+        "Specify only the target matching the kind (season / annictWorkId)",
     },
   )
   .refine(tierKeyRefinement, {
-    error: "存在しない tier が指定されています",
+    error: "Unknown tier key",
     path: ["items"],
   })
   .refine(duplicateRefinement, {
-    error: "同じアイテムが複数の tier に配置されています",
+    error: "The same item is placed in multiple tiers",
     path: ["items"],
   });
 
@@ -142,11 +139,11 @@ export const tierListCreateSchema = z
 const tierListUpdateSchema = z
   .object({ ...tierListFields.shape })
   .refine(tierKeyRefinement, {
-    error: "存在しない tier が指定されています",
+    error: "Unknown tier key",
     path: ["items"],
   })
   .refine(duplicateRefinement, {
-    error: "同じアイテムが複数の tier に配置されています",
+    error: "The same item is placed in multiple tiers",
     path: ["items"],
   });
 

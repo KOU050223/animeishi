@@ -1,9 +1,11 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { requireAnnictWorkCatalog } from "@/lib/annict/middleware";
 import {
+  annictRateLimitedResponse,
+  annictSharedTokenUnavailableResponse,
+  annictUpstreamErrorResponse,
   bearerAuth,
   bearerAuthWithAnnict,
-  codedErrorResponseSchema,
   errorResponseSchema,
 } from "@/lib/openapi";
 
@@ -22,10 +24,7 @@ const worksSearchQuerySchema = z.object({
   season: z
     .string()
     .trim()
-    .regex(
-      /^\d{4}(-(winter|spring|summer|autumn))?$/,
-      "シーズンの形式が正しくありません",
-    )
+    .regex(/^\d{4}(-(winter|spring|summer|autumn))?$/, "Invalid season format")
     .optional(),
   after: z.string().trim().min(1).optional(),
 });
@@ -48,12 +47,7 @@ const worksLookupQuerySchema = z.object({
       example: "1,2,3",
     })
     .transform((raw) => raw.split(",").map(Number))
-    .pipe(
-      z
-        .array(z.number().int().positive())
-        .min(1)
-        .max(50, "ids は 50 件までです"),
-    ),
+    .pipe(z.array(z.number().int().positive()).min(1).max(50, "Up to 50 ids")),
 });
 
 // 作品候補一覧（GET /works/candidates）のクエリパラメータ。
@@ -67,11 +61,6 @@ const worksCandidatesQuerySchema = z.object({
 
 const jsonError = (description: string) => ({
   content: { "application/json": { schema: errorResponseSchema } },
-  description,
-});
-
-const codedJsonError = (description: string) => ({
-  content: { "application/json": { schema: codedErrorResponseSchema } },
   description,
 });
 
@@ -195,10 +184,10 @@ export const searchWorksRoute = createRoute({
       description: "検索結果の 1 ページ",
     },
     400: jsonError("入力エラー"),
-    401: codedJsonError("未認証・Annict トークンが無い"),
-    429: codedJsonError("Annict のレート制限（混雑）"),
-    502: codedJsonError("Annict の障害"),
-    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
+    401: jsonError("未認証・Annict トークンが無い"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
+    503: annictSharedTokenUnavailableResponse,
   },
 });
 
@@ -221,10 +210,10 @@ export const lookupWorksRoute = createRoute({
       description: "見つかった作品（ids の順。見つからない ID は含めない）",
     },
     400: jsonError("入力エラー"),
-    401: codedJsonError("未認証・Annict トークンが無い"),
-    429: codedJsonError("Annict のレート制限（混雑）"),
-    502: codedJsonError("Annict の障害"),
-    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
+    401: jsonError("未認証・Annict トークンが無い"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
+    503: annictSharedTokenUnavailableResponse,
   },
 });
 
@@ -270,11 +259,11 @@ export const workDetailRoute = createRoute({
       description: "作品の詳細",
     },
     400: jsonError("入力エラー"),
-    401: codedJsonError("未認証・Annict トークンが無い"),
+    401: jsonError("未認証・Annict トークンが無い"),
     404: jsonError("作品が見つからない"),
-    429: codedJsonError("Annict のレート制限（混雑）"),
-    502: codedJsonError("Annict の障害"),
-    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
+    503: annictSharedTokenUnavailableResponse,
   },
 });
 
@@ -309,10 +298,10 @@ export const workCharactersRoute = createRoute({
       description: "キャラクター（キャスト順）",
     },
     400: jsonError("入力エラー"),
-    401: codedJsonError("未認証・Annict トークンが無い"),
+    401: jsonError("未認証・Annict トークンが無い"),
     404: jsonError("作品が見つからない"),
-    429: codedJsonError("Annict のレート制限（混雑）"),
-    502: codedJsonError("Annict の障害"),
-    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
+    503: annictSharedTokenUnavailableResponse,
   },
 });

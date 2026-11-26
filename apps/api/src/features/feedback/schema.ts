@@ -3,6 +3,7 @@ import { FEEDBACK_CATEGORIES } from "@/db/schema";
 import {
   bearerAuth,
   errorResponseSchema,
+  rateLimitedErrorResponse,
   successResponseSchema,
 } from "@/lib/openapi";
 import { userRateLimit } from "@/middleware/rateLimit";
@@ -11,15 +12,15 @@ const FEEDBACK_BODY_MAX_LENGTH = 2000;
 
 const feedbackCreateSchema = z.object({
   category: z.enum(FEEDBACK_CATEGORIES, {
-    message: "種類を選択してください",
+    message: "Category is required",
   }),
   body: z
     .string()
     .trim()
-    .min(1, "内容を入力してください")
+    .min(1, "Body is required")
     .max(
       FEEDBACK_BODY_MAX_LENGTH,
-      `内容は${FEEDBACK_BODY_MAX_LENGTH}文字以内で入力してください`,
+      `Body must be ${FEEDBACK_BODY_MAX_LENGTH} characters or less`,
     ),
   appVersion: z.string().trim().max(100).optional(),
   platform: z.string().trim().max(100).optional(),
@@ -52,6 +53,6 @@ export const createFeedbackRoute = createRoute({
     },
     400: jsonError("入力エラー"),
     401: jsonError("未認証"),
-    429: jsonError("送信回数の上限（Retry-After ヘッダ付き）"),
+    429: rateLimitedErrorResponse("送信回数の上限"),
   },
 });

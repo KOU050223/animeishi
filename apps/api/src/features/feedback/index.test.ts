@@ -127,7 +127,10 @@ describe("POST /feedback", () => {
       body: "   ",
     });
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "内容を入力してください" });
+    expect(await res.json()).toEqual({
+      error: "Body is required",
+      code: "invalid_request",
+    });
   });
 
   it("未知の種類は 400", async () => {
@@ -163,8 +166,8 @@ describe("POST /feedback", () => {
     expect(retryAfter).toBeGreaterThan(59 * 60);
     expect(retryAfter).toBeLessThanOrEqual(60 * 60);
     expect(await res.json()).toEqual({
-      error:
-        "短時間に送信できる回数の上限に達しました。約60分後にお試しください",
+      error: "Feedback hourly limit reached",
+      code: "hourly_limit",
     });
     const rows = await db.select().from(feedbacks);
     expect(rows).toHaveLength(FEEDBACK_HOURLY_LIMIT);

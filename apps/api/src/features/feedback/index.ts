@@ -16,7 +16,10 @@ const feedbackRoute = app.openapi(createFeedbackRoute, async (c) => {
   } catch (e) {
     if (e instanceof FeedbackRateLimitError) {
       c.header("Retry-After", String(e.retryAfterSeconds));
-      return c.json({ error: e.message }, 429);
+      return c.json(
+        { error: "Feedback hourly limit reached", code: "hourly_limit" },
+        429,
+      );
     }
     throw e;
   }

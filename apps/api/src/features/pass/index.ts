@@ -32,7 +32,10 @@ const pass = app
     const db = createDb(bindings.DB);
     const profile = await usersRepository(db, userId).getMyProfile();
     if (!profile) {
-      return c.json({ error: "Profile not found" }, 404);
+      return c.json(
+        { error: "Profile not found", code: "profile_not_found" },
+        404,
+      );
     }
 
     const passTypeIdentifier =
@@ -65,9 +68,9 @@ const pass = app
     if (!hasSigningCert) {
       return c.json(
         {
-          error: "pass_signing_not_configured",
-          message:
-            "Apple Wallet 用の署名証明書(PASS_SIGNING_CERT_P12_BASE64)が未設定です。開発者に証明書の投入を依頼してください。",
+          error:
+            "Pass signing certificate (PASS_SIGNING_CERT_P12_BASE64) is not configured",
+          code: "pass_signing_not_configured",
         },
         501,
       );
@@ -78,8 +81,8 @@ const pass = app
     // 軽量な ASN.1/PKCS#7 実装を移植するか、外部の署名サービスに委譲する必要がある。
     return c.json(
       {
-        error: "pass_signing_not_implemented",
-        message: "pkpass 署名処理は未実装です。",
+        error: "Pass signing is not implemented",
+        code: "pass_signing_not_implemented",
       },
       501,
     );

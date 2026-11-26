@@ -10,6 +10,7 @@ import {
   readApiErrorCode,
   readRetryAfterSeconds,
 } from "@/lib/apiError";
+import { apiErrorMessage } from "@/lib/apiErrorMessages";
 import { buildAnnictAuthHeader } from "@/lib/annict/buildAnnictAuthHeader";
 import type { TranslationKey } from "@/lib/i18n/keys";
 
@@ -40,8 +41,10 @@ export type ApiFetchOptions = {
       errorMessage?: undefined;
       /**
        * 標準の ApiRequestError 化を使わず、呼び出し側が非 2xx 応答から
-       * エラーを組み立てる。応答 body の error 文言を優先する等、
+       * エラーを組み立てる。ステータスで文言を出し分ける等、
        * エラー契約が標準と異なるエンドポイント用。
+       * 応答 body の error は開発者向け英語なので利用者に見せない
+       * （issue #838。文言は code から lib/apiErrorMessages.ts で引く）。
        */
       onHttpError: (res: Response) => Promise<Error>;
     }
@@ -78,7 +81,7 @@ export async function clerkSessionToken(): Promise<string | null> {
  *   （401 も他のステータスと同じく ApiRequestError に正規化する。annict_token_*
  *   系の code は失効検知（isAnnictTokenError）にそのまま伝わる）
  *   errorMessage の代わりに onHttpError を渡すと、この変換を差し替えられる
- *   （応答 body の error 文言を優先する、plain Error を維持する等）
+ *   （ステータスで文言を出し分ける、plain Error を維持する等）
  *
  * トークンが取れない（セッション切れ等）ときは plain の Error を投げる。
  * ApiRequestError にすると observability の 4xx ドロップ対象になり、
@@ -108,10 +111,11 @@ export function apiFetch(options: ApiFetchOptions): typeof fetch {
     const res = await fetch(input, { ...init, headers });
     if (!res.ok) {
       if (options.onHttpError) throw await options.onHttpError(res);
+      const code = await readApiErrorCode(res);
       throw new ApiRequestError(
         res.status,
-        i18next.t(options.errorMessage),
-        await readApiErrorCode(res),
+        apiErrorMessage(code) ?? i18next.t(options.errorMessage),
+        code,
         readRetryAfterSeconds(res),
       );
     }

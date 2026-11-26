@@ -8,8 +8,44 @@ import { handleError, reportApiFailure } from "@/observability";
 // 各 feature の schema.ts で使う共通スキーマ・security 要件と、
 // index.ts から呼ぶ /doc・/ui の登録関数をここに置く。
 
-/** API エラー応答の共通形。ルート・ミドルウェアとも `{error: message}` を返す。 */
-export const errorResponseSchema = z.object({ error: z.string() });
+/**
+ * API エラー応答の共通形。ルート・ミドルウェアとも `{error, code}` を返す。
+ * `code` はクライアントが表示文言を引くための機械可読な識別子（snake_case）、
+ * `error` は開発者向けの英語メッセージ（issue #838）。
+ */
+export const errorResponseSchema = z.object({
+  error: z.string(),
+  code: z.string(),
+});
+
+/**
+ * レート制限（429）応答の OpenAPI 定義を作る。
+ * API の 429 はすべて Retry-After（秒）を返す契約。
+ */
+export function rateLimitedErrorResponse(description: string) {
+  return {
+    content: { "application/json": { schema: errorResponseSchema } },
+    headers: z.object({ "Retry-After": z.string() }),
+    description,
+  };
+}
+
+/** Annict 上流のレート制限（429 + Retry-After）。code は annict_rate_limited。 */
+export const annictRateLimitedResponse = rateLimitedErrorResponse(
+  "Annict のレート制限（Retry-After ヘッダ付き）",
+);
+
+/** Annict 上流の障害（502）。code は annict_upstream。 */
+export const annictUpstreamErrorResponse = {
+  content: { "application/json": { schema: errorResponseSchema } },
+  description: "Annict の障害",
+};
+
+/** 共用トークンの拒否（503）。code は annict_shared_token_unavailable。 */
+export const annictSharedTokenUnavailableResponse = {
+  content: { "application/json": { schema: errorResponseSchema } },
+  description: "Annict の共用トークンが使えない（本人の Annict 連携が必要）",
+};
 
 /** 成功のみを返す応答。 */
 export const successResponseSchema = z.object({ success: z.boolean() });
@@ -27,11 +63,29 @@ export const bearerAuthWithAnnict: Record<string, string[]>[] = [
   { bearerAuth: [] },
 ];
 
-/** `code` で失敗理由を区別するエラー応答（Annict 連携切れ・上流障害など）。 */
-export const codedErrorResponseSchema = z.object({
-  error: z.string(),
-  code: z.string().optional(),
-});
+/**
+ * HTTPException 由来のエラー応答に付ける code。mediaTypeGate の 415 や
+ * 不正 JSON の 400 など、ルート固有でないものはステータスの標準名を
+ * snake_case にしたものを使う。
+ */
+const HTTP_EXCEPTION_CODES: Record<number, string> = {
+  400: "bad_request",
+  401: "unauthorized",
+  403: "forbidden",
+  404: "not_found",
+  405: "method_not_allowed",
+  409: "conflict",
+  413: "payload_too_large",
+  415: "unsupported_media_type",
+  422: "unprocessable_content",
+};
+
+function httpExceptionCode(status: number): string {
+  return (
+    HTTP_EXCEPTION_CODES[status] ??
+    (status >= 500 ? "internal_error" : "bad_request")
+  );
+}
 
 const binaryImageMediaTypes = ["image/webp", "image/jpeg", "image/png"];
 const openApi30BinarySchema = { type: "string", format: "binary" };
@@ -99,8 +153,17 @@ function openapiValidationHook(
   c: Context,
 ) {
   if (!result.success) {
+    const issue = result.error?.issues[0];
+    // zod v4 の refine は params を issue に残せる。利用者向けの理由を
+    // 区別するバリデーション（プロフィール更新など）は params.code を
+    // 付け、クライアントが code から表示文言を引けるようにする（issue #838）。
+    const paramsCode = (issue as { params?: { code?: unknown } } | undefined)
+      ?.params?.code;
     return c.json(
-      { error: result.error?.issues[0]?.message ?? "Invalid request" },
+      {
+        error: issue?.message ?? "Invalid request",
+        code: typeof paramsCode === "string" ? paramsCode : "invalid_request",
+      },
       400,
     );
   }
@@ -123,7 +186,10 @@ export function createOpenApiApp<E extends Env>() {
     if (e instanceof HTTPException) {
       // 5xx はサーバー側の障害なので、親の handleError と同じく記録・通知する。
       if (e.status >= 500) reportApiFailure(e, c, e.status);
-      return c.json({ error: e.message }, e.status);
+      return c.json(
+        { error: e.message, code: httpExceptionCode(e.status) },
+        e.status,
+      );
     }
     return handleError(e, c);
   });

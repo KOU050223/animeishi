@@ -99,7 +99,10 @@ const friends = app
   .openapi(addFriendRoute, async (c) => {
     const { friendId, qrToken, offlineToken, scannedAt } = c.req.valid("json");
     if (friendId === c.var.clerkUserId) {
-      return c.json({ error: "自分自身をフレンドに追加できません" }, 400);
+      return c.json(
+        { error: "Cannot add yourself as a friend", code: "cannot_add_self" },
+        400,
+      );
     }
     // 即時成立は対面 QR 交換に限る。トークンが無い・無効・期限切れの場合は
     // 申請フロー（/me/friend-requests）を使うよう code で知らせる（issue #417）。
@@ -118,9 +121,8 @@ const friends = app
     if (!exchangeToken) {
       return c.json(
         {
-          error:
-            "対面 QR の有効期限が切れています。フレンド申請を送ってください",
-          code: "qr_exchange_required",
+          error: "The QR token is invalid or expired",
+          code: "qr_exchange_required" as const,
         },
         403,
       );
@@ -161,10 +163,16 @@ const friends = app
       return c.json(result, 201);
     } catch (e) {
       if (e instanceof FriendNotFoundError) {
-        return c.json({ error: "User not found" }, 404);
+        return c.json({ error: "User not found", code: "user_not_found" }, 404);
       }
       if (e instanceof UserBlockedError) {
-        return c.json({ error: "このユーザーは追加できません" }, 403);
+        return c.json(
+          {
+            error: "Cannot add this user as a friend",
+            code: "friend_add_not_allowed" as const,
+          },
+          403,
+        );
       }
       throw e;
     }
@@ -184,7 +192,7 @@ const friends = app
       );
     } catch (e) {
       if (e instanceof FriendNotFoundError) {
-        return c.json({ error: "フレンドではありません" }, 404);
+        return c.json({ error: "Not friends", code: "not_friends" }, 404);
       }
       throw e;
     }
@@ -205,7 +213,7 @@ const friends = app
       );
     } catch (e) {
       if (e instanceof FriendNotFoundError) {
-        return c.json({ error: "フレンドではありません" }, 404);
+        return c.json({ error: "Not friends", code: "not_friends" }, 404);
       }
       throw e;
     }
@@ -270,7 +278,7 @@ const friends = app
       return c.json({ items: updates }, 200);
     } catch (e) {
       if (e instanceof FriendNotFoundError) {
-        return c.json({ error: "フレンドではありません" }, 404);
+        return c.json({ error: "Not friends", code: "not_friends" }, 404);
       }
       throw e;
     }

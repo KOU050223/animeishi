@@ -49,7 +49,10 @@ const articles = list.openapi(getArticleRoute, async (c) => {
 
   const article = await repo.getPublished({ slug, now: new Date() });
   if (!article) {
-    return c.json({ error: "Article not found" }, 404);
+    return c.json(
+      { error: "Article not found", code: "article_not_found" },
+      404,
+    );
   }
 
   return c.json(

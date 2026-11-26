@@ -60,7 +60,10 @@ const elections = app
 
     const election = await repo.getPublished({ slug, now: new Date() });
     if (!election) {
-      return c.json({ error: "Election not found" }, 404);
+      return c.json(
+        { error: "Election not found", code: "election_not_found" },
+        404,
+      );
     }
     const candidates = await repo.listCandidates(slug);
 
@@ -94,16 +97,19 @@ const elections = app
     const now = new Date();
     const election = await repo.getPublished({ slug, now });
     if (!election) {
-      return c.json({ error: "Election not found" }, 404);
+      return c.json(
+        { error: "Election not found", code: "election_not_found" },
+        404,
+      );
     }
     if (now < election.startsAt || election.endsAt < now) {
-      return c.json({ error: "投票期間外です", code: "voting_closed" }, 403);
+      return c.json({ error: "Voting is closed", code: "voting_closed" }, 403);
     }
     // 他の総選挙の候補や存在しない候補には投票できない。
     if (!(await repo.isCandidate({ electionSlug: slug, candidateId }))) {
       return c.json(
         {
-          error: "その候補はこの総選挙にありません",
+          error: "Unknown candidate",
           code: "unknown_candidate",
         },
         400,
@@ -121,11 +127,14 @@ const elections = app
     const now = new Date();
     const election = await repo.getPublished({ slug, now });
     if (!election) {
-      return c.json({ error: "Election not found" }, 404);
+      return c.json(
+        { error: "Election not found", code: "election_not_found" },
+        404,
+      );
     }
     // 終了後の取り消しを許すと集計済みの票が消えるため、投票期間中に限る。
     if (now < election.startsAt || election.endsAt < now) {
-      return c.json({ error: "投票期間外です", code: "voting_closed" }, 403);
+      return c.json({ error: "Voting is closed", code: "voting_closed" }, 403);
     }
 
     await repo.removeVote(slug);

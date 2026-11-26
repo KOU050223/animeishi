@@ -1,7 +1,12 @@
 import { useMutation } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
 import { apiClient, apiFetch } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import {
+  ApiRequestError,
+  readApiErrorCode,
+  readRetryAfterSeconds,
+} from "@/lib/apiError";
+import { apiErrorMessage } from "@/lib/apiErrorMessages";
 import { compressMeishiImage } from "@/lib/imageCompression";
 
 /** apiClient のベース URL を取得する。バイナリ body の POST は RPC では扱いにくいため fetch で直接送る。 */
@@ -54,15 +59,15 @@ export function useMeishiAssetUpload() {
       }
 
       const res = await apiFetch({
-        // API は { error } を返す（サイズ超過・非対応形式など）。
-        // 拾える場合はその文言を見せる。
+        // API は { error, code } を返す（サイズ超過・非対応形式など）。
+        // error は開発者向け英語なので、表示文言は code から引く（issue #838）。
         onHttpError: async (errorRes) => {
-          const errBody = (await errorRes.json().catch(() => null)) as {
-            error?: string;
-          } | null;
+          const code = await readApiErrorCode(errorRes);
           return new ApiRequestError(
             errorRes.status,
-            errBody?.error ?? "画像のアップロードに失敗しました",
+            apiErrorMessage(code) ?? "画像のアップロードに失敗しました",
+            code,
+            readRetryAfterSeconds(errorRes),
           );
         },
       })(MEISHI_ASSET_UPLOAD_URL, {
