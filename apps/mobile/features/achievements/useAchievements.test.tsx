@@ -8,7 +8,7 @@ import {
   achievementsQueryKey,
   currentAchievementSeason,
   useAchievements,
-} from "@/lib/achievements/useAchievements";
+} from "@/features/achievements/useAchievements";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 

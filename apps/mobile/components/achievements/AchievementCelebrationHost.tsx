@@ -10,14 +10,14 @@ import {
   diffNewlyEarned,
   earnedAchievementKeys,
   mergeSeenKeys,
-} from "@/lib/achievements/definitions";
+} from "@/features/achievements/definitions";
 import {
   loadSeenAchievementKeys,
   saveSeenAchievementKeys,
-} from "@/lib/achievements/seenStore";
-import { shareAchievementMessage } from "@/lib/achievements/share";
-import { useAchievements } from "@/lib/achievements/useAchievements";
-import type { Achievement } from "@/lib/achievements/types";
+} from "@/features/achievements/seenStore";
+import { shareAchievementMessage } from "@/features/achievements/share";
+import { useAchievements } from "@/features/achievements/useAchievements";
+import type { Achievement } from "@/features/achievements/types";
 
 /**
  * 実績の新規獲得を検出してお祝いオーバーレイを出すホスト（issue #415）。

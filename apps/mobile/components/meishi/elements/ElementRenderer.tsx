@@ -8,7 +8,7 @@ import {
   resolveImageUri,
   type OnImageLoadEnd,
 } from "@/lib/meishi/renderableImages";
-import { achievementBadgeLabel } from "@/lib/achievements/definitions";
+import { achievementBadgeLabel } from "@/features/achievements/definitions";
 import { imageContentPosition } from "@/lib/meishi/imageFocus";
 import type {
   AchievementBadgeElement,

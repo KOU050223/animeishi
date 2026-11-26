@@ -65,7 +65,7 @@ jest.mock("@/lib/useWatchHistory", () => ({
   useWatchHistory: () => ({ data: [] }),
 }));
 
-jest.mock("@/lib/achievements/useAchievements", () => ({
+jest.mock("@/features/achievements/useAchievements", () => ({
   useAchievements: () => ({ data: undefined }),
 }));
 

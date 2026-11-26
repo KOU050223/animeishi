@@ -38,7 +38,7 @@ import { useMeishiPrintExport } from "@/lib/meishi/printExport";
 import { usePublicMeishiSnapshot } from "@/lib/meishi/publicSnapshot/usePublicMeishiSnapshot";
 import { loadMeishiLibrary } from "@/lib/meishi/storage";
 import { buildProfileUrl } from "@/lib/profileUrl";
-import { useAchievements } from "@/lib/achievements/useAchievements";
+import { useAchievements } from "@/features/achievements/useAchievements";
 import { useFavorites } from "@/lib/useFavorites";
 import {
   pickMeishiImage,

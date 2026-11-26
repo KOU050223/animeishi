@@ -1,6 +1,6 @@
 import { buildMeishiAnimeContext } from "./animeContext";
 import type { MeishiRenderContext } from "./types";
-import { useAchievements } from "@/lib/achievements/useAchievements";
+import { useAchievements } from "@/features/achievements/useAchievements";
 import { useFavorites } from "@/lib/useFavorites";
 import { useWatchHistory } from "@/lib/useWatchHistory";
 
