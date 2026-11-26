@@ -182,6 +182,10 @@ function findSelectedStateElements(filePath: string): SelectedStateElement[] {
   return found;
 }
 
+function hasSelectionAccessibilitySpread(attributesOnly: string): boolean {
+  return /\{\s*\.\.\.\s*selectionAccessibilityProps\s*\(/.test(attributesOnly);
+}
+
 describe("押せる要素の accessibilityRole（issue #722）", () => {
   const files = SCAN_DIRS.flatMap((dir) =>
     collectTsxFiles(path.join(rootDir, dir)),
@@ -222,12 +226,25 @@ describe("押せる要素の accessibilityRole（issue #722）", () => {
     expect(missing).toEqual([]);
   });
 
+  test("選択状態の検査は onPress 内の呼び出しではなく spread だけを合格にする", () => {
+    expect(
+      hasSelectionAccessibilitySpread(
+        "<Pressable accessibilityState={{ selected: isSelected }} {...selectionAccessibilityProps(isSelected)}>",
+      ),
+    ).toBe(true);
+    expect(
+      hasSelectionAccessibilitySpread(
+        "<Pressable accessibilityState={{ selected: isSelected }} onPress={() => selectionAccessibilityProps(isSelected)}>",
+      ),
+    ).toBe(false);
+  });
+
   test("選択状態を持つ押下要素は Web に選択状態を出す", () => {
     const missing = files.flatMap((file) =>
       findSelectedStateElements(file)
         .filter(
           ({ attributesOnly }) =>
-            !/\bselectionAccessibilityProps\s*\(/.test(attributesOnly),
+            !hasSelectionAccessibilitySpread(attributesOnly),
         )
         .map(
           ({ element, line }) =>

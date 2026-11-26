@@ -117,7 +117,11 @@ export function FavoriteWorksStep({
                 className="flex-row items-center border-b border-slate-100 py-2 dark:border-slate-800"
                 testID={`onboarding-work-${item.annictWorkId}`}
                 accessibilityRole="button"
-                accessibilityLabel={item.title}
+                accessibilityLabel={
+                  item.titleEn && item.titleEn !== item.title
+                    ? `${item.title} / ${item.titleEn}`
+                    : item.title
+                }
                 accessibilityState={{ selected: isSelected }}
                 {...selectionAccessibilityProps(isSelected)}
               >

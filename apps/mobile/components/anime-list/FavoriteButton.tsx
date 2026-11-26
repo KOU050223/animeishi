@@ -26,11 +26,7 @@ export function FavoriteButton({
       accessibilityRole="button"
       accessibilityState={{ selected: isFavorite, disabled }}
       {...selectionAccessibilityProps(isFavorite)}
-      accessibilityLabel={
-        isFavorite
-          ? t("{{title}}を推しから解除", { title })
-          : t("{{title}}を推しに登録", { title })
-      }
+      accessibilityLabel={t("{{title}}の推し登録を切り替える", { title })}
     >
       <Ionicons
         name={isFavorite ? "heart" : "heart-outline"}

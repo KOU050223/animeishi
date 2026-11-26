@@ -507,11 +507,15 @@ export function WatchHistorySection() {
                   testID={`watch-history-sort-${key}`}
                 />
               ))}
-              <SelectChip
+              <FilterOpenChip
                 label={t("絞り込み")}
-                selected={filterActive}
+                active={filterActive}
                 onPress={() => setFilterSheetOpen(true)}
-                accessibilityLabel={t("視聴履歴を絞り込む")}
+                accessibilityLabel={
+                  filterActive
+                    ? t("視聴履歴を絞り込む（適用中）")
+                    : t("視聴履歴を絞り込む")
+                }
                 testID="watch-history-filter-button"
               />
             </ScrollView>
@@ -671,6 +675,44 @@ function SelectChip({
       <Text
         className={`text-xs font-medium ${
           selected ? "text-primary-text" : "text-muted"
+        }`}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// 押しても選択状態は切り替わらず、絞り込みシートを開くだけのチップ。
+// active は適用中である見た目だけに使い、aria-pressed / selected にはしない。
+function FilterOpenChip({
+  label,
+  active,
+  onPress,
+  accessibilityLabel,
+  testID,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  accessibilityLabel?: string;
+  testID?: string;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      className={`px-3 py-1.5 rounded-full border ${
+        active
+          ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
+          : "border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800"
+      }`}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      testID={testID}
+    >
+      <Text
+        className={`text-xs font-medium ${
+          active ? "text-primary-text" : "text-muted"
         }`}
       >
         {label}
