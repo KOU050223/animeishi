@@ -7,11 +7,11 @@ import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { currentSeason } from "@/components/anime-list/animeListUtils";
 import type { SeasonKey } from "@/components/anime-list/animeListUtils";
 import { useAnnictConnection } from "@/features/annict";
-import { filterWatchingBySeason } from "@/lib/currentSeasonWatching";
+import { filterWatchingBySeason } from "@/features/watch-history/currentSeasonWatching";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import type { TranslationKey } from "@/lib/i18n/keys";
 import { Skeleton, SkeletonGroup } from "@/components/ui/Skeleton";
-import { useWatchHistory } from "@/lib/useWatchHistory";
+import { useWatchHistory } from "@/features/watch-history/useWatchHistory";
 
 // シーズンキー → 季節名の i18n キー。SEASONS（アニメ一覧用）は日本語ラベルを
 // 直接持つため en で訳せないので、訳語の解決用に別マップを持つ。

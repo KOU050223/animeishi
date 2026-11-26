@@ -7,8 +7,8 @@ import { workDetailQueryKey } from "@/lib/useWorkDetail";
 import {
   WATCH_HISTORY_QUERY_KEY,
   WATCH_HISTORY_WRITE_SCOPE,
-} from "@/lib/watchHistoryKey";
-import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
+} from "@/features/watch-history/watchHistoryKey";
+import { WATCH_STATUS_LABELS } from "@/features/watch-history/watchStatusLabels";
 import { invalidateCommonPoints } from "@/features/users/useCommonPoints";
 import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/queries/achievements";
 import {
@@ -22,13 +22,13 @@ type UpsertRequest = InferRequestType<
   (typeof apiClient.me)["watch-histories"][":annictWorkId"]["$put"]
 >["json"];
 
-// キー定義は @/lib/watchHistoryKey に集約（連携解除時の破棄と一致させるため）。
+// キー定義は @/features/watch-history/watchHistoryKey に集約（連携解除時の破棄と一致させるため）。
 export { WATCH_HISTORY_QUERY_KEY };
 
 const watchHistoryQueryKey = (userId: string) =>
   watchHistoryQueries.key(userId);
 
-// 書き込みスコープは @/lib/watchHistoryKey に集約（useWorkDetail も参照するため）。
+// 書き込みスコープは @/features/watch-history/watchHistoryKey に集約（useWorkDetail も参照するため）。
 
 /**
  * useUpsertWatchHistory / useDeleteWatchHistory の mutateAsync が reject する

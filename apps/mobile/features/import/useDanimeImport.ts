@@ -16,7 +16,7 @@ import {
   type DanimeExtractedLists,
   type DanimeMatchItem,
 } from "@animeishi/danime-core";
-import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
+import { WATCH_HISTORY_QUERY_KEY } from "@/features/watch-history/watchHistoryKey";
 import { ACHIEVEMENTS_QUERY_KEY } from "@/features/achievements/useAchievements";
 import { invalidateCommonPoints } from "@/features/users/useCommonPoints";
 import type { TranslationKey } from "@/lib/i18n/keys";

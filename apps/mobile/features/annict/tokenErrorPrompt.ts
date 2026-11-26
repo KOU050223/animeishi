@@ -10,7 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { AnnictFunnelSurface } from "@animeishi/observability";
 import { alert, confirm } from "@/lib/dialog";
-import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
+import { WATCH_HISTORY_QUERY_KEY } from "@/features/watch-history/watchHistoryKey";
 import { isAnnictTokenError } from "./apiErrorCodes";
 import { annictErrorKey } from "./errorMessages";
 import { useAnnictFunnel } from "./funnel";

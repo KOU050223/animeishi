@@ -79,7 +79,7 @@ jest.mock("@/lib/useWorkRating", () => ({
   WORK_RATING_LABELS: { bad: "イマイチ", good: "良い", great: "最高" },
 }));
 
-jest.mock("@/lib/useWatchHistory", () => ({
+jest.mock("@/features/watch-history/useWatchHistory", () => ({
   useUpsertWatchHistory: () => ({
     mutateAsync: mockMutateAsync,
     isPending: false,

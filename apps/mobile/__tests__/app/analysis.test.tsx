@@ -98,7 +98,7 @@ jest.mock("@/features/analysis/useRecommendations", () => ({
   }),
 }));
 
-jest.mock("@/lib/useWatchHistory", () => ({
+jest.mock("@/features/watch-history/useWatchHistory", () => ({
   useUpsertWatchHistory: () => ({
     mutate: mockMutateHistory,
     mutateAsync: jest.fn(() => Promise.resolve({})),

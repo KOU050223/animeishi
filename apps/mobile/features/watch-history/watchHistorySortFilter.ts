@@ -1,4 +1,4 @@
-import type { WatchState } from "@/lib/watchStatusLabels";
+import type { WatchState } from "@/features/watch-history/watchStatusLabels";
 import { compareBroadcastSeason } from "@/lib/broadcastSeason";
 import type { TranslationKey } from "@/lib/i18n/keys";
 

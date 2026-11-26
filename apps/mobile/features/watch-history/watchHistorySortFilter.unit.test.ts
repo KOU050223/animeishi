@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WatchState } from "@/lib/watchStatusLabels";
+import type { WatchState } from "@/features/watch-history/watchStatusLabels";
 import {
   NO_WATCH_HISTORY_FILTERS,
   collectWatchHistoryDecades,
@@ -7,7 +7,7 @@ import {
   isWatchHistoryFilterActive,
   sortWatchHistory,
   yearToDecade,
-} from "@/lib/watchHistorySortFilter";
+} from "@/features/watch-history/watchHistorySortFilter";
 
 function entry(
   annictWorkId: number,

@@ -11,7 +11,7 @@ import { buildAuthorizeUrl, parseAuthCallback } from "./oauth";
 import { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
 import { trackAnnictFunnel } from "./funnel";
 import { refetchWorksAfterAnnictConnect } from "./afterConnect";
-import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
+import { WATCH_HISTORY_QUERY_KEY } from "@/features/watch-history/watchHistoryKey";
 import type {
   AnnictConnectOptions,
   AnnictConnectResult,

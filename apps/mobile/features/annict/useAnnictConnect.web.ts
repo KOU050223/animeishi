@@ -15,7 +15,7 @@ import {
 } from "./oauth";
 import { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
 import { flushAnnictFunnel, trackAnnictFunnel } from "./funnel";
-import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
+import { WATCH_HISTORY_QUERY_KEY } from "@/features/watch-history/watchHistoryKey";
 import type {
   AnnictConnectOptions,
   AnnictConnectResult,

@@ -21,7 +21,7 @@ import { useMeishiLibrary } from "@/features/meishi/useMeishiLibrary";
 import { loadMeishiLibrary } from "@/features/meishi/storage";
 import { usePublicMeishiSnapshot } from "@/features/meishi/publicSnapshot/usePublicMeishiSnapshot";
 import { useFavorites } from "@/features/favorites/useFavorites";
-import { useWatchHistory } from "@/lib/useWatchHistory";
+import { useWatchHistory } from "@/features/watch-history/useWatchHistory";
 import { useAchievements } from "@/features/achievements/useAchievements";
 import { buildMeishiAnimeContext } from "@/features/meishi/animeContext";
 import type { MeishiCardData } from "@/features/meishi/types";

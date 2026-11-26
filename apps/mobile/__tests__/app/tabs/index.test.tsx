@@ -11,7 +11,7 @@ import HomeScreen from "@/app/(tabs)/(home)/index";
 import { featureFlags } from "@/lib/featureFlags";
 
 import { currentSeason, SEASONS } from "@/components/anime-list/animeListUtils";
-import type { WatchState } from "@/lib/watchStatusLabels";
+import type { WatchState } from "@/features/watch-history/watchStatusLabels";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 jest.mock("@/lib/dialog", () => require("@/lib/dialog/dialog.web"));
@@ -94,7 +94,7 @@ let mockWatchHistory: {
   isError: boolean;
   refetch: jest.Mock;
 };
-jest.mock("@/lib/useWatchHistory", () => ({
+jest.mock("@/features/watch-history/useWatchHistory", () => ({
   useWatchHistory: () => mockWatchHistory,
   WATCH_HISTORY_QUERY_KEY: ["watch-history"],
 }));

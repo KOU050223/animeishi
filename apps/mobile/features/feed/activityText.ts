@@ -1,5 +1,5 @@
 import type { ActivityFeedItem } from "@/features/feed/useActivityFeed";
-import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
+import { WATCH_STATUS_LABELS } from "@/features/watch-history/watchStatusLabels";
 import type { TFunction } from "i18next";
 
 // フィード 1 件を「『タイトル』を…しました」という行にする。

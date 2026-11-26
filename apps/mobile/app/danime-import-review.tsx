@@ -47,7 +47,10 @@ import {
   type DanimeAnnictWork,
   type DanimeMatchItem,
 } from "@animeishi/danime-core";
-import { useWatchHistory, WATCH_STATUS_LABELS } from "@/lib/useWatchHistory";
+import {
+  useWatchHistory,
+  WATCH_STATUS_LABELS,
+} from "@/features/watch-history/useWatchHistory";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { TranslationKey } from "@/lib/i18n/keys";

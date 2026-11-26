@@ -6,7 +6,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 import { ApiRequestError } from "@/lib/apiError";
-import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
+import { WATCH_HISTORY_QUERY_KEY } from "@/features/watch-history/watchHistoryKey";
 import { useAnnictTokenErrorPrompt } from "./tokenErrorPrompt";
 import type { AnnictConnectResult } from "@/features/annict";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";

@@ -2,7 +2,7 @@ import { buildMeishiAnimeContext } from "./animeContext";
 import type { MeishiRenderContext } from "./types";
 import { useAchievements } from "@/features/achievements/useAchievements";
 import { useFavorites } from "@/features/favorites/useFavorites";
-import { useWatchHistory } from "@/lib/useWatchHistory";
+import { useWatchHistory } from "@/features/watch-history/useWatchHistory";
 
 /**
  * 名刺の描画コンテキストを組み立てる。プロフィールに加えて、

@@ -5,7 +5,7 @@ import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/queries/achievements";
 import {
   WATCH_HISTORY_QUERY_KEY,
   WATCH_HISTORY_WRITE_SCOPE,
-} from "@/lib/watchHistoryKey";
+} from "@/features/watch-history/watchHistoryKey";
 
 /**
  * 検索応答の作品配列を annictWorkId で dedupe する（先勝ち、順序保持）。

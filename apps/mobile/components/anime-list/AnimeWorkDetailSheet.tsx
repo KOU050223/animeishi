@@ -24,8 +24,8 @@ import {
   useDeleteWatchHistory,
   useUpsertWatchHistory,
   WATCH_STATUS_LABELS,
-} from "@/lib/useWatchHistory";
-import type { UpsertWatchHistoryError } from "@/lib/useWatchHistory";
+} from "@/features/watch-history/useWatchHistory";
+import type { UpsertWatchHistoryError } from "@/features/watch-history/useWatchHistory";
 import {
   useRecordEpisode,
   useUnrecordEpisode,
@@ -44,7 +44,7 @@ import {
   loadWorkRatingHintSeen,
   markWorkRatingHintSeen,
 } from "@/lib/workRatingHint";
-import type { WatchState } from "@/lib/watchStatusLabels";
+import type { WatchState } from "@/features/watch-history/watchStatusLabels";
 import { alert } from "@/lib/dialog";
 import {
   useAnnictConnection,

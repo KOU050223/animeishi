@@ -17,11 +17,11 @@ import {
   useUpsertWatchHistory,
   useDeleteWatchHistory,
   WATCH_STATUS_LABELS,
-} from "@/lib/useWatchHistory";
+} from "@/features/watch-history/useWatchHistory";
 import type {
   WatchHistoryItem,
   UpsertWatchHistoryError,
-} from "@/lib/useWatchHistory";
+} from "@/features/watch-history/useWatchHistory";
 import {
   useFavoriteIds,
   useToggleFavorite,
@@ -57,12 +57,12 @@ import {
   filterWatchHistory,
   isWatchHistoryFilterActive,
   sortWatchHistory,
-} from "@/lib/watchHistorySortFilter";
+} from "@/features/watch-history/watchHistorySortFilter";
 import type {
   WatchHistoryDecade,
   WatchHistoryFilters,
   WatchHistorySortKey,
-} from "@/lib/watchHistorySortFilter";
+} from "@/features/watch-history/watchHistorySortFilter";
 
 const WATCH_STATUSES = [
   "WATCHING",

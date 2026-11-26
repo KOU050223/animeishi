@@ -37,8 +37,11 @@ import { WatchedStamp } from "./WatchedStamp";
 import { SeasonFilter } from "./SeasonFilter";
 import { SortButton } from "./SortButton";
 import { trackEvent } from "@/lib/events";
-import { useWatchHistory } from "@/lib/useWatchHistory";
-import { WATCH_STATUS_LABELS, type WatchState } from "@/lib/watchStatusLabels";
+import { useWatchHistory } from "@/features/watch-history/useWatchHistory";
+import {
+  WATCH_STATUS_LABELS,
+  type WatchState,
+} from "@/features/watch-history/watchStatusLabels";
 import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
 import {
   adjacentSeasonParams,

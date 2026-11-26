@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { WatchState } from "@/lib/watchStatusLabels";
-import { filterCurrentSeasonWatching } from "@/lib/currentSeasonWatching";
+import type { WatchState } from "@/features/watch-history/watchStatusLabels";
+import { filterCurrentSeasonWatching } from "@/features/watch-history/currentSeasonWatching";
 
 // 2026-11-03 は JST で 2026-autumn 期。
 const NOW = new Date("2026-11-03T00:00:00+09:00");

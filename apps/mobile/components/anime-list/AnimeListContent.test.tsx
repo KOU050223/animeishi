@@ -89,7 +89,7 @@ jest.mock("@/lib/useWorkEpisodes", () => ({
 
 let mockWatchHistory: { annictWorkId: number; state: string }[] | undefined;
 
-jest.mock("@/lib/useWatchHistory", () => ({
+jest.mock("@/features/watch-history/useWatchHistory", () => ({
   useWatchHistory: () => ({ data: mockWatchHistory }),
   useUpsertWatchHistory: () => ({
     mutateAsync: mockMutateAsync,

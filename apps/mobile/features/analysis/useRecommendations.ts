@@ -8,7 +8,7 @@ import {
 } from "@/lib/apiError";
 import { apiErrorMessage } from "@/lib/apiErrorMessages";
 import { useAnnictConnection } from "@/features/annict";
-import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
+import { WATCH_HISTORY_QUERY_KEY } from "@/features/watch-history/watchHistoryKey";
 import {
   analysisQueries,
   type GetRecommendationsResponse,

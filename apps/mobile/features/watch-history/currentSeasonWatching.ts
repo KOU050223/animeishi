@@ -1,5 +1,5 @@
 import { currentSeason } from "@/components/anime-list/animeListUtils";
-import type { WatchState } from "@/lib/watchStatusLabels";
+import type { WatchState } from "@/features/watch-history/watchStatusLabels";
 
 type WatchingWork = {
   state: WatchState;

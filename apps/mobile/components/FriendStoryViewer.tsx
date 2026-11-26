@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useTranslation } from "react-i18next";
 import type { FriendWatchStory } from "@/features/feed/useFriendWatchStories";
-import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
+import { WATCH_STATUS_LABELS } from "@/features/watch-history/watchStatusLabels";
 import { formatRelativeTime } from "@/features/feed/activityText";
 import { useOpenWorkDetail } from "@/lib/workDetailContext";
 

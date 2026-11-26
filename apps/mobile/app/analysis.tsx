@@ -19,8 +19,11 @@ import {
   useRecommendations,
   type RecommendedWork,
 } from "@/features/analysis/useRecommendations";
-import { useUpsertWatchHistory, useWatchHistory } from "@/lib/useWatchHistory";
-import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
+import {
+  useUpsertWatchHistory,
+  useWatchHistory,
+} from "@/features/watch-history/useWatchHistory";
+import { WATCH_STATUS_LABELS } from "@/features/watch-history/watchStatusLabels";
 import {
   useFavoriteIds,
   useToggleFavorite,

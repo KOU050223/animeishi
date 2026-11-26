@@ -82,13 +82,14 @@ const mockHistories: {
   data: { annictWorkId: number; state: string }[] | undefined;
   isLoading: boolean;
 } = { data: [], isLoading: false };
-jest.mock("@/lib/useWatchHistory", () => ({
+jest.mock("@/features/watch-history/useWatchHistory", () => ({
   useWatchHistory: () => ({
     data: mockHistories.data,
     isLoading: mockHistories.isLoading,
   }),
-  WATCH_STATUS_LABELS: jest.requireActual("@/lib/watchStatusLabels")
-    .WATCH_STATUS_LABELS,
+  WATCH_STATUS_LABELS: jest.requireActual(
+    "@/features/watch-history/watchStatusLabels",
+  ).WATCH_STATUS_LABELS,
 }));
 
 jest.mock("@/components/anime-list/WorkThumbnail", () => ({
