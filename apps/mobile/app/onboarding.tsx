@@ -9,10 +9,13 @@ import {
   saveOnboardingStatus,
   type OnboardingStatus,
 } from "@/lib/onboarding";
-import { getTemplate } from "@/lib/meishi/templates";
-import { addCard, findCard } from "@/lib/meishi/library";
-import { loadMeishiLibrary, updateMeishiLibrary } from "@/lib/meishi/storage";
-import type { MeishiDocument } from "@/lib/meishi/types";
+import { getTemplate } from "@/features/meishi/templates";
+import { addCard, findCard } from "@/features/meishi/library";
+import {
+  loadMeishiLibrary,
+  updateMeishiLibrary,
+} from "@/features/meishi/storage";
+import type { MeishiDocument } from "@/features/meishi/types";
 import { useAddFavorite } from "@/features/favorites/useFavorites";
 import type { WorkCandidate } from "@/lib/useWorkCandidates";
 import { ApiRequestError } from "@/lib/apiError";

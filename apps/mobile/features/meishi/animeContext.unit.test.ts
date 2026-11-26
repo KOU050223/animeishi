@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
+import { buildMeishiAnimeContext } from "@/features/meishi/animeContext";
 
 describe("buildMeishiAnimeContext", () => {
   it("視聴履歴画像を優先してコラージュ画像と件数を作る", () => {

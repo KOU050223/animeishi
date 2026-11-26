@@ -1,6 +1,9 @@
-import { newId } from "@/lib/meishi/defaults";
-import type { MeishiTemplate } from "@/lib/meishi/templates";
-import type { AnimeCollageElement, MeishiDocument } from "@/lib/meishi/types";
+import { newId } from "@/features/meishi/defaults";
+import type { MeishiTemplate } from "@/features/meishi/templates";
+import type {
+  AnimeCollageElement,
+  MeishiDocument,
+} from "@/features/meishi/types";
 
 /**
  * オンボーディングで選んだ推しを名刺に反映するコラージュ要素（issue #412）。
@@ -25,7 +28,7 @@ function favoritesCollageElement(): AnimeCollageElement {
 
 /**
  * オンボーディング用の名刺ドキュメントを組み立てる。
- * 名刺エディタの既存テンプレート（lib/meishi/templates.ts）に
+ * 名刺エディタの既存テンプレート（features/meishi/templates.ts）に
  * 推しコラージュを載せたもの。テンプレート選択時にそのまま保存する。
  */
 export function buildOnboardingDocument(

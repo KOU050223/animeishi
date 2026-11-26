@@ -12,7 +12,7 @@ import { ApiRequestError } from "@/lib/apiError";
 import { alert } from "@/lib/dialog";
 import { enqueueExchange } from "@/features/friends/exchangeQueue";
 import { haptics } from "@/lib/haptics";
-import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
+import { useMeishiLibrary } from "@/features/meishi/useMeishiLibrary";
 import {
   approachProgress,
   selectTapPeers,

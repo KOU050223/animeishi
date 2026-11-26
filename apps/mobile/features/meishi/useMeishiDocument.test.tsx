@@ -1,16 +1,16 @@
 import React from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
-import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
-import * as historyModule from "@/lib/meishi/history";
-import { loadMeishiLibrary } from "@/lib/meishi/storage";
+import { useMeishiDocument } from "@/features/meishi/useMeishiDocument";
+import * as historyModule from "@/features/meishi/history";
+import { loadMeishiLibrary } from "@/features/meishi/storage";
 import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { resetEventTrackingForTest } from "@/lib/events";
 import type {
   MeishiCardData,
   MeishiDocument,
   MeishiLibrary,
-} from "@/lib/meishi/types";
+} from "@/features/meishi/types";
 
 // 実ストレージ（AsyncStorage は jest 環境でメモリ実装）を通して振る舞いを
 // 見る。saveDocument の直列化はモックを挟むと検証できないため。

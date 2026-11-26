@@ -9,7 +9,7 @@ import Svg, {
   Rect,
   Stop,
 } from "react-native-svg";
-import type { BackgroundStyle } from "@/lib/meishi/types";
+import type { BackgroundStyle } from "@/features/meishi/types";
 
 export function BackgroundLayer({
   style,

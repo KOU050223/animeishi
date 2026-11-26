@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import type { ListRenderItem } from "react-native";
 import { isAnnictTokenError, useAnnictConnection } from "@/features/annict";
-import type { CollageStateFilter } from "@/lib/meishi/types";
+import type { CollageStateFilter } from "@/features/meishi/types";
 import { useAnimeList } from "@/lib/useAnimeList";
 import { WATCH_STATUS_LABELS } from "@/lib/useWatchHistory";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";

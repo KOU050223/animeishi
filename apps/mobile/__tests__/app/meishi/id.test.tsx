@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import MeishiViewerScreen from "@/app/meishi/[id]";
-import type { MeishiCardData } from "@/lib/meishi/types";
+import type { MeishiCardData } from "@/features/meishi/types";
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -71,7 +71,7 @@ jest.mock("@/features/achievements/useAchievements", () => ({
 
 const mockExportPrintImages = jest.fn();
 // 印刷用書き出しのスナップショット描画・撮像は本テストの対象外。
-jest.mock("@/lib/meishi/printExport", () => ({
+jest.mock("@/features/meishi/printExport", () => ({
   useMeishiPrintExport: () => ({
     exportPrintImages: mockExportPrintImages,
     isExporting: false,
@@ -105,7 +105,7 @@ let mockCards: MeishiCardData[] = [
 ];
 let mockLoaded = true;
 
-jest.mock("@/lib/meishi/useMeishiLibrary", () => ({
+jest.mock("@/features/meishi/useMeishiLibrary", () => ({
   useMeishiLibrary: () => ({
     cards: mockCards,
     defaultCard: mockCards[0] ?? null,

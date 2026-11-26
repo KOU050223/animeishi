@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildOnboardingDocument } from "./document";
-import { MEISHI_TEMPLATES } from "@/lib/meishi/templates";
+import { MEISHI_TEMPLATES } from "@/features/meishi/templates";
 
 describe("buildOnboardingDocument", () => {
   it.each(MEISHI_TEMPLATES.map((t) => [t.id, t] as const))(

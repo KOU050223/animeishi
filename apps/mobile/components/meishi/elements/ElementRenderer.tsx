@@ -7,9 +7,9 @@ import {
   resolveCollageImages,
   resolveImageUri,
   type OnImageLoadEnd,
-} from "@/lib/meishi/renderableImages";
+} from "@/features/meishi/renderableImages";
 import { achievementBadgeLabel } from "@/features/achievements/definitions";
-import { imageContentPosition } from "@/lib/meishi/imageFocus";
+import { imageContentPosition } from "@/features/meishi/imageFocus";
 import type {
   AchievementBadgeElement,
   AnimeCollageElement,
@@ -20,7 +20,7 @@ import type {
   QrElement,
   ShapeElement,
   TextElement,
-} from "@/lib/meishi/types";
+} from "@/features/meishi/types";
 
 function resolveFontFamily(
   family: TextElement["fontFamily"],

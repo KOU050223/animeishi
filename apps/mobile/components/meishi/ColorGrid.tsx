@@ -1,7 +1,7 @@
 import { Pressable, ScrollView } from "react-native";
 import { useTranslation } from "react-i18next";
 import { selectionAccessibilityProps } from "@/lib/accessibility";
-import { COLOR_PALETTE } from "@/lib/meishi/defaults";
+import { COLOR_PALETTE } from "@/features/meishi/defaults";
 import { useThemeColors } from "@/lib/theme";
 
 /**

@@ -157,7 +157,7 @@ jest.mock("@/features/me/useProfileAvatar", () => ({
   }),
 }));
 
-jest.mock("@/lib/meishi/useMeishiLibrary", () => ({
+jest.mock("@/features/meishi/useMeishiLibrary", () => ({
   useMeishiLibrary: () => ({
     cards: [],
     defaultCard: null,

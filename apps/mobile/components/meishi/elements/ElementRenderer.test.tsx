@@ -9,7 +9,7 @@ import type {
   MeishiElement,
   MeishiRenderContext,
   TextElement,
-} from "@/lib/meishi/types";
+} from "@/features/meishi/types";
 
 // useTranslation の t() は ja のときキーがそのまま文言になる設計のため、
 // キー返し + {{name}} 補間だけの軽量モックで表示結果を再現する

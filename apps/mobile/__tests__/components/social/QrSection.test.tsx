@@ -219,7 +219,7 @@ jest.mock("@/features/me/useProfile", () => ({
 // 端末内の名刺ライブラリ（issue #427）。カード構成はテストごとに差し替える。
 let mockMeishiCards: { id: string; name: string; document: unknown }[] = [];
 let mockDefaultCardId: string | null = null;
-jest.mock("@/lib/meishi/useMeishiLibrary", () => ({
+jest.mock("@/features/meishi/useMeishiLibrary", () => ({
   useMeishiLibrary: () => ({
     library: {
       version: 1,

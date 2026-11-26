@@ -30,7 +30,7 @@ export type MeishiCompletion = {
 
 /**
  * 名刺の完成状態をプロフィール・お気に入り・既定カードのドキュメントから
- * 組み立てる。完成の定義は lib/meishi/completion.ts（issue #419 と共通）。
+ * 組み立てる。完成の定義は features/meishi/completion.ts（issue #419 と共通）。
  * 「テンプレート選択済み」は既定カード（issue #427 の名刺ライブラリ）に
  * ドキュメントがあることで判定する。
  * オンボーディングの「名刺完成」画面と、ホームの完成度カード（#419）で共用する。

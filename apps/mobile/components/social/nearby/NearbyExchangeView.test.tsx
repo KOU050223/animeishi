@@ -91,7 +91,7 @@ jest.mock("@/features/me/useProfile", () => ({
   useProfile: () => ({ data: { username: "みお" } }),
 }));
 
-jest.mock("@/lib/meishi/useMeishiLibrary", () => ({
+jest.mock("@/features/meishi/useMeishiLibrary", () => ({
   useMeishiLibrary: () => ({ defaultCard: null }),
 }));
 

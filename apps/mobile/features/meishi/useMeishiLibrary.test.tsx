@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
-import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
-import { loadMeishiLibrary } from "@/lib/meishi/storage";
-import type { MeishiDocument, MeishiLibrary } from "@/lib/meishi/types";
+import { useMeishiLibrary } from "@/features/meishi/useMeishiLibrary";
+import { loadMeishiLibrary } from "@/features/meishi/storage";
+import type { MeishiDocument, MeishiLibrary } from "@/features/meishi/types";
 
 // 実ストレージ（AsyncStorage は jest 環境でメモリ実装）を通して振る舞いを
 // 見る。操作の直列化はモックを挟むと検証できないため。

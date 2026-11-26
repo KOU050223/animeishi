@@ -39,7 +39,7 @@ import { saveQrImage } from "@/features/friends/qrImage";
 import { alert } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { useProfile } from "@/features/me/useProfile";
-import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
+import { useMeishiLibrary } from "@/features/meishi/useMeishiLibrary";
 import { SegmentedControl } from "@/components/ui";
 
 // 「コピーしました」表示を元に戻すまでの時間。

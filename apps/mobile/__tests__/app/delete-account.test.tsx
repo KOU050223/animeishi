@@ -7,7 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react-native";
 import DeleteAccountScreen from "@/app/delete-account";
-import type { MeishiLibrary } from "@/lib/meishi/types";
+import type { MeishiLibrary } from "@/features/meishi/types";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const mockBack = jest.fn();
@@ -71,7 +71,7 @@ jest.mock("@/features/annict/storage", () => ({
   },
 }));
 
-jest.mock("@/lib/meishi/storage", () => ({
+jest.mock("@/features/meishi/storage", () => ({
   loadMeishiLibrary: () => mockLoadMeishiLibrary(),
   clearMeishiDocument: () => mockClearMeishiDocument(),
 }));

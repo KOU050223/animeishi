@@ -2,7 +2,10 @@ import React, { createRef } from "react";
 import { render, screen } from "@testing-library/react-native";
 import type { ViewInstance } from "react-native";
 import { MeishiPrintSnapshot } from "./MeishiPrintSnapshot";
-import type { MeishiDocument, MeishiRenderContext } from "@/lib/meishi/types";
+import type {
+  MeishiDocument,
+  MeishiRenderContext,
+} from "@/features/meishi/types";
 
 const doc: MeishiDocument = {
   version: 1,

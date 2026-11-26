@@ -3,13 +3,16 @@ import type { RefObject } from "react";
 import { StyleSheet, Text, View, type ViewInstance } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { MeishiRenderer } from "./MeishiRenderer";
-import { countRenderableImages } from "@/lib/meishi/renderableImages";
+import { countRenderableImages } from "@/features/meishi/renderableImages";
 import {
   getCoverRect,
   getPrintLayout,
   type PrintLayout,
-} from "@/lib/meishi/printExport/printLayout";
-import type { MeishiDocument, MeishiRenderContext } from "@/lib/meishi/types";
+} from "@/features/meishi/printExport/printLayout";
+import type {
+  MeishiDocument,
+  MeishiRenderContext,
+} from "@/features/meishi/types";
 
 export type MeishiPrintSnapshotProps = {
   document: MeishiDocument;
