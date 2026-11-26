@@ -1,7 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient, apiFetch } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import {
+  ApiRequestError,
+  readApiErrorCode,
+  readRetryAfterSeconds,
+} from "@/lib/apiError";
+import { apiErrorMessage } from "@/lib/apiErrorMessages";
 import { useAnnictConnection } from "@/lib/annict";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import {
@@ -36,8 +41,8 @@ export function useAnalysis() {
  * GET /me/watch-histories で read-through 同期してから生成する
  * （未連携なら既存スナップショットのまま生成を試みる）。
  * 同一入力の 24h キャッシュは API 側が返す（cached=true）ため、
- * ここでは呼ぶだけでよい。429（生成回数制限）時はサーバー応答の
- * メッセージを ApiRequestError に載せる。
+ * ここでは呼ぶだけでよい。429（生成回数制限）時は応答の code から
+ * 表示文言を引いて ApiRequestError に載せる（issue #838）。
  */
 export function useGenerateAnalysis() {
   const { userId } = useAuth();
@@ -62,16 +67,15 @@ export function useGenerateAnalysis() {
         );
       }
       const res = await apiClient.me.analysis.$post(undefined, {
-        // 429 等は {error} に制限理由が入るため、標準の ApiRequestError 化
-        // ではなく応答の文言を拾う。
+        // 429（生成回数制限）等は code から表示文言を引く（issue #838）。
         fetch: apiFetch({
           onHttpError: async (errorRes) => {
-            const body = (await errorRes.json().catch(() => null)) as {
-              error?: string;
-            } | null;
+            const code = await readApiErrorCode(errorRes);
             return new ApiRequestError(
               errorRes.status,
-              body?.error ?? "分析に失敗しました",
+              apiErrorMessage(code) ?? "分析に失敗しました",
+              code,
+              readRetryAfterSeconds(errorRes),
             );
           },
         }),

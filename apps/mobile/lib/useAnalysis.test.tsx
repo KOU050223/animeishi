@@ -163,7 +163,7 @@ describe("useAnalysis / useGenerateAnalysis", () => {
     );
   });
 
-  it("useGenerateAnalysis: onHttpError は応答 body の error 文言を使う", async () => {
+  it("useGenerateAnalysis: onHttpError は code から表示文言を引く", async () => {
     mockPost.mockResolvedValue({
       ok: true,
       json: async () => ({ ...ANALYSIS_BODY, cached: false }),
@@ -190,15 +190,17 @@ describe("useAnalysis / useGenerateAnalysis", () => {
     const error = await genOptions!.onHttpError!(
       new Response(
         JSON.stringify({
-          error:
-            "視聴傾向分析の実行回数が上限に達しました。しばらくしてから再度お試しください",
+          error: "Generation rate limit reached",
+          code: "generation_limit",
         }),
         { status: 429 },
       ),
     );
     expect(error).toBeInstanceOf(ApiRequestError);
     expect((error as ApiRequestError).status).toBe(429);
-    expect(error.message).toContain("実行回数が上限");
+    expect(error.message).toBe(
+      "試行回数が上限に達しました。しばらくしてからお試しください",
+    );
   });
 
   it("useGenerateAnalysis: 連携済みなら履歴を同期してから生成する", async () => {

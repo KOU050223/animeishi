@@ -537,7 +537,7 @@ describe("useToggleWorkListLike", () => {
     });
   });
 
-  it("onHttpError は 429 の応答 body の error 文言を使う", async () => {
+  it("onHttpError は 429 の code から表示文言を引く", async () => {
     mockLikePut.mockResolvedValue(
       okResponse({ likeCount: 13, likedByMe: true }),
     );
@@ -558,13 +558,16 @@ describe("useToggleWorkListLike", () => {
       .find((opts) => typeof opts.onHttpError === "function");
     expect(options).toBeDefined();
     const error = await options!.onHttpError!(
-      new Response(JSON.stringify({ error: "いいねは1時間に10回までです" }), {
-        status: 429,
-      }),
+      new Response(
+        JSON.stringify({ error: "Too many requests", code: "rate_limited" }),
+        { status: 429 },
+      ),
     );
     expect(error).toBeInstanceOf(ApiRequestError);
     expect((error as ApiRequestError).status).toBe(429);
-    expect(error.message).toBe("いいねは1時間に10回までです");
+    expect(error.message).toBe(
+      "リクエストが多すぎます。しばらくしてからお試しください",
+    );
   });
 });
 
@@ -600,7 +603,7 @@ describe("useReportWorkList", () => {
     expect(result.current.error?.message).toBe("通報は1時間に5回までです");
   });
 
-  it("onHttpError は 429 の応答 body の error 文言を使う", async () => {
+  it("onHttpError は 429 の code から表示文言を引く", async () => {
     mockReportPost.mockResolvedValue(okResponse({}));
     const { wrapper } = makeWrapper();
     const { result } = await renderHook(() => useReportWorkList(), {
@@ -619,13 +622,19 @@ describe("useReportWorkList", () => {
       .find((opts) => typeof opts.onHttpError === "function");
     expect(options).toBeDefined();
     const error = await options!.onHttpError!(
-      new Response(JSON.stringify({ error: "通報は1時間に5回までです" }), {
-        status: 429,
-      }),
+      new Response(
+        JSON.stringify({
+          error: "Report rate limit reached",
+          code: "hourly_limit",
+        }),
+        { status: 429 },
+      ),
     );
     expect(error).toBeInstanceOf(ApiRequestError);
     expect((error as ApiRequestError).status).toBe(429);
-    expect(error.message).toBe("通報は1時間に5回までです");
+    expect(error.message).toBe(
+      "通報の送信回数が上限に達しました。しばらくしてから再度お試しください",
+    );
   });
 });
 

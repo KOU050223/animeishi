@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient, apiFetch } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import {
+  ApiRequestError,
+  readApiErrorCode,
+  readRetryAfterSeconds,
+} from "@/lib/apiError";
+import { apiErrorMessage, apiErrorMessageKey } from "@/lib/apiErrorMessages";
 import { PUBLIC_PROFILE_QUERY_KEY } from "@/lib/publicProfile";
 import { FRIENDS_QUERY_KEY, FRIEND_REQUESTS_QUERY_KEY } from "@/lib/useFriends";
 import { COMMON_POINTS_QUERY_KEY } from "@/lib/useCommonPoints";
@@ -19,13 +24,9 @@ const BLOCKS_QUERY_KEY = blockQueries.all;
 
 export function getReportErrorMessage(error: unknown) {
   if (error instanceof ApiRequestError && error.status === 429) {
-    if (error.code === "duplicate_target")
-      return "同じユーザーへの通報は24時間に1回までです";
-    if (error.code === "hourly_limit")
-      return "通報の送信回数が上限に達しました。しばらくしてから再度お試しください";
-    // edge のユーザー単位流量制限（issue #715）
-    if (error.code === "rate_limited")
-      return "リクエストが多すぎます。しばらくしてからお試しください";
+    // 文言はサーバーではなく code → i18n の対応表から引く（issue #838）。
+    const key = apiErrorMessageKey(error.code);
+    if (key) return key;
   }
   return "通報に失敗しました";
 }
@@ -51,17 +52,15 @@ export function useReportUser() {
         {
           fetch: apiFetch({
             onHttpError: async (errorRes) => {
-              // 429（レート制限・重複通報）はサーバーの理由メッセージを
-              // そのまま見せる（同一対象の再通報と回数上限で文言が違うため）。
+              // 429（レート制限・重複通報）は code から表示文言を引く
+              // （同一対象の再通報と回数上限で文言が違うため。issue #838）。
               if (errorRes.status === 429) {
-                const body = (await errorRes.json().catch(() => null)) as {
-                  error?: string;
-                  code?: string;
-                } | null;
+                const code = await readApiErrorCode(errorRes);
                 return new ApiRequestError(
                   errorRes.status,
-                  body?.error ?? "通報の送信回数が上限に達しました",
-                  body?.code,
+                  apiErrorMessage(code) ?? "通報の送信回数が上限に達しました",
+                  code,
+                  readRetryAfterSeconds(errorRes),
                 );
               }
               return new ApiRequestError(errorRes.status, "通報に失敗しました");

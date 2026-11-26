@@ -1,7 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient, apiFetch } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import {
+  ApiRequestError,
+  readApiErrorCode,
+  readRetryAfterSeconds,
+} from "@/lib/apiError";
+import { apiErrorMessage } from "@/lib/apiErrorMessages";
 import { invalidateFriendRelatedQueries } from "./useFriends";
 import { friendQueries } from "@/lib/queries/friends";
 import type { FriendRequestSendResponse } from "@/lib/queries/friends";
@@ -56,14 +61,14 @@ export function useSendFriendRequest() {
               if (errorRes.status === 409) {
                 return new ApiRequestError(409, "すでにフレンドです");
               }
-              // 429（送信数の上限）はサーバーの文言をそのまま見せる
+              // 429（送信数の上限）は code から表示文言を引く（issue #838）
               if (errorRes.status === 429) {
-                const body = (await errorRes.json().catch(() => null)) as {
-                  error?: string;
-                } | null;
+                const code = await readApiErrorCode(errorRes);
                 return new ApiRequestError(
                   errorRes.status,
-                  body?.error ?? "フレンド申請に失敗しました",
+                  apiErrorMessage(code) ?? "フレンド申請に失敗しました",
+                  code,
+                  readRetryAfterSeconds(errorRes),
                 );
               }
               return new ApiRequestError(

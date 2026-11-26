@@ -82,20 +82,15 @@ export function useUpdateProfile() {
       const res = await apiClient.me.profile.$put(
         { json: input },
         {
-          // 400 はバリデーションの具体的な理由（「ユーザー名に使用できない
-          // 文字が含まれています」等）が {error} に入るので、標準の
-          // ApiRequestError 化ではなく応答 body の文言をそのまま画面へ渡す。
+          // 400 はバリデーション失敗。サーバーの error は開発者向け英語なので
+          // 画面には出さず、従来の汎用文言にフォールバックする（issue #838）。
           fetch: apiFetch({
             onHttpError: async (errorRes) => {
-              const body = (await errorRes.json().catch(() => null)) as {
-                error?: string;
-              } | null;
               return new ApiRequestError(
                 errorRes.status,
-                body?.error ??
-                  (errorRes.status === 400
-                    ? "入力内容に誤りがあります"
-                    : "プロフィールの更新に失敗しました"),
+                errorRes.status === 400
+                  ? "入力内容に誤りがあります"
+                  : "プロフィールの更新に失敗しました",
               );
             },
           }),

@@ -5,7 +5,12 @@ import {
 } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient, apiFetch } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import {
+  ApiRequestError,
+  readApiErrorCode,
+  readRetryAfterSeconds,
+} from "@/lib/apiError";
+import { apiErrorMessage } from "@/lib/apiErrorMessages";
 import {
   publicUserQueries,
   type PublicUsersResponse,
@@ -46,18 +51,18 @@ export function useToggleUserLike() {
     mutationFn: async (input: { id: string; like: boolean }) => {
       const param = { id: input.id };
       // 流量制限ミドルウェアの 429 応答は OpenAPI 経由ではないので
-      // ルートの型に含まれない。{error} の文言を拾うため標準の
-      // ApiRequestError 化ではなく応答を見て組み立てる。
+      // ルートの型に含まれない。表示文言は code から引くため標準の
+      // ApiRequestError 化ではなく応答を見て組み立てる（issue #838）。
       const fetcher = apiFetch({
         onHttpError: async (res) => {
           const status = res.status;
           if (status === 429) {
-            const body = (await res.json().catch(() => null)) as {
-              error?: string;
-            } | null;
+            const code = await readApiErrorCode(res);
             return new ApiRequestError(
               status,
-              body?.error ?? "いいねの更新に失敗しました",
+              apiErrorMessage(code) ?? "いいねの更新に失敗しました",
+              code,
+              readRetryAfterSeconds(res),
             );
           }
           return new ApiRequestError(status, "いいねの更新に失敗しました");
