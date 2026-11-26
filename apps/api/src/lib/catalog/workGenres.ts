@@ -20,6 +20,7 @@
 
 import type { DrizzleDb } from "@/db/client";
 import { worksRepository } from "@/features/works/repository";
+import { isD1InternalError, withD1InternalErrorRetry } from "@/lib/d1/retry";
 import {
   MAL_MAX_LOOKUPS_PER_CALL,
   resolveKitsuAnimeIds,
@@ -61,33 +62,6 @@ export type WorkGenreInput = {
   kitsuAnimeId: number | null;
 };
 
-/**
- * 一過性の D1 internal error（"D1_ERROR: internal error; reference = ..."）
- * かどうか。drizzle が包む DrizzleQueryError の cause もたどって判定する。
- */
-export function isD1InternalError(err: unknown): boolean {
-  for (let cur: unknown = err; cur instanceof Error; cur = cur.cause) {
-    if (/d1_error:?\s*internal error/i.test(cur.message)) return true;
-  }
-  return false;
-}
-
-/**
- * 一過性の D1 internal error で失敗したら 1 回だけ実行し直す。
- * それ以外のエラーはそのまま投げる（D1 のガイドでも internal error は
- * リトライ可・それ以外はリトライしても直らない前提のため）。
- */
-export async function withD1InternalErrorRetry<T>(
-  task: () => Promise<T>,
-): Promise<T> {
-  try {
-    return await task();
-  } catch (err) {
-    if (!isD1InternalError(err)) throw err;
-    return task();
-  }
-}
-
 // D1 internal error が 2 回続いたときの warn ログ。ログだけ残して
 // ジョブは次回 cron に回す（Sentry に送り続けない。issue #783）。
 function warnGenreFetchDeferred(stage: string, err: unknown): void {
@@ -109,9 +83,11 @@ function warnGenreFetchDeferred(stage: string, err: unknown): void {
  * genres が立つため pending から自然に外れる）。
  *
  * D1 の internal error はストレージ層の一過性エラーが大半なので、D1 呼び出しは
- * 1 回だけ実行し直す。それでも失敗した場合はこの実行を諦めて次回 cron に回す
- * （ジャンルはキャッシュ的な補完データで、1 回分の遅延で済むため。issue #783）。
- * internal error 以外の失敗は握らず投げ、runCronJob 経由で Sentry に送る。
+ * 1 回だけ実行し直す。対象取得と試行時刻の記録で internal error が続いた場合は
+ * この実行を諦めて次回 cron に回し、それ以外の失敗は握らず投げて runCronJob
+ * 経由で Sentry に送る。解決結果の保存に失敗した行は attempted マーカーが
+ * 残るため、クールダウン後の実行で再処理する（ジャンルはキャッシュ的な補完データで、
+ * 1 回分の遅延で済むため。issue #783）。
  */
 export async function resolvePendingWorkGenres(
   db: DrizzleDb,

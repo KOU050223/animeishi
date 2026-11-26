@@ -1,14 +1,13 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { setupTestDb } from "@/test-utils/setup-db";
+import { flakyD1Db } from "@/test-utils/flaky-d1";
 import { requestUrl } from "@/test-utils/fetch";
 import { isKitsuAnimeListUrl, isKitsuMappingsUrl } from "@/test-utils/kitsu";
 import { annictWorks } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { worksRepository } from "@/features/works/repository";
 import {
-  isD1InternalError,
-  withD1InternalErrorRetry,
   GENRE_EMPTY_REFETCH_AFTER_MS,
   GENRE_FETCH_ATTEMPT_COOLDOWN_MS,
   resolveGenresForWorks,
@@ -607,86 +606,6 @@ describe("resolvePendingWorkGenres", () => {
 
 const D1_INTERNAL_ERROR = "D1_ERROR: internal error; reference = e_test123";
 
-/**
- * db.select / db.update が呼ばれた回数だけ err を投げるラッパ。
- * Miniflare の D1 は internal error を自発的に起こせないため、
- * drizzle クライアントの呼び出し口を Proxy で差し替えて再現する。
- */
-function flakyDb(
-  base: Awaited<ReturnType<typeof setupTestDb>>,
-  err: Error,
-  failures: { select?: number; update?: number },
-): Awaited<ReturnType<typeof setupTestDb>> {
-  const left = { select: failures.select ?? 0, update: failures.update ?? 0 };
-  return new Proxy(base, {
-    get(target, prop) {
-      const kind =
-        prop === "select" ? "select" : prop === "update" ? "update" : null;
-      if (kind && left[kind] > 0) {
-        left[kind]--;
-        return () => {
-          throw err;
-        };
-      }
-      const value = Reflect.get(target, prop);
-      return typeof value === "function" ? value.bind(target) : value;
-    },
-  });
-}
-
-describe("isD1InternalError / withD1InternalErrorRetry（issue #783）", () => {
-  it("D1_ERROR: internal error を判定する。drizzle の包んだ cause もたどる", () => {
-    expect(isD1InternalError(new Error(D1_INTERNAL_ERROR))).toBe(true);
-    const wrapped = new Error("Failed query: select ...", {
-      cause: new Error(D1_INTERNAL_ERROR),
-    });
-    expect(isD1InternalError(wrapped)).toBe(true);
-  });
-
-  it("internal error でない D1 エラーや、D1_ERROR を名乗らないエラーは対象外", () => {
-    expect(isD1InternalError(new Error("D1_ERROR: UNIQUE constraint"))).toBe(
-      false,
-    );
-    expect(isD1InternalError(new Error("internal error"))).toBe(false);
-    expect(isD1InternalError(D1_INTERNAL_ERROR)).toBe(false);
-    expect(isD1InternalError(undefined)).toBe(false);
-  });
-
-  it("internal error なら 1 回だけ実行し直し、連続したらそのまま投げる", async () => {
-    const err = new Error(D1_INTERNAL_ERROR);
-
-    let calls = 0;
-    await expect(
-      withD1InternalErrorRetry(async () => {
-        calls++;
-        if (calls === 1) throw err;
-        return 42;
-      }),
-    ).resolves.toBe(42);
-    expect(calls).toBe(2);
-
-    calls = 0;
-    await expect(
-      withD1InternalErrorRetry(async () => {
-        calls++;
-        throw err;
-      }),
-    ).rejects.toThrow("D1_ERROR");
-    expect(calls).toBe(2);
-  });
-
-  it("internal error 以外はリトライしない", async () => {
-    let calls = 0;
-    await expect(
-      withD1InternalErrorRetry(async () => {
-        calls++;
-        throw new Error("syntax error near xyz");
-      }),
-    ).rejects.toThrow("syntax error");
-    expect(calls).toBe(1);
-  });
-});
-
 describe("resolvePendingWorkGenres の D1 internal error 耐性（issue #783）", () => {
   let db: Awaited<ReturnType<typeof setupTestDb>>;
 
@@ -705,7 +624,7 @@ describe("resolvePendingWorkGenres の D1 internal error 耐性（issue #783）"
         "42": [{ id: "c1", title: { en: "Action" } }],
       }),
     );
-    const flaky = flakyDb(db, new Error(D1_INTERNAL_ERROR), { select: 1 });
+    const flaky = flakyD1Db(db, new Error(D1_INTERNAL_ERROR), { select: 1 });
 
     const persisted = await resolvePendingWorkGenres(flaky);
 
@@ -716,7 +635,7 @@ describe("resolvePendingWorkGenres の D1 internal error 耐性（issue #783）"
   it("対象取得の internal error が連続したら、例外を出さず次回 cron に回す", async () => {
     await insertWork(db, { annictWorkId: 901, kitsuAnimeId: 42, genres: null });
     const fetchMock = vi.spyOn(globalThis, "fetch");
-    const flaky = flakyDb(db, new Error(D1_INTERNAL_ERROR), { select: 10 });
+    const flaky = flakyD1Db(db, new Error(D1_INTERNAL_ERROR), { select: 10 });
 
     await expect(resolvePendingWorkGenres(flaky)).resolves.toBe(0);
     // 外部取得まで進まず、試行時刻も立たないので次回実行で同じ行を拾い直せる
@@ -727,7 +646,7 @@ describe("resolvePendingWorkGenres の D1 internal error 耐性（issue #783）"
   it("試行時刻の書き込みが internal error で連続失敗しても次回 cron に回す", async () => {
     await insertWork(db, { annictWorkId: 902, malAnimeId: 21, genres: null });
     const fetchMock = vi.spyOn(globalThis, "fetch");
-    const flaky = flakyDb(db, new Error(D1_INTERNAL_ERROR), { update: 10 });
+    const flaky = flakyD1Db(db, new Error(D1_INTERNAL_ERROR), { update: 10 });
 
     await expect(resolvePendingWorkGenres(flaky)).resolves.toBe(0);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -735,7 +654,7 @@ describe("resolvePendingWorkGenres の D1 internal error 耐性（issue #783）"
   });
 
   it("internal error 以外の失敗は握りつぶさず呼び出し元に投げる", async () => {
-    const flaky = flakyDb(db, new Error('near "xyz": syntax error'), {
+    const flaky = flakyD1Db(db, new Error('near "xyz": syntax error'), {
       select: 10,
     });
 
