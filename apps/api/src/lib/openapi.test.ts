@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import {
   bearerAuth,
+  bearerAuthWithAnnict,
   createOpenApiApp,
   errorResponseSchema,
+  openApiDocumentConfig,
   registerOpenApiDocs,
 } from "@/lib/openapi";
+import { routes } from "@/app";
 
 type TestBindings = { Bindings: { ENVIRONMENT?: string } };
 
@@ -120,6 +123,163 @@ describe("OpenAPI ドキュメント", () => {
       expect(res.status).toBe(200);
     },
   );
+});
+
+type OpenApiOperation = {
+  security?: unknown;
+  requestBody?: { content?: Record<string, unknown> };
+  responses?: Record<
+    string,
+    {
+      content?: Record<
+        string,
+        {
+          schema?: {
+            type?: string;
+            properties?: Record<string, unknown>;
+            required?: string[];
+          };
+        }
+      >;
+    }
+  >;
+};
+
+type OpenApiDocument = {
+  paths: Record<string, Record<string, OpenApiOperation>>;
+};
+
+function buildOpenApi31Document(): OpenApiDocument {
+  return routes.getOpenAPI31Document({
+    ...openApiDocumentConfig,
+    openapi: "3.1.0",
+  }) as unknown as OpenApiDocument;
+}
+
+describe("OpenAPI 3.1 契約", () => {
+  it("Annict トークンを受け付ける操作の security に annictToken を宣言する", () => {
+    const doc = buildOpenApi31Document();
+
+    for (const [path, method] of [
+      ["/me/analysis/recommendations", "post"],
+      ["/me/favorites/{annictWorkId}", "post"],
+    ] as const) {
+      expect(doc.paths[path]?.[method]?.security).toEqual(bearerAuthWithAnnict);
+    }
+  });
+
+  it("おすすめ生成の 401 は Annict 連携エラーの code を宣言する", () => {
+    const doc = buildOpenApi31Document();
+    const schema =
+      doc.paths["/me/analysis/recommendations"]?.post?.responses?.["401"]
+        ?.content?.["application/json"]?.schema;
+
+    expect(schema?.properties?.code).toEqual({
+      type: "string",
+      enum: ["annict_token_required", "annict_token_invalid"],
+    });
+    expect(schema?.required).toEqual(["error"]);
+  });
+
+  it("推し登録の 401 は Annict 連携切れの code を宣言する", () => {
+    const doc = buildOpenApi31Document();
+    const schema =
+      doc.paths["/me/favorites/{annictWorkId}"]?.post?.responses?.["401"]
+        ?.content?.["application/json"]?.schema;
+
+    expect(schema?.properties?.code).toEqual({
+      type: "string",
+      enum: ["annict_token_invalid"],
+    });
+    expect(schema?.required).toEqual(["error"]);
+  });
+
+  it("tier 表作成・更新の 400 は未キャッシュ ID の配列を任意フィールドで宣言する", () => {
+    const doc = buildOpenApi31Document();
+
+    for (const [path, method] of [
+      ["/me/tier-lists", "post"],
+      ["/me/tier-lists/{id}", "put"],
+    ] as const) {
+      const schema =
+        doc.paths[path]?.[method]?.responses?.["400"]?.content?.[
+          "application/json"
+        ]?.schema;
+
+      expect(schema?.properties?.annictWorkIds).toMatchObject({
+        type: "array",
+        items: { type: "integer" },
+      });
+      expect(schema?.properties?.annictCharacterIds).toMatchObject({
+        type: "array",
+        items: { type: "integer" },
+      });
+      expect(schema?.required).toEqual(["error"]);
+    }
+  });
+
+  it("画像の生バイトは media type だけで表し format: binary の string スキーマを置かない", () => {
+    const doc = buildOpenApi31Document();
+
+    for (const mediaType of ["image/webp", "image/jpeg", "image/png"]) {
+      expect(
+        doc.paths["/me/profile/avatar"]?.put?.requestBody?.content?.[mediaType],
+      ).toEqual({});
+      expect(
+        doc.paths["/me/meishi-assets"]?.post?.requestBody?.content?.[mediaType],
+      ).toEqual({});
+    }
+    expect(
+      doc.paths["/me/meishi-snapshot"]?.post?.requestBody?.content?.[
+        "image/png"
+      ],
+    ).toEqual({});
+    expect(
+      doc.paths["/me/exchange-records/{recordId}/snapshot"]?.get?.responses?.[
+        "200"
+      ]?.content?.["image/png"],
+    ).toEqual({});
+  });
+
+  it("OpenAPI 3.0 の /doc では画像の生バイトを format: binary で宣言する", async () => {
+    const res = await routes.request("/doc", {}, {});
+    expect(res.status).toBe(200);
+    const doc = (await res.json()) as OpenApiDocument;
+    const schemaOf = (mediaTypeObject: unknown) =>
+      (mediaTypeObject as { schema?: unknown } | undefined)?.schema;
+    const binarySchema = { type: "string", format: "binary" };
+
+    for (const mediaType of ["image/webp", "image/jpeg", "image/png"]) {
+      expect(
+        schemaOf(
+          doc.paths["/me/profile/avatar"]?.put?.requestBody?.content?.[
+            mediaType
+          ],
+        ),
+      ).toEqual(binarySchema);
+      expect(
+        schemaOf(
+          doc.paths["/me/meishi-assets"]?.post?.requestBody?.content?.[
+            mediaType
+          ],
+        ),
+      ).toEqual(binarySchema);
+    }
+    expect(
+      schemaOf(
+        doc.paths["/me/meishi-snapshot"]?.post?.requestBody?.content?.[
+          "image/png"
+        ],
+      ),
+    ).toEqual(binarySchema);
+    expect(
+      schemaOf(
+        doc.paths["/me/exchange-records/{recordId}/snapshot"]?.get?.responses?.[
+          "200"
+        ]?.content?.["image/png"],
+      ),
+    ).toEqual(binarySchema);
+  });
 });
 
 describe("openapiValidationHook", () => {

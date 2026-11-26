@@ -263,7 +263,10 @@ const analysis = app
     const annictToken = await resolveAnnictToken(c);
     if (!annictToken) {
       return c.json(
-        { error: "Annict 連携が必要です", code: "annict_token_required" },
+        {
+          error: "Annict 連携が必要です",
+          code: "annict_token_required" as const,
+        },
         401,
       );
     }

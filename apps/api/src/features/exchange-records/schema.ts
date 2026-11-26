@@ -182,7 +182,7 @@ export const exchangeCardSnapshotRoute = createRoute({
   responses: {
     200: {
       content: {
-        "image/png": { schema: z.string().openapi({ format: "binary" }) },
+        "image/png": {},
       },
       description: "名刺コピー画像",
     },
