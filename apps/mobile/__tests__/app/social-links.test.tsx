@@ -52,8 +52,8 @@ describe("SocialLinksScreen", () => {
     await render(<SocialLinksScreen />);
 
     await fireEvent.changeText(screen.getByLabelText("ユーザー ID"), "alice");
-    await fireEvent.press(screen.getByText("pixiv"));
+    await fireEvent.press(screen.getByText("URL"));
 
-    expect(screen.getByLabelText("ユーザー ID").props.value).toBe("");
+    expect(screen.getByLabelText("URL").props.value).toBe("");
   });
 });
