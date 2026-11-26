@@ -56,7 +56,7 @@ import { featureFlags } from "@/lib/featureFlags";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { Skeleton, SkeletonGroup } from "@/components/ui/Skeleton";
 import { AddToWorkListSheet } from "@/components/work-list";
-import { buildDanimeWorkSearchUrl } from "@/lib/danime/workSearchUrl";
+import { buildDanimeWorkSearchUrl } from "@/features/import/workSearchUrl";
 import {
   DetailLink,
   SectionTitle,

@@ -28,7 +28,7 @@ App Store の年齢レーティング質問票は `store.config.json` の `advis
 | --- | --- | --- |
 | ユーザー生成コンテンツ（UGC） | **あり（Yes）** | ユーザー名・bio・名言・プロフィール画像・名刺が他ユーザーに公開される。通報・ブロックは実装済み（導線は下の Review Notes 参照）。 |
 | メッセージ・チャット | なし | アプリ内にユーザー間メッセージ機能はない。 |
-| 制限なしの Web アクセス | なし | アプリ内に任意 URL を自由に閲覧するブラウザ機能はない。dアニメ取り込みの WebView は遷移先を dアニメストアと dアカウント認証（`*.smt.docomo.ne.jp`）の docomo ドメインに限定し、それ以外のドメインは外部ブラウザで開く（`apps/mobile/app/danime-import.native.tsx`・`apps/mobile/lib/danime/webviewAllowlist.ts`、#751）ため `unrestrictedWebAccess: false` とした。 |
+| 制限なしの Web アクセス | なし | アプリ内に任意 URL を自由に閲覧するブラウザ機能はない。dアニメ取り込みの WebView は遷移先を dアニメストアと dアカウント認証（`*.smt.docomo.ne.jp`）の docomo ドメインに限定し、それ以外のドメインは外部ブラウザで開く（`apps/mobile/app/danime-import.native.tsx`・`apps/mobile/features/import/webviewAllowlist.ts`、#751）ため `unrestrictedWebAccess: false` とした。 |
 | 暴力（カートゥーン/ファンタジー）・成熟/示唆的・性的コンテンツ・ホラー | INFREQUENT_OR_MILD | Annict 作品カタログに全ジャンルの作品が含まれ、キービジュアル（サムネイル）を表示するため。実コンテンツは作品名・ポスター画像のみ。 |
 | その他（アルコール/薬物・ギャンブル・医療情報・下品なユーモア・リアルな暴力等） | NONE | 該当機能なし。 |
 | 広告 | なし | 広告表示なし。 |

@@ -138,7 +138,7 @@ jest.mock("@/lib/socialLinks", () => ({
 
 // 話記録ジョブ（issue #477）は QueryClientProvider 配下でしか動かない
 // useQuery を使うので、このテストではジョブ無しとして差し替える。
-jest.mock("@/lib/danime/useDanimeImport", () => ({
+jest.mock("@/features/import/useDanimeImport", () => ({
   useDanimeEpisodeJob: () => ({ data: null }),
 }));
 

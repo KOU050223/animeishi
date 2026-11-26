@@ -8,7 +8,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import {
   useBulkRegisterWatchHistory,
   useDanimeMatch,
-} from "@/lib/danime/useDanimeImport";
+} from "@/features/import/useDanimeImport";
 import { COMMON_POINTS_QUERY_KEY } from "@/lib/useCommonPoints";
 import { ApiRequestError } from "@/lib/apiError";
 import { DANIME_EXTRACT_SCHEMA_VERSION } from "@animeishi/danime-core";

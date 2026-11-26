@@ -53,7 +53,7 @@ jest.mock("@/lib/featureFlags", () => ({
 // 話数記録のプラットフォーム可否もテストごとに切り替える（jest は iOS 解決
 // のため既定値は native の false。Web 版の振る舞いもここで検証する）。
 const mockEpisodeJobSupported = { value: true };
-jest.mock("@/lib/danime/episodeJobSupported", () => ({
+jest.mock("@/features/import/episodeJobSupported", () => ({
   get episodeJobSupported() {
     return mockEpisodeJobSupported.value;
   },
@@ -62,7 +62,7 @@ jest.mock("@/lib/danime/episodeJobSupported", () => ({
 const mockUseDanimeMatch = jest.fn();
 const mockBulkMutate = jest.fn();
 const mockCreateEpisodeJobMutateAsync = jest.fn();
-jest.mock("@/lib/danime/useDanimeImport", () => ({
+jest.mock("@/features/import/useDanimeImport", () => ({
   useDanimeMatch: () => mockUseDanimeMatch(),
   useBulkRegisterWatchHistory: () => ({
     isPending: false,

@@ -31,16 +31,16 @@ import {
   useBulkRegisterWatchHistory,
   useCreateDanimeEpisodeJob,
   useDanimeMatch,
-} from "@/lib/danime/useDanimeImport";
-import { danimeMatchErrorMessage } from "@/lib/danime/matchErrorMessage";
-import { episodeJobSupported } from "@/lib/danime/episodeJobSupported";
+} from "@/features/import/useDanimeImport";
+import { danimeMatchErrorMessage } from "@/features/import/matchErrorMessage";
+import { episodeJobSupported } from "@/features/import/episodeJobSupported";
 import { DanimeEpisodeJobStatus } from "@/components/danime/EpisodeJobStatus";
 import type {
   BulkRegisterEntry,
   BulkRegisterResult,
   DanimeEpisodeJobWorkInput,
   DanimeMatchStats,
-} from "@/lib/danime/useDanimeImport";
+} from "@/features/import/useDanimeImport";
 import {
   decideDanimeImport,
   toMatchWorks,
@@ -385,7 +385,7 @@ export default function DanimeImportReviewScreen() {
     );
     let episodeJobCreated: boolean | null = null;
     // 話数記録は Web 連携のサーバー保存トークン前提のジョブのため、
-    // ネイティブでは送らない（lib/danime/episodeJobSupported.ts 参照）。
+    // ネイティブでは送らない（features/import/episodeJobSupported.ts 参照）。
     if (episodeJobSupported && eligibleWorks.length > 0) {
       setEpisodeJobPending(true);
       try {
