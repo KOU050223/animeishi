@@ -188,13 +188,13 @@ jest.mock("@/lib/dialog", () => ({
 
 // 分析画面と詳細シートが使う Annict 連携系フックを差し替える。
 // 既定は連携済みで、失敗は「Annict トークン起因でない」とする。
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useAnnictConnection: () => mockUseAnnictConnection(),
   useAnnictConnect: () => mockUseAnnictConnect(),
   useAnnictFunnel: () => mockFunnelTrack,
   useAnnictTokenErrorPrompt: (...args: unknown[]) =>
     mockUseAnnictTokenErrorPrompt(...args),
-  annictErrorKey: jest.requireActual("@/lib/annict/errorMessages")
+  annictErrorKey: jest.requireActual("@/features/annict/errorMessages")
     .annictErrorKey,
 }));
 

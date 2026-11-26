@@ -1,4 +1,4 @@
-import { resolveNativeAnnictRedirectUri } from "@/lib/annict/useAnnictConnect.native";
+import { resolveNativeAnnictRedirectUri } from "@/features/annict/useAnnictConnect.native";
 
 describe("resolveNativeAnnictRedirectUri", () => {
   test("uses explicit env override when configured", () => {

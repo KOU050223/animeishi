@@ -34,7 +34,7 @@ jest.mock("@/lib/api", () => ({
 // useGenerateAnalysis は生成前に連携状態を見て履歴同期を挟む。
 // 連携状態はテストごとに差し替えられるよう関数経由にする。
 let mockIsConnected = true;
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   buildAnnictAuthHeader: async () => ({ "X-Annict-Token": "annict-token" }),
   useAnnictConnection: () => ({
     isConnected: mockIsConnected,

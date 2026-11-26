@@ -40,7 +40,7 @@ export function captureException(error: unknown): void {
   Sentry.captureException(error);
 }
 
-// ページ遷移前に送信待ちのイベントを流す（lib/annict/useAnnictConnect.web.ts）。
+// ページ遷移前に送信待ちのイベントを流す（features/annict/useAnnictConnect.web.ts）。
 export function flushSentry(): Promise<boolean> {
   return Sentry.flush();
 }

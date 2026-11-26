@@ -15,7 +15,7 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton, Button, Input } from "@/components/ui";
 import { alert } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
-import { annictTokenStorage } from "@/lib/annict/storage";
+import { annictTokenStorage } from "@/features/annict/storage";
 import { clearMeishiDocument, loadMeishiLibrary } from "@/lib/meishi/storage";
 import { queryClient } from "@/lib/queryClient";
 import { useSignOut } from "@/lib/useSignOut";

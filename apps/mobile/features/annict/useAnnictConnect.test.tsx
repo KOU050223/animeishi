@@ -11,7 +11,7 @@ import { getAuthMock, loggedInUser, resetAuth } from "@/test-utils/auth";
 // 定数化されるため、import より前に設定する必要がある。jest.mock と同様に
 // ホイストされる位置で env を立ててから対象モジュールを require する。
 process.env.EXPO_PUBLIC_ANNICT_CLIENT_ID = "test-client-id";
-const { useAnnictConnect } = require("@/lib/annict/useAnnictConnect");
+const { useAnnictConnect } = require("@/features/annict/useAnnictConnect");
 
 // OAuth フローの外部依存（ブラウザ・ディープリンク・乱数・SecureStore・API）はモックし、
 // in-flight ガード（連打で openAuthSessionAsync を二重起動しないこと）の挙動だけ検証する。
@@ -25,7 +25,7 @@ jest.mock("expo-linking", () => ({
 jest.mock("expo-crypto", () => ({
   randomUUID: () => "test-state",
 }));
-jest.mock("@/lib/annict/storage", () => ({
+jest.mock("@/features/annict/storage", () => ({
   annictTokenStorage: { set: jest.fn(), remove: jest.fn(), get: jest.fn() },
 }));
 const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());

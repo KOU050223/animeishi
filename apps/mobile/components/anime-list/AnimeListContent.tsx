@@ -17,7 +17,10 @@ import {
 } from "@/lib/useAnimeList";
 import type { AnimeTitle, SortKey, SortOrder } from "@/lib/useAnimeList";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
-import { isAnnictRateLimitedError, isAnnictTokenError } from "@/lib/annict";
+import {
+  isAnnictRateLimitedError,
+  isAnnictTokenError,
+} from "@/features/annict";
 import { Input } from "@/components/ui";
 import { CardPressable } from "@/components/ui/card-pressable";
 import { AnimeListSkeleton } from "./AnimeListSkeleton";

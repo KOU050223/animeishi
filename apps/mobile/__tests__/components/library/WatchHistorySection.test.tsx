@@ -145,7 +145,7 @@ jest.mock("@/components/anime-list/AnimeWorkDetailSheet", () => {
   };
 });
 
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
 }));
 

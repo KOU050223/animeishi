@@ -114,7 +114,7 @@ jest.mock("@/lib/tierList/useWorksLookup", () => ({
 
 // Annict 連携のゲートは「連携済み」で通す。未連携時の出し分けは
 // AnnictSoftGate のテスト側で扱う。
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useWorkCatalogAccess: () => ({
     canBrowseWorks: true,
     isLoading: false,

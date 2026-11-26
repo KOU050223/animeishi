@@ -6,7 +6,7 @@ import { CurrentSeasonConnectCard } from "@/components/CurrentSeasonConnectCard"
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { currentSeason } from "@/components/anime-list/animeListUtils";
 import type { SeasonKey } from "@/components/anime-list/animeListUtils";
-import { useAnnictConnection } from "@/lib/annict";
+import { useAnnictConnection } from "@/features/annict";
 import { filterWatchingBySeason } from "@/lib/currentSeasonWatching";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import type { TranslationKey } from "@/lib/i18n/keys";

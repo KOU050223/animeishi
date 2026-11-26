@@ -8,20 +8,20 @@ import {
 import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 import { AnnictConnectionStatusRow } from "@/components/profile/AnnictConnectionStatusRow";
-import type { AnnictConnectResult } from "@/lib/annict";
+import type { AnnictConnectResult } from "@/features/annict";
 
 // useAnnictConnect は expo-web-browser / SecureStore 等のネイティブ依存を持つため、
 // connect の戻り値だけ差し替えて行の UI/分岐を検証する。
 const mockConnect = jest.fn<Promise<AnnictConnectResult>, []>();
 const mockUseAnnictConnect = jest.fn();
 
-jest.mock("@/lib/annict/useAnnictConnect", () => ({
+jest.mock("@/features/annict/useAnnictConnect", () => ({
   useAnnictConnect: () => mockUseAnnictConnect(),
 }));
 
 // 連携状態をテストごとに切り替えられるよう、変数経由で返す。
 let mockAnnictConnection = { isConnected: false, isLoading: false };
-jest.mock("@/lib/annict/useAnnictConnection", () => ({
+jest.mock("@/features/annict/useAnnictConnection", () => ({
   useAnnictConnection: () => mockAnnictConnection,
 }));
 

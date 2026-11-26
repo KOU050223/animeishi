@@ -5,7 +5,7 @@
  * - storage.native.ts ... iOS/Android (expo-secure-store)
  * - storage.web.ts    ... Web (localStorage フォールバック)
  *
- * 呼び出し側は常に `@/lib/annict` から import する。
+ * 呼び出し側は常に `@/features/annict` から import する。
  */
 
 /** Annict アクセストークンの永続化インターフェース。 */

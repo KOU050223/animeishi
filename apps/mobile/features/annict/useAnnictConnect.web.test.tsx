@@ -14,7 +14,7 @@ import {
   useAnnictConnect,
   ANNICT_STATE_STORAGE_KEY,
   ANNICT_FUNNEL_SURFACE_STORAGE_KEY,
-} from "@/lib/annict/useAnnictConnect.web";
+} from "@/features/annict/useAnnictConnect.web";
 
 const mockDisconnectPost = jest.fn();
 const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());

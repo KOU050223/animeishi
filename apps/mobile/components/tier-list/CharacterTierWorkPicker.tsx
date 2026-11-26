@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { initialWindowMetrics } from "react-native-safe-area-context";
 import { WorkAddSheet } from "@/components/tier-list/WorkAddSheet";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
-import { useWorkCatalogAccess } from "@/lib/annict";
+import { useWorkCatalogAccess } from "@/features/annict";
 import { useThemeColors } from "@/lib/theme";
 import type { TierItem } from "@/lib/tierList/types";
 

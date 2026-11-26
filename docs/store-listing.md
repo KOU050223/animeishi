@@ -224,7 +224,7 @@ Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Clo
 | Identifiers → User ID | Clerk のアカウント ID。PostHog には生 ID でなくソルト付き SHA-256 先頭 16 文字の user key を distinct_id として送る（`lib/events.ts`、API は `src/lib/posthog.ts`）。user key は同一利用者のイベントを結び付ける ID のため Analytics 目的でも申告する | App Functionality / Analytics |
 | User Content → Photos or Videos | 任意のプロフィール画像を R2 に保存（`apps/api` の `AVATARS` バケット） | App Functionality |
 | User Content → Other User Content | プロフィール（自己紹介・好きなセリフ・ジャンル・公開設定）、お気に入り・評価・視聴ステータス・フレンド関係・Tier 表・作品リスト、通報・不具合報告フォームの投稿内容。dアニメ取り込みでは抽出した作品タイトル・作品 ID・視聴ステータスを Annict 作品との照合・記録のためサーバーへ送信する（認証情報・Cookie は WebView 内に留まり送信しない）。名刺は端末内（AsyncStorage）保存で、共有時は利用者が選んだ共有先へ渡す | App Functionality |
-| Usage Data → Product Interaction | 起動・画面・主要操作・オンボーディング完了等のイベントを PostHog に送信（platform・アプリ版・screen・イベント属性、SDK が付ける端末種別・OS 版・言語、distinct_id に仮名化 user key。`lib/events.ts`、`lib/annict/funnel.ts`）。サインアップ完了・名刺交換の成立は API が PostHog へ送る（`apps/api/src/lib/posthog.ts`）。自動収集（autocapture）・セッションリプレイ・アンケートは無効。EAS Observe にもルート名・画面遷移タイミングが送られるが、そちらは紐づけなし（下表）。仮名化キーで紐づく PostHog 側があるため全体として「紐づく」で申告する | Analytics |
+| Usage Data → Product Interaction | 起動・画面・主要操作・オンボーディング完了等のイベントを PostHog に送信（platform・アプリ版・screen・イベント属性、SDK が付ける端末種別・OS 版・言語、distinct_id に仮名化 user key。`lib/events.ts`、`features/annict/funnel.ts`）。サインアップ完了・名刺交換の成立は API が PostHog へ送る（`apps/api/src/lib/posthog.ts`）。自動収集（autocapture）・セッションリプレイ・アンケートは無効。EAS Observe にもルート名・画面遷移タイミングが送られるが、そちらは紐づけなし（下表）。仮名化キーで紐づく PostHog 側があるため全体として「紐づく」で申告する | Analytics |
 
 ### ユーザーに紐づかないデータ（Data Not Linked to the User）
 
@@ -241,7 +241,7 @@ Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Clo
 
 - EAS Observe（`expo-observe`）は Expo のサービスプロバイダとしてデータを処理し、90 日で削除される。Expo は広告利用・データブローカーへの提供を行わない（[Expo の申告ガイド](https://docs.expo.dev/eas/observe/reference/store-privacy-declarations/)）。本アプリは `errorHandlingEnabled: false` で JS エラー収集を切り、ネットワークトレース・ユーザー定義イベントも使っていないため、ルート名・タイミング系とネイティブクラッシュのみが送信対象。ユーザー ID を載せる送信はない。
 - PostHog（`posthog-react-native`）は `disableGeoip: true` で IP から所在地を引かせず、プロジェクト設定でも「Discard client IP data」を ON にする（`docs/runbook/posthog.md`）。このため PostHog 由来の Location は申告しない。プロジェクトキー未設定のビルドでは SDK を読み込まず何も送らない。
-- Annict アクセストークンは iOS では SecureStore にのみ保持し、サーバーには保存しない。Annict API への送信は連携した利用者の操作時のみ（`lib/annict/storage.native.ts`）。
+- Annict アクセストークンは iOS では SecureStore にのみ保持し、サーバーには保存しない。Annict API への送信は連携した利用者の操作時のみ（`features/annict/storage.native.ts`）。
 - AniList・Jikan（MyAnimeList）には作品 ID のみをサーバー経由で送信し、個人情報は含まない（`privacy.tsx` 第4条）。
 - Cloudflare Workers のアクセスログ（リクエスト IP 等）はホスティング基盤側の処理で、ポリシーには記載済み。ASC の質問で第三者による収集に当たると判断された場合は回答を調整する。
 - dアニメ取り込みの作品タイトル送信は #751 で iOS でも有効になったため、User Content → Other User Content（App Functionality）の申告対象に含めた。Apple Wallet 追加は iOS ではフラグ無効のため引き続き申告対象外。

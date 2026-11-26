@@ -7,7 +7,7 @@ import {
   readRetryAfterSeconds,
 } from "@/lib/apiError";
 import { apiErrorMessage } from "@/lib/apiErrorMessages";
-import { useAnnictConnection } from "@/lib/annict";
+import { useAnnictConnection } from "@/features/annict";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import {
   analysisQueries,

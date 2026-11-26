@@ -45,7 +45,7 @@ jest.mock("@/components/AnnictSoftGate", () => ({
   AnnictSoftGate: () => null,
 }));
 
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useWorkCatalogAccess: () => ({
     canBrowseWorks: true,
     isConnected: true,

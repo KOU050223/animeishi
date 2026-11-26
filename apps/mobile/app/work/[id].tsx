@@ -13,7 +13,7 @@ import {
   seasonListHref,
   workMediaLabel,
 } from "@/components/anime-list/workDetailFormat";
-import { useWorkCatalogAccess } from "@/lib/annict";
+import { useWorkCatalogAccess } from "@/features/annict";
 import { useWorkDetail } from "@/lib/useWorkDetail";
 
 function parseWorkId(raw: string | string[] | undefined): number | null {

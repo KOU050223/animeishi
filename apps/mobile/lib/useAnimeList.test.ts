@@ -29,7 +29,7 @@ jest.mock("@/lib/api", () => ({
 
 let mockCanBrowseWorks = true;
 let mockIsAccessLoading = false;
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   // 実装では確認中は canBrowseWorks が未確定（false）になる。
   // useAnimeList は canBrowseWorks でフェッチを gate するため、
   // モックでも同じ契約（loading 中は canBrowseWorks=false）に揃える。

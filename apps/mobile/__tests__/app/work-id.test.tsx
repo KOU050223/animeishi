@@ -36,7 +36,7 @@ jest.mock("@/lib/useWorkDetail", () => ({
   useWorkDetail: (...args: unknown[]) => mockUseWorkDetail(...args),
 }));
 
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useWorkCatalogAccess: () => mockUseWorkCatalogAccess(),
 }));
 

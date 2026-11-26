@@ -28,7 +28,7 @@ import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
-import { useAnnictConnection } from "@/lib/annict";
+import { useAnnictConnection } from "@/features/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { WatchHistoryShareSection } from "@/components/watch-history/WatchHistoryShareSection";
 import { BottomSheet } from "@/components/ui/bottom-sheet";

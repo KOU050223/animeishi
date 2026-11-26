@@ -107,7 +107,7 @@ jest.mock("@/lib/useAnimeList", () => ({
 }));
 
 // Annict 連携のゲートは「連携済み」で通す。
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useWorkCatalogAccess: () => ({
     canBrowseWorks: true,
     isLoading: false,

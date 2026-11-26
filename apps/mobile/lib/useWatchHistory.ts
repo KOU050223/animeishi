@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import type { InferRequestType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
-import { useAnnictConnection } from "@/lib/annict";
+import { useAnnictConnection } from "@/features/annict";
 import { workDetailQueryKey } from "@/lib/useWorkDetail";
 import {
   WATCH_HISTORY_QUERY_KEY,

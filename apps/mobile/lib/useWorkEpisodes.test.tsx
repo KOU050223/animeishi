@@ -44,7 +44,7 @@ jest.mock("@/lib/api", () => ({
 }));
 
 // 連携状態は既定で連携済みにして、クエリが発行される状態にする。
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
 }));
 

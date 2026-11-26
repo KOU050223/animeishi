@@ -61,7 +61,7 @@ jest.mock("@/components/AnnictSoftGate", () => {
 
 let mockConnected = true;
 let mockCanBrowseWorks = true;
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useWorkCatalogAccess: () => ({
     canBrowseWorks: mockCanBrowseWorks,
     isConnected: mockConnected,

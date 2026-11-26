@@ -122,7 +122,7 @@ jest.mock("@/lib/events", () => ({
 // 詳細シートの Annict 連携系はネイティブ依存を持つためスタブにする。
 // 既定は連携済み・エラーはトークン起因でない扱い。
 const mockPromptAnnictTokenError = jest.fn();
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
   useAnnictConnect: () => ({
     connect: jest.fn(),
@@ -131,9 +131,9 @@ jest.mock("@/lib/annict", () => ({
   }),
   useAnnictFunnel: () => jest.fn(),
   useAnnictTokenErrorPrompt: () => mockPromptAnnictTokenError,
-  annictErrorKey: jest.requireActual("@/lib/annict/errorMessages")
+  annictErrorKey: jest.requireActual("@/features/annict/errorMessages")
     .annictErrorKey,
-  ...jest.requireActual("@/lib/annict/apiErrorCodes"),
+  ...jest.requireActual("@/features/annict/apiErrorCodes"),
 }));
 
 // 「リストに追加」シートのフックは実物だと QueryClient が要るため、

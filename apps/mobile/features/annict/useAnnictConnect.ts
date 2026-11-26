@@ -1,7 +1,7 @@
 // フォールバック兼・型定義。実装はプラットフォーム別ファイルで解決される:
 // - useAnnictConnect.native.ts ... iOS/Android（expo-web-browser で認可 → その場で exchange）
 // - useAnnictConnect.web.ts     ... Web（authorize へページ遷移 → app/annict.tsx が exchange）
-// 呼び出し側は常に `@/lib/annict`（index）から import する。
+// 呼び出し側は常に `@/features/annict`（index）から import する。
 
 import type { AnnictFunnelSurface } from "@animeishi/observability";
 

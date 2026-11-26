@@ -35,7 +35,7 @@ export default defineConfig({
   test: {
     environment: "node",
     // ワーカー再利用で起動コストを省く（issue #276）。process.env を書き換えるのは
-    // lib/annict/oauth.unit.test.ts だけで、afterEach で元の値に復元する
+    // features/annict/oauth.unit.test.ts だけで、afterEach で元の値に復元する
     // （未設定だった場合は delete に戻す）。window.location を差し替える
     // lib/profileUrl/profileUrl.web.unit.test.ts も afterAll で復元する。
     isolate: false,

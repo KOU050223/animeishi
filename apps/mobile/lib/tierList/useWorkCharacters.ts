@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { tierListQueries } from "@/lib/queries/tierLists";
-import { useWorkCatalogAccess } from "@/lib/annict";
+import { useWorkCatalogAccess } from "@/features/annict";
 import type { TierItem } from "./types";
 
 /**

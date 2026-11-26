@@ -8,9 +8,9 @@ import {
   annictErrorKey,
   ANNICT_CONNECTION_QUERY_KEY,
   resolveAnnictRelayTarget,
-} from "@/lib/annict";
-import { exchangeAnnictWebCallback } from "@/lib/annict/useAnnictConnect.web";
-import { refetchWorksAfterAnnictConnect } from "@/lib/annict/afterConnect";
+} from "@/features/annict";
+import { exchangeAnnictWebCallback } from "@/features/annict/useAnnictConnect.web";
+import { refetchWorksAfterAnnictConnect } from "@/features/annict/afterConnect";
 import { clerkSessionToken } from "@/lib/api";
 
 // 連携完了後に戻す画面。作品検索から連携する導線が主のためアニメ一覧へ戻す。

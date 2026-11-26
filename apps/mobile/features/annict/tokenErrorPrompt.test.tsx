@@ -8,7 +8,7 @@ import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 import { ApiRequestError } from "@/lib/apiError";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import { useAnnictTokenErrorPrompt } from "./tokenErrorPrompt";
-import type { AnnictConnectResult } from "@/lib/annict";
+import type { AnnictConnectResult } from "@/features/annict";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 
@@ -22,7 +22,7 @@ const mockUseAnnictConnect = jest.fn();
 const mockConfirm = jest.fn();
 const mockAlert = jest.fn();
 
-jest.mock("@/lib/annict/useAnnictConnect", () => ({
+jest.mock("@/features/annict/useAnnictConnect", () => ({
   useAnnictConnect: () => mockUseAnnictConnect(),
 }));
 

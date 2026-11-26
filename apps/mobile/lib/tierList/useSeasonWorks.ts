@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import { useWorkCatalogAccess } from "@/lib/annict";
+import { useWorkCatalogAccess } from "@/features/annict";
 import { dedupeWorksById, workQueries } from "@/lib/queries/works";
 import type { TierItem } from "./types";
 

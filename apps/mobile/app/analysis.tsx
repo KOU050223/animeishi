@@ -23,7 +23,7 @@ import { useUpsertWatchHistory, useWatchHistory } from "@/lib/useWatchHistory";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
 import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
 import { ApiRequestError } from "@/lib/apiError";
-import { useAnnictTokenErrorPrompt } from "@/lib/annict";
+import { useAnnictTokenErrorPrompt } from "@/features/annict";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { useThemeColors } from "@/lib/theme";

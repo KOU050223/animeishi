@@ -159,7 +159,7 @@ export function captureException(error: unknown): void {
   enqueue({ error });
 }
 
-// ページ遷移前に送信待ちのイベントを流す（lib/annict/useAnnictConnect.web.ts）。
+// ページ遷移前に送信待ちのイベントを流す（features/annict/useAnnictConnect.web.ts）。
 // SDK の読み込みがまだ始まっていなければここで開始してから flush する。
 export async function flushSentry(): Promise<boolean> {
   if (!sentry && sentryEnabled()) {

@@ -20,7 +20,7 @@ jest.mock("@/lib/api", () => ({
 
 const mockBuildAnnictAuthHeader = jest.fn();
 let mockCanBrowseWorks = true;
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   buildAnnictAuthHeader: () => mockBuildAnnictAuthHeader(),
   // 本人は未連携のまま（共用トークンで作品情報だけ使える状態）を既定にして、
   // 取得条件が連携状態ではなく canBrowseWorks で決まることを確かめる（issue #561）。

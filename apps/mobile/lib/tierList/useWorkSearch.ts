@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { tierListQueries } from "@/lib/queries/tierLists";
-import { useWorkCatalogAccess } from "@/lib/annict";
+import { useWorkCatalogAccess } from "@/features/annict";
 
 // 検索語入力のたびに Annict へ問い合わせないためのデバウンス時間（ms）。
 // useAnimeList と同じ値に揃える。

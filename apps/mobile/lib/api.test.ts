@@ -12,7 +12,7 @@ import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 //   Error にする（observability の 4xx ドロップ対象にしないため）
 
 const mockBuildAnnictAuthHeader = jest.fn();
-jest.mock("@/lib/annict/buildAnnictAuthHeader", () => ({
+jest.mock("@/features/annict/buildAnnictAuthHeader", () => ({
   buildAnnictAuthHeader: () => mockBuildAnnictAuthHeader(),
 }));
 

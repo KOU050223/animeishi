@@ -53,7 +53,7 @@ jest.mock("@/lib/api", () => ({
 
 // useWatchHistory の import 元（barrel）。連携状態は常に連携済み、
 // Annict 認証ヘッダは空でよい（apiClient 側はモック済み）。
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   buildAnnictAuthHeader: async () => ({}),
   useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
   useWorkCatalogAccess: () => ({

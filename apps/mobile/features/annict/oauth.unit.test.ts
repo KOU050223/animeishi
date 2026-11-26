@@ -6,7 +6,7 @@ import {
   resolveAnnictRelayTarget,
   ANNICT_AUTHORIZE_ENDPOINT,
   ANNICT_SCOPE,
-} from "@/lib/annict/oauth";
+} from "@/features/annict/oauth";
 
 describe("buildAuthorizeUrl", () => {
   it("認可エンドポイントに必要なパラメータを載せる", () => {

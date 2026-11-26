@@ -63,7 +63,7 @@ jest.mock("@/lib/dialog", () => ({
   alert: (...args: unknown[]) => mockAlert(...args),
 }));
 
-jest.mock("@/lib/annict/storage", () => ({
+jest.mock("@/features/annict/storage", () => ({
   annictTokenStorage: {
     get: jest.fn(async () => null),
     set: jest.fn(async () => {}),

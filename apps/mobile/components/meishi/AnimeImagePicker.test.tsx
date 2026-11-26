@@ -14,7 +14,7 @@ jest.mock("@/lib/useAnimeList", () => ({
 // バレルごと潰すと buildAnnictAuthHeader 等が巻き添えになるため、
 // 解決先のプラットフォーム実装モジュールだけをモックする。
 let mockAnnictConnected = true;
-jest.mock("@/lib/annict/useAnnictConnection", () => ({
+jest.mock("@/features/annict/useAnnictConnection", () => ({
   useAnnictConnection: () => ({
     isConnected: mockAnnictConnected,
     isLoading: false,

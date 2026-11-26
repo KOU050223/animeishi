@@ -40,7 +40,7 @@ jest.mock("@/lib/api", () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   buildAnnictAuthHeader: async () => ({ "X-Annict-Token": "annict_tok" }),
 }));
 

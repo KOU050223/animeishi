@@ -27,7 +27,7 @@ jest.mock("@/lib/api", () => ({
 
 // useAchievements の import 元（barrel）。Annict 認証ヘッダは空でよい
 // （apiClient 側はモック済み）。
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   buildAnnictAuthHeader: async () => ({}),
 }));
 

@@ -142,7 +142,7 @@ jest.mock("@/lib/danime/useDanimeImport", () => ({
   useDanimeEpisodeJob: () => ({ data: null }),
 }));
 
-jest.mock("@/lib/annict/storage", () => ({
+jest.mock("@/features/annict/storage", () => ({
   annictTokenStorage: {
     get: jest.fn(async () => null),
     set: jest.fn(async () => {}),

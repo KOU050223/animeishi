@@ -46,7 +46,10 @@ import {
 } from "@/lib/workRatingHint";
 import type { WatchState } from "@/lib/watchStatusLabels";
 import { alert } from "@/lib/dialog";
-import { useAnnictConnection, useAnnictTokenErrorPrompt } from "@/lib/annict";
+import {
+  useAnnictConnection,
+  useAnnictTokenErrorPrompt,
+} from "@/features/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { trackEvent } from "@/lib/events";
 import { featureFlags } from "@/lib/featureFlags";

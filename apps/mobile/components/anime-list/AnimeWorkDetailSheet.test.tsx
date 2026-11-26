@@ -137,13 +137,13 @@ jest.mock("@/components/ui/bottom-sheet", () => {
 
 // Annict 連携系はネイティブ依存（SecureStore / expo-web-browser）を持つため
 // フックを差し替える。連携状態・再連携プロンプトの分岐だけをここで制御する。
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/features/annict", () => ({
   useAnnictConnection: () => mockUseAnnictConnection(),
   useAnnictConnect: () => mockUseAnnictConnect(),
   useAnnictFunnel: () => mockFunnelTrack,
   useAnnictTokenErrorPrompt: (...args: unknown[]) =>
     mockUseAnnictTokenErrorPrompt(...args),
-  annictErrorKey: jest.requireActual("@/lib/annict/errorMessages")
+  annictErrorKey: jest.requireActual("@/features/annict/errorMessages")
     .annictErrorKey,
 }));
 

@@ -7,7 +7,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test-utils/queryClient";
 
 // Web 実装を直接 import して検証する（バンドラの .web 解決に依存せず単体で確認）。
-import { useAnnictConnection } from "@/lib/annict/useAnnictConnection.web";
+import { useAnnictConnection } from "@/features/annict/useAnnictConnection.web";
 
 const mockAnnictGet = jest.fn();
 const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());

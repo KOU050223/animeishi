@@ -9,7 +9,7 @@ import {
   useAnnictConnection,
   useAnnictFunnel,
   type AnnictConnectResult,
-} from "@/lib/annict";
+} from "@/features/annict";
 import { confirm } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
 
