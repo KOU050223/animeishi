@@ -1,6 +1,7 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import {
   bearerAuth,
+  bearerAuthWithAnnict,
   errorResponseSchema,
   successResponseSchema,
 } from "@/lib/openapi";
@@ -63,7 +64,7 @@ export const addFavoriteRoute = createRoute({
   path: "/{annictWorkId}",
   tags: ["favorites"],
   summary: "作品を推しに登録する（冪等）",
-  security: bearerAuth,
+  security: bearerAuthWithAnnict,
   request: { params: annictWorkIdParamSchema },
   responses: {
     201: {

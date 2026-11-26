@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import {
   bearerAuth,
+  bearerAuthWithAnnict,
   createOpenApiApp,
   errorResponseSchema,
+  openApiDocumentConfig,
   registerOpenApiDocs,
 } from "@/lib/openapi";
+import { routes } from "@/app";
 
 type TestBindings = { Bindings: { ENVIRONMENT?: string } };
 
@@ -120,6 +123,110 @@ describe("OpenAPI ドキュメント", () => {
       expect(res.status).toBe(200);
     },
   );
+});
+
+type OpenApi31Operation = {
+  security?: unknown;
+  requestBody?: { content?: Record<string, unknown> };
+  responses?: Record<
+    string,
+    {
+      content?: Record<
+        string,
+        {
+          schema?: {
+            type?: string;
+            properties?: Record<string, unknown>;
+            required?: string[];
+          };
+        }
+      >;
+    }
+  >;
+};
+
+type OpenApi31Document = {
+  paths: Record<string, Record<string, OpenApi31Operation>>;
+};
+
+function buildOpenApi31Document(): OpenApi31Document {
+  return routes.getOpenAPI31Document({
+    ...openApiDocumentConfig,
+    openapi: "3.1.0",
+  }) as unknown as OpenApi31Document;
+}
+
+describe("OpenAPI 3.1 契約", () => {
+  it("Annict トークンを受け付ける操作の security に annictToken を宣言する", () => {
+    const doc = buildOpenApi31Document();
+
+    for (const [path, method] of [
+      ["/me/analysis/recommendations", "post"],
+      ["/me/favorites/{annictWorkId}", "post"],
+    ] as const) {
+      expect(doc.paths[path]?.[method]?.security).toEqual(bearerAuthWithAnnict);
+    }
+  });
+
+  it("おすすめ生成の 401 は Annict 連携エラーの code を宣言する", () => {
+    const doc = buildOpenApi31Document();
+    const schema =
+      doc.paths["/me/analysis/recommendations"]?.post?.responses?.["401"]
+        ?.content?.["application/json"]?.schema;
+
+    expect(schema?.properties?.code).toEqual({
+      type: "string",
+      enum: ["annict_token_required", "annict_token_invalid"],
+    });
+    expect(schema?.required).toEqual(["error"]);
+  });
+
+  it("tier 表作成・更新の 400 は未キャッシュ ID の配列を任意フィールドで宣言する", () => {
+    const doc = buildOpenApi31Document();
+
+    for (const [path, method] of [
+      ["/me/tier-lists", "post"],
+      ["/me/tier-lists/{id}", "put"],
+    ] as const) {
+      const schema =
+        doc.paths[path]?.[method]?.responses?.["400"]?.content?.[
+          "application/json"
+        ]?.schema;
+
+      expect(schema?.properties?.annictWorkIds).toMatchObject({
+        type: "array",
+        items: { type: "integer" },
+      });
+      expect(schema?.properties?.annictCharacterIds).toMatchObject({
+        type: "array",
+        items: { type: "integer" },
+      });
+      expect(schema?.required).toEqual(["error"]);
+    }
+  });
+
+  it("画像の生バイトは media type だけで表し format: binary の string スキーマを置かない", () => {
+    const doc = buildOpenApi31Document();
+
+    for (const mediaType of ["image/webp", "image/jpeg", "image/png"]) {
+      expect(
+        doc.paths["/me/profile/avatar"]?.put?.requestBody?.content?.[mediaType],
+      ).toEqual({});
+      expect(
+        doc.paths["/me/meishi-assets"]?.post?.requestBody?.content?.[mediaType],
+      ).toEqual({});
+    }
+    expect(
+      doc.paths["/me/meishi-snapshot"]?.post?.requestBody?.content?.[
+        "image/png"
+      ],
+    ).toEqual({});
+    expect(
+      doc.paths["/me/exchange-records/{recordId}/snapshot"]?.get?.responses?.[
+        "200"
+      ]?.content?.["image/png"],
+    ).toEqual({});
+  });
 });
 
 describe("openapiValidationHook", () => {

@@ -104,20 +104,15 @@ const blockedUserSchema = z.object({
   profileImageUrl: z.string().nullable(),
 });
 
-// 画像バイナリの request body（webp / jpeg / png）。
-// バリデーションはハンドラ側で Content-Type・サイズを見るため、
-// ここはドキュメント用途のみ。
+// 画像バイナリの request body（webp / jpeg / png）。OpenAPI 3.1 では
+// format: binary が content-encoding を意味しないため、生バイトは
+// media type のキーだけで表し schema を置かない。バリデーションは
+// ハンドラ側で Content-Type・サイズを見る。
 const imageBinaryBody = {
   content: {
-    "image/webp": {
-      schema: z.string().openapi({ format: "binary" }),
-    },
-    "image/jpeg": {
-      schema: z.string().openapi({ format: "binary" }),
-    },
-    "image/png": {
-      schema: z.string().openapi({ format: "binary" }),
-    },
+    "image/webp": {},
+    "image/jpeg": {},
+    "image/png": {},
   },
   required: true,
 };
@@ -268,7 +263,7 @@ export const uploadMeishiSnapshotRoute = createRoute({
   request: {
     body: {
       content: {
-        "image/png": { schema: z.string().openapi({ format: "binary" }) },
+        "image/png": {},
       },
       required: true,
     },

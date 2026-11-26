@@ -1,5 +1,9 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { bearerAuth, errorResponseSchema } from "@/lib/openapi";
+import {
+  bearerAuth,
+  bearerAuthWithAnnict,
+  errorResponseSchema,
+} from "@/lib/openapi";
 import { WATCH_STATES } from "@/db/schema";
 
 // レポートの 1 項目（issue #375）。facts・evidenceWorks はサーバー側で
@@ -42,6 +46,11 @@ const analysisResultSchema = z.object({
 const rateLimitedSchema = z.object({
   error: z.string(),
   code: z.enum(["generation_limit"]),
+});
+
+const recommendationUnauthorizedSchema = z.object({
+  error: z.string(),
+  code: z.enum(["annict_token_required", "annict_token_invalid"]).optional(),
 });
 
 // おすすめ 1 作品の応答形（issue #335）。
@@ -161,7 +170,7 @@ export const generateRecommendationsRoute = createRoute({
     "本人の視聴履歴に無い作品だけを返す。入力が変わらない間は 24h キャッシュを" +
     "返し（cached=true）、生成実行はユーザーごとに 24h あたり 5 回まで" +
     "（超過時は 429 + Retry-After）。Annict 連携が必要（未連携は 401）。",
-  security: bearerAuth,
+  security: bearerAuthWithAnnict,
   responses: {
     200: {
       content: {
@@ -175,7 +184,12 @@ export const generateRecommendationsRoute = createRoute({
       description: "おすすめ結果（cached=true ならキャッシュ由来）",
     },
     400: jsonError("視聴履歴が空"),
-    401: jsonError("未認証 / Annict 連携が必要"),
+    401: {
+      content: {
+        "application/json": { schema: recommendationUnauthorizedSchema },
+      },
+      description: "未認証 / Annict 連携が必要",
+    },
     429: {
       headers: z.object({ "Retry-After": z.string() }),
       content: { "application/json": { schema: rateLimitedSchema } },

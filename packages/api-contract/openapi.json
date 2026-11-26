@@ -237,12 +237,7 @@
         "requestBody": {
           "required": true,
           "content": {
-            "image/png": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
+            "image/png": {}
           }
         },
         "responses": {
@@ -828,24 +823,9 @@
         "requestBody": {
           "required": true,
           "content": {
-            "image/webp": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            },
-            "image/jpeg": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            },
-            "image/png": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
+            "image/webp": {},
+            "image/jpeg": {},
+            "image/png": {}
           }
         },
         "responses": {
@@ -958,24 +938,9 @@
         "requestBody": {
           "required": true,
           "content": {
-            "image/webp": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            },
-            "image/jpeg": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            },
-            "image/png": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
+            "image/webp": {},
+            "image/jpeg": {},
+            "image/png": {}
           }
         },
         "responses": {
@@ -4528,6 +4493,10 @@
         "description": "視聴履歴（＋保存済みの分析結果があればそれ）を入力に Workers AI でおすすめ候補を生成し、Annict searchWorks で実在する作品に照合して、本人の視聴履歴に無い作品だけを返す。入力が変わらない間は 24h キャッシュを返し（cached=true）、生成実行はユーザーごとに 24h あたり 5 回まで（超過時は 429 + Retry-After）。Annict 連携が必要（未連携は 401）。",
         "security": [
           {
+            "bearerAuth": [],
+            "annictToken": []
+          },
+          {
             "bearerAuth": []
           }
         ],
@@ -4647,6 +4616,13 @@
                   "properties": {
                     "error": {
                       "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "annict_token_required",
+                        "annict_token_invalid"
+                      ]
                     }
                   },
                   "required": [
@@ -6541,6 +6517,10 @@
         "summary": "作品を推しに登録する（冪等）",
         "security": [
           {
+            "bearerAuth": [],
+            "annictToken": []
+          },
+          {
             "bearerAuth": []
           }
         ],
@@ -8146,12 +8126,7 @@
           "200": {
             "description": "名刺コピー画像",
             "content": {
-              "image/png": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
+              "image/png": {}
             }
           },
           "401": {
@@ -12246,6 +12221,20 @@
                   "properties": {
                     "error": {
                       "type": "string"
+                    },
+                    "annictWorkIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "annictCharacterIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
                     }
                   },
                   "required": [
@@ -12942,7 +12931,7 @@
             }
           },
           "400": {
-            "description": "入力エラー・未キャッシュの作品/キャラクター",
+            "description": "入力エラー・未キャッシュの作品/キャラクター（annictWorkIds / annictCharacterIds に列挙）",
             "content": {
               "application/json": {
                 "schema": {
@@ -12950,6 +12939,20 @@
                   "properties": {
                     "error": {
                       "type": "string"
+                    },
+                    "annictWorkIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "annictCharacterIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
                     }
                   },
                   "required": [
