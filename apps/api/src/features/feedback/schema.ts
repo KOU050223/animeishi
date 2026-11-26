@@ -20,7 +20,7 @@ const feedbackCreateSchema = z.object({
     .min(1, "Body is required")
     .max(
       FEEDBACK_BODY_MAX_LENGTH,
-      `内容は${FEEDBACK_BODY_MAX_LENGTH}文字以内で入力してください`,
+      `Body must be ${FEEDBACK_BODY_MAX_LENGTH} characters or less`,
     ),
   appVersion: z.string().trim().max(100).optional(),
   platform: z.string().trim().max(100).optional(),

@@ -153,10 +153,16 @@ function openapiValidationHook(
   c: Context,
 ) {
   if (!result.success) {
+    const issue = result.error?.issues[0];
+    // zod v4 の refine は params を issue に残せる。利用者向けの理由を
+    // 区別するバリデーション（プロフィール更新など）は params.code を
+    // 付け、クライアントが code から表示文言を引けるようにする（issue #838）。
+    const paramsCode = (issue as { params?: { code?: unknown } } | undefined)
+      ?.params?.code;
     return c.json(
       {
-        error: result.error?.issues[0]?.message ?? "Invalid request",
-        code: "invalid_request",
+        error: issue?.message ?? "Invalid request",
+        code: typeof paramsCode === "string" ? paramsCode : "invalid_request",
       },
       400,
     );

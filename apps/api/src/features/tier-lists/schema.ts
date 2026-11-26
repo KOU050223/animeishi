@@ -72,7 +72,7 @@ const tierListFields = z.object({
     .max(12, "Up to 12 tiers")
     .refine(
       (rows) => new Set(rows.map((r) => r.key)).size === rows.length,
-      "tier のキーが重複しています",
+      "Tier keys must not contain duplicates",
     ),
   // position はサーバが配列順から採番する。クライアントが送ってきた値は使わない
   // （順序の正が配列順とカラムの2か所に分かれると必ずズレるため）。

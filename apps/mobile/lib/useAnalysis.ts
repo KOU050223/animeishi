@@ -73,7 +73,12 @@ export function useGenerateAnalysis() {
             const code = await readApiErrorCode(errorRes);
             return new ApiRequestError(
               errorRes.status,
-              apiErrorMessage(code) ?? "分析に失敗しました",
+              apiErrorMessage(code) ??
+                // 履歴なし・生成失敗は従来サーバーが返していた文言と同じキー
+                // （表示側の t() で翻訳される。issue #838）。
+                (code === "watch_history_required"
+                  ? "分析するには視聴履歴が必要です。まず Annict と連携して作品を記録してください"
+                  : "分析に失敗しました。時間をおいて再度お試しください"),
               code,
               readRetryAfterSeconds(errorRes),
             );

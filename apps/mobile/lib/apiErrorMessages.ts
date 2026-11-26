@@ -17,6 +17,16 @@ const API_ERROR_MESSAGE_KEYS = {
   image_too_large: "画像サイズが大きすぎます",
   invalid_image_format: "対応していない画像形式です",
   meishi_asset_limit: "アップロードできる画像数の上限に達しました",
+  // プロフィール更新のバリデーション（issue #838）。従来サーバーが返していた
+  // 日本語文言と同じキーを引く。
+  username_required: "ユーザー名を入力してください",
+  username_too_short: "ユーザー名は2文字以上で入力してください",
+  username_too_long: "ユーザー名は20文字以内で入力してください",
+  username_invalid_chars: "ユーザー名に使用できない文字が含まれています",
+  username_reserved: "別のユーザー名を選択してください",
+  comment_too_long: "コメントは500文字以内で入力してください",
+  inappropriate_content: "不適切な内容が含まれています",
+  duplicate_genre: "ジャンルが重複しています",
 } satisfies Record<string, TranslationKey>;
 
 /** code に対応する表示文言の翻訳キーを返す。対応が無ければ undefined。 */

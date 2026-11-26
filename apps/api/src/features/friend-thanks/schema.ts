@@ -79,7 +79,7 @@ const friendThanksSendSchema = z.object({
     .string()
     .max(
       FRIEND_THANKS_BODY_MAX_LENGTH,
-      `ひとことは ${FRIEND_THANKS_BODY_MAX_LENGTH} 文字以内で入力してください`,
+      `Message must be ${FRIEND_THANKS_BODY_MAX_LENGTH} characters or less`,
     )
     .refine((s) => !/[\r\n]/.test(s), "Newlines are not allowed")
     .nullable()

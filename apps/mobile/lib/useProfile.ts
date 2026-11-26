@@ -2,7 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import type { InferRequestType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
+import { apiErrorMessage } from "@/lib/apiErrorMessages";
 import { profileQueries } from "@/lib/queries/profile";
 
 export type ProfileUpdateInput = InferRequestType<
@@ -82,15 +83,18 @@ export function useUpdateProfile() {
       const res = await apiClient.me.profile.$put(
         { json: input },
         {
-          // 400 はバリデーション失敗。サーバーの error は開発者向け英語なので
-          // 画面には出さず、従来の汎用文言にフォールバックする（issue #838）。
+          // 400 はバリデーション失敗。理由は code から表示文言を引く
+          // （username_invalid_chars 等。issue #838）。
           fetch: apiFetch({
             onHttpError: async (errorRes) => {
+              const code = await readApiErrorCode(errorRes);
               return new ApiRequestError(
                 errorRes.status,
-                errorRes.status === 400
-                  ? "入力内容に誤りがあります"
-                  : "プロフィールの更新に失敗しました",
+                apiErrorMessage(code) ??
+                  (errorRes.status === 400
+                    ? "入力内容に誤りがあります"
+                    : "プロフィールの更新に失敗しました"),
+                code,
               );
             },
           }),

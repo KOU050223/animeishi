@@ -28,7 +28,7 @@ const optionalInt = (name: string, min: number) =>
     .string()
     .regex(
       min === 0 ? /^\d+$/ : /^[1-9]\d*$/,
-      `${name} は ${min} 以上の整数で指定してください`,
+      `${name} must be an integer of ${min} or more`,
     )
     .optional();
 

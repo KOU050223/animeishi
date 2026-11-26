@@ -79,7 +79,10 @@ export function useGenerateRecommendations() {
             const code = await readApiErrorCode(errorRes);
             return new ApiRequestError(
               errorRes.status,
-              apiErrorMessage(code) ?? "おすすめの生成に失敗しました",
+              apiErrorMessage(code) ??
+                (code === "watch_history_required"
+                  ? "おすすめには視聴履歴が必要です。まず Annict と連携して作品を記録してください"
+                  : "おすすめの生成に失敗しました。時間をおいて再度お試しください"),
               code,
               readRetryAfterSeconds(errorRes),
             );
