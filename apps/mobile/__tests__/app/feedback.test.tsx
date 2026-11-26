@@ -161,7 +161,7 @@ describe("FeedbackScreen", () => {
     await fireEvent.press(screen.getByTestId("feedback-submit"));
 
     const options = mockMutate.mock.calls[0]![1] as MutateOptions;
-    options.onSuccess();
+    await act(() => options.onSuccess());
 
     expect(mockAlert).toHaveBeenCalledWith(
       "送信しました",
