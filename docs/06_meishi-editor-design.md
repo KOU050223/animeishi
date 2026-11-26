@@ -298,7 +298,7 @@ ALTER TABLE users ADD COLUMN meishi_public INTEGER NOT NULL DEFAULT 0;
 ## 既存実装の扱い
 
 - 前回の `apps/mobile/components/MeishiCustomizer.tsx` と `apps/mobile/lib/useMeishiCustomization.ts` は **削除して仕切り直し**
-- 前回の `apps/mobile/features/meishiCustomization.ts` のうち以下は流用:
+- 前回の `apps/mobile/lib/meishiCustomization.ts` のうち以下は流用:
   - `BackgroundStyle` 型（新設計の `canvas.background` に採用）
   - `COLOR_PALETTE`（新エディタのカラーピッカーで再利用）
   - `MEISHI_PRESETS` は名前だけ流用し、中身は要素配置込みの `MeishiDocument` テンプレとして作り直す

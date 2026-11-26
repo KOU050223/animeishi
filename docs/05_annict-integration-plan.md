@@ -178,9 +178,9 @@ query SearchWorks($titles: [String!], $seasons: [String!], $after: String) {
 ### モバイル (`apps/mobile`)
 - **追加**: `features/annict/`（SecureStore トークン管理、OAuth 連携フロー `useAnnictConnect`、`X-Annict-Token` を付与する apiClient ラッパ）
 - **追加**: Annict 連携を促す画面/モーダル（ソフトゲート用）
-- **改修**: `lib/useWatchHistory.ts`（annictWorkId ベース、`state` のみ、X-Annict-Token 付与）
+- **改修**: `features/watch-history/useWatchHistory.ts`（annictWorkId ベース、`state` のみ、X-Annict-Token 付与）
 - **改修**: `app/(tabs)/watch-history.tsx` / `anime-list.tsx`（ソフトゲート：未連携時は連携誘導を表示）
-- **改修**: `lib/useAnimeList.ts`（searchWorks プロキシ経由へ）
+- **改修**: `features/works/useAnimeList.ts`（searchWorks プロキシ経由へ）
 - **改修**: 関連テスト（`useWatchHistory.test.ts`、`useAnimeList.test.ts`）
 
 ## 段階的リリース計画(PR 分割)
