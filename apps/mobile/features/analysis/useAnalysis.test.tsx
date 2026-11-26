@@ -7,7 +7,7 @@ import {
   ANALYSIS_QUERY_KEY,
   useAnalysis,
   useGenerateAnalysis,
-} from "@/lib/useAnalysis";
+} from "@/features/analysis/useAnalysis";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";

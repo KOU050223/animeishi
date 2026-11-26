@@ -43,7 +43,7 @@ jest.mock("expo-router", () => ({
   }),
 }));
 
-jest.mock("@/lib/useAnalysis", () => ({
+jest.mock("@/features/analysis/useAnalysis", () => ({
   useAnalysis: () => ({
     data: {
       analysis: {
@@ -90,7 +90,7 @@ const RECOMMENDED_WORK = {
   reason: "好みに合いそう",
 };
 
-jest.mock("@/lib/useRecommendations", () => ({
+jest.mock("@/features/analysis/useRecommendations", () => ({
   useRecommendations: () => mockUseRecommendations(),
   useGenerateRecommendations: () => ({
     mutate: jest.fn(),

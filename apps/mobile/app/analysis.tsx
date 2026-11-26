@@ -13,12 +13,12 @@ import {
   useAnalysis,
   useGenerateAnalysis,
   type AnalysisResult,
-} from "@/lib/useAnalysis";
+} from "@/features/analysis/useAnalysis";
 import {
   useGenerateRecommendations,
   useRecommendations,
   type RecommendedWork,
-} from "@/lib/useRecommendations";
+} from "@/features/analysis/useRecommendations";
 import { useUpsertWatchHistory, useWatchHistory } from "@/lib/useWatchHistory";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
 import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";

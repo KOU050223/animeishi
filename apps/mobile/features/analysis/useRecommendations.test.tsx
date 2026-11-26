@@ -7,7 +7,7 @@ import {
   RECOMMENDATIONS_QUERY_KEY,
   useGenerateRecommendations,
   useRecommendations,
-} from "@/lib/useRecommendations";
+} from "@/features/analysis/useRecommendations";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";
