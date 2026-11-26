@@ -2,7 +2,7 @@ import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { resolveEnvironment } from "@animeishi/observability";
 import { getAppInfo } from "@/lib/appInfo";
-import { useApiVersion } from "@/lib/useApiVersion";
+import { useApiVersion } from "@/features/health/useApiVersion";
 
 const SHORT_SHA_LENGTH = 7;
 
