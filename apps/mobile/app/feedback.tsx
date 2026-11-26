@@ -18,7 +18,7 @@ import {
   FEEDBACK_BODY_MAX_LENGTH,
   type FeedbackCategory,
   useSendFeedback,
-} from "@/lib/useSendFeedback";
+} from "@/features/feedback/useSendFeedback";
 
 const CATEGORIES: {
   value: FeedbackCategory;
