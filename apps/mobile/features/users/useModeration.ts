@@ -14,7 +14,7 @@ import {
 } from "@/features/friends/useFriends";
 import { COMMON_POINTS_QUERY_KEY } from "@/features/users/useCommonPoints";
 import { EVENT_PARTICIPANTS_QUERY_KEY } from "@/features/events/useEvents";
-import { PUBLIC_WORK_LISTS_KEY } from "@/lib/workList/useWorkLists";
+import { PUBLIC_WORK_LISTS_KEY } from "@/features/work-lists/useWorkLists";
 import { PUBLIC_TIER_LISTS_KEY } from "@/features/tier-lists/usePublicTierLists";
 import { PUBLIC_USERS_KEY } from "@/features/users/usePublicUsers";
 import { FRIEND_THANKS_QUERY_KEY } from "@/features/friend-thanks/useFriendThanks";

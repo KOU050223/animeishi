@@ -22,8 +22,8 @@ import type { ThemeColors } from "@/lib/theme";
 import {
   usePublicWorkList,
   useToggleWorkListLike,
-} from "@/lib/workList/useWorkLists";
-import { useReportWorkListFlow } from "@/lib/workList/useReportWorkListFlow";
+} from "@/features/work-lists/useWorkLists";
+import { useReportWorkListFlow } from "@/features/work-lists/useReportWorkListFlow";
 import type { ReportReason } from "@/features/users/useModeration";
 
 type PublicWorkListDetail = NonNullable<

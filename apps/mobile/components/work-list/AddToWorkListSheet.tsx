@@ -21,7 +21,7 @@ import {
   useAddWorkToWorkList,
   useSaveWorkList,
   useWorkListsContaining,
-} from "@/lib/workList/useWorkLists";
+} from "@/features/work-lists/useWorkLists";
 
 /**
  * 「リストに追加」シートの対象作品。アニメ一覧のカード（issue #377）や

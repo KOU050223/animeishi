@@ -23,15 +23,15 @@ import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { useThemeColors } from "@/lib/theme";
 import { featureFlags } from "@/lib/featureFlags";
-import { buildWorkListShareUrl } from "@/lib/workList/shareUrl";
+import { buildWorkListShareUrl } from "@/features/work-lists/shareUrl";
 import type { TierItem } from "@/features/tier-lists/types";
-import type { WorkListEntry } from "@/lib/workList/types";
+import type { WorkListEntry } from "@/features/work-lists/types";
 import {
   useSavedWorkList,
   useSaveWorkList,
   useShareWorkList,
   useUnshareWorkList,
-} from "@/lib/workList/useWorkLists";
+} from "@/features/work-lists/useWorkLists";
 
 /**
  * オリジナル作品リストの編集画面（issue #349）。

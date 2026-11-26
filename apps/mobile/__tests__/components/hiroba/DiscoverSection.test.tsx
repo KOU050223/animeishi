@@ -97,7 +97,7 @@ const mockRefetch = jest.fn(async () => ({}));
 const mockToggleMutate = jest.fn();
 const mockReportSubmit = jest.fn();
 
-jest.mock("@/lib/workList/useWorkLists", () => ({
+jest.mock("@/features/work-lists/useWorkLists", () => ({
   usePublicWorkLists: () => ({
     data: { pages: [{ items: mockItems, nextCursor: null }] },
     isLoading: mockLoading,
@@ -110,7 +110,7 @@ jest.mock("@/lib/workList/useWorkLists", () => ({
   useToggleWorkListLike: () => ({ mutate: mockToggleMutate }),
 }));
 
-jest.mock("@/lib/workList/useReportWorkListFlow", () => ({
+jest.mock("@/features/work-lists/useReportWorkListFlow", () => ({
   useReportWorkListFlow: () => ({
     submit: mockReportSubmit,
     isPending: false,

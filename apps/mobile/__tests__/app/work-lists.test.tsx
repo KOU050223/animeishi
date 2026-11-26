@@ -41,7 +41,7 @@ let mockLists:
   | undefined;
 let mockListsLoading = false;
 const mockRemoveMutateAsync = jest.fn();
-jest.mock("@/lib/workList/useWorkLists", () => ({
+jest.mock("@/features/work-lists/useWorkLists", () => ({
   useWorkLists: () => ({
     data: mockLists,
     isLoading: mockListsLoading,

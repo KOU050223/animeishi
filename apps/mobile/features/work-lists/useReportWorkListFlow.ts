@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@clerk/expo";
 import { alert, confirm } from "@/lib/dialog";
 import { useBlockUser } from "@/features/users/useModeration";
-import { useReportWorkList } from "@/lib/workList/useWorkLists";
+import { useReportWorkList } from "@/features/work-lists/useWorkLists";
 
 /**
  * 公開作品リストの通報フロー（issue #422）。

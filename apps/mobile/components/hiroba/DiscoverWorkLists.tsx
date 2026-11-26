@@ -24,8 +24,8 @@ import {
   useToggleWorkListLike,
   type PublicWorkListItem,
   type PublicWorkListSort,
-} from "@/lib/workList/useWorkLists";
-import { useReportWorkListFlow } from "@/lib/workList/useReportWorkListFlow";
+} from "@/features/work-lists/useWorkLists";
+import { useReportWorkListFlow } from "@/features/work-lists/useReportWorkListFlow";
 import type { ReportReason } from "@/features/users/useModeration";
 
 // ひろば「みつける」の作品リストフィード（issue #422）。

@@ -138,7 +138,7 @@ jest.mock("@/features/annict", () => ({
 
 // 「リストに追加」シートのフックは実物だと QueryClient が要るため、
 // 一覧側のテストではスタブにする（シート自体は AddToWorkListSheet.test.tsx）。
-jest.mock("@/lib/workList/useWorkLists", () => ({
+jest.mock("@/features/work-lists/useWorkLists", () => ({
   useWorkListsContaining: () => ({
     data: [],
     isLoading: false,

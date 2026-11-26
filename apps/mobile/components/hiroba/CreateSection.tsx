@@ -17,7 +17,7 @@ import {
   useMergedTierLists,
   type MergedTierListItem,
 } from "@/features/tier-lists/useMergedTierLists";
-import { useWorkLists } from "@/lib/workList/useWorkLists";
+import { useWorkLists } from "@/features/work-lists/useWorkLists";
 import { CharacterTierWorkPicker } from "@/components/tier-list/CharacterTierWorkPicker";
 import type { TierItem } from "@/features/tier-lists/types";
 

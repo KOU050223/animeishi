@@ -33,7 +33,7 @@ let mockWorkLists:
       shareToken: string | null;
     }[]
   | undefined;
-jest.mock("@/lib/workList/useWorkLists", () => ({
+jest.mock("@/features/work-lists/useWorkLists", () => ({
   useWorkLists: () => ({
     data: mockWorkLists,
     isLoading: false,
