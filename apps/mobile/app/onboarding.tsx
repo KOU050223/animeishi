@@ -13,7 +13,7 @@ import { getTemplate } from "@/lib/meishi/templates";
 import { addCard, findCard } from "@/lib/meishi/library";
 import { loadMeishiLibrary, updateMeishiLibrary } from "@/lib/meishi/storage";
 import type { MeishiDocument } from "@/lib/meishi/types";
-import { useAddFavorite } from "@/lib/useFavorites";
+import { useAddFavorite } from "@/features/favorites/useFavorites";
 import type { WorkCandidate } from "@/lib/useWorkCandidates";
 import { ApiRequestError } from "@/lib/apiError";
 import { trackEvent } from "@/lib/events";

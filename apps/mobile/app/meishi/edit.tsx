@@ -39,7 +39,7 @@ import { usePublicMeishiSnapshot } from "@/lib/meishi/publicSnapshot/usePublicMe
 import { loadMeishiLibrary } from "@/lib/meishi/storage";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useAchievements } from "@/features/achievements/useAchievements";
-import { useFavorites } from "@/lib/useFavorites";
+import { useFavorites } from "@/features/favorites/useFavorites";
 import {
   pickMeishiImage,
   useMeishiAssetUpload,

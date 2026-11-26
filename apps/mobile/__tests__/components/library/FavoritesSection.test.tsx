@@ -29,7 +29,7 @@ const mockConfirm = jest.fn(
   ) => onConfirm(),
 );
 
-jest.mock("@/lib/useFavorites", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
   useFavorites: () => ({
     data: [
       {

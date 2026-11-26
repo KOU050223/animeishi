@@ -8,7 +8,7 @@ import {
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { haptics } from "@/lib/haptics";
-import { useFavorites } from "@/lib/useFavorites";
+import { useFavorites } from "@/features/favorites/useFavorites";
 import { useCommonPoints } from "@/lib/useCommonPoints";
 import { useFriends } from "@/lib/useFriends";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
@@ -42,7 +42,7 @@ jest.mock("@/lib/haptics", () => ({
 
 // 成立カードは相手の公開プロフィールだけで組む。閲覧者自身の
 // favorites / watch history を参照しないことをモックでガードする。
-jest.mock("@/lib/useFavorites", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
   useFavorites: jest.fn(() => ({ data: undefined })),
 }));
 jest.mock("@/lib/useCommonPoints", () => ({ useCommonPoints: jest.fn() }));

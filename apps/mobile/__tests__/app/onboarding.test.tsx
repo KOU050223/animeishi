@@ -29,7 +29,7 @@ jest.mock("expo-router", () => ({
 }));
 
 const mockMutateAsync = jest.fn().mockResolvedValue({});
-jest.mock("@/lib/useFavorites", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
   useAddFavorite: () => ({ mutateAsync: mockMutateAsync }),
 }));
 

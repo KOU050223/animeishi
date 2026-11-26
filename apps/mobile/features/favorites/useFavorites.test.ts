@@ -8,7 +8,7 @@ import {
   matchesFavoriteQuery,
   useAddFavorite,
   useRemoveFavorite,
-} from "@/lib/useFavorites";
+} from "@/features/favorites/useFavorites";
 import { useCommonPoints } from "@/lib/useCommonPoints";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";

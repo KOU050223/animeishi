@@ -82,7 +82,9 @@ jest.mock("@/lib/useProfile", () => ({
     },
   }),
 }));
-jest.mock("@/lib/useFavorites", () => ({ useFavorites: () => ({ data: [] }) }));
+jest.mock("@/features/favorites/useFavorites", () => ({
+  useFavorites: () => ({ data: [] }),
+}));
 jest.mock("@/lib/useWatchHistory", () => ({
   useWatchHistory: () => ({ data: [] }),
 }));

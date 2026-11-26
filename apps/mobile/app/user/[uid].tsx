@@ -37,7 +37,10 @@ import { saveReceivedMeishi } from "@/lib/receivedMeishi";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";
 import type { WorkDetailSheetTarget } from "@/components/anime-list";
-import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
+import {
+  useFavoriteIds,
+  useToggleFavorite,
+} from "@/features/favorites/useFavorites";
 import { trackEvent } from "@/lib/events";
 import {
   getReportErrorMessage,

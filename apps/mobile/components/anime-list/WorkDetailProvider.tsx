@@ -6,7 +6,10 @@ import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
 import { WorkDetailContext } from "@/lib/workDetailContext";
 import type { WorkDetailTarget } from "@/lib/workDetailContext";
-import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
+import {
+  useFavoriteIds,
+  useToggleFavorite,
+} from "@/features/favorites/useFavorites";
 import { alert } from "@/lib/dialog";
 
 export function WorkDetailProvider({ children }: { children: ReactNode }) {

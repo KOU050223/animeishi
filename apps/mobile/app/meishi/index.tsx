@@ -20,7 +20,7 @@ import { MEISHI_ASPECT_RATIO } from "@/lib/meishi/defaults";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
 import { loadMeishiLibrary } from "@/lib/meishi/storage";
 import { usePublicMeishiSnapshot } from "@/lib/meishi/publicSnapshot/usePublicMeishiSnapshot";
-import { useFavorites } from "@/lib/useFavorites";
+import { useFavorites } from "@/features/favorites/useFavorites";
 import { useWatchHistory } from "@/lib/useWatchHistory";
 import { useAchievements } from "@/features/achievements/useAchievements";
 import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";

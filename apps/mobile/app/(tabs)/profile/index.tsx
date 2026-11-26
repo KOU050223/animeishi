@@ -46,7 +46,10 @@ import { useThemeColors } from "@/lib/theme";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";
 import type { WorkDetailSheetTarget } from "@/components/anime-list";
-import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
+import {
+  useFavoriteIds,
+  useToggleFavorite,
+} from "@/features/favorites/useFavorites";
 import { alert } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { resolveMeishiDocument } from "@/lib/meishi/templates";

@@ -68,7 +68,7 @@ jest.mock("@/lib/useWatchHistory", () => ({
 // 推し（お気に入り）の状態・トグルをテストごとに差し替えられるようにする（#379）。
 let mockFavoriteIds = new Set<number>();
 const mockToggleFavorite = jest.fn();
-jest.mock("@/lib/useFavorites", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
   useFavoriteIds: () => mockFavoriteIds,
   useToggleFavorite: () => ({
     toggle: (annictWorkId: number) => mockToggleFavorite(annictWorkId),

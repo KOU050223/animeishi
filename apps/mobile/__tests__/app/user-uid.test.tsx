@@ -153,7 +153,7 @@ jest.mock("@/components/anime-list", () => ({
   },
 }));
 
-jest.mock("@/lib/useFavorites", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
   useFavoriteIds: () => new Set<number>(),
   useToggleFavorite: () => ({ toggle: jest.fn(), isPending: false }),
 }));

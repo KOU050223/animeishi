@@ -4,7 +4,7 @@ import type { MeishiCompletionStep } from "./completion";
 import { defaultCard } from "./library";
 import { loadMeishiLibrary } from "./storage";
 import type { MeishiDocument } from "./types";
-import { useFavorites } from "@/lib/useFavorites";
+import { useFavorites } from "@/features/favorites/useFavorites";
 import { useProfile } from "@/lib/useProfile";
 
 export type MeishiCompletion = {

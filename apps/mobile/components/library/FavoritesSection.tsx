@@ -12,8 +12,8 @@ import {
   useFavorites,
   useRemoveFavorite,
   matchesFavoriteQuery,
-} from "@/lib/useFavorites";
-import type { FavoriteItem } from "@/lib/useFavorites";
+} from "@/features/favorites/useFavorites";
+import type { FavoriteItem } from "@/features/favorites/useFavorites";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";

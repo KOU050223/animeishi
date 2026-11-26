@@ -21,7 +21,10 @@ import {
 } from "@/features/analysis/useRecommendations";
 import { useUpsertWatchHistory, useWatchHistory } from "@/lib/useWatchHistory";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
-import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
+import {
+  useFavoriteIds,
+  useToggleFavorite,
+} from "@/features/favorites/useFavorites";
 import { ApiRequestError } from "@/lib/apiError";
 import { useAnnictTokenErrorPrompt } from "@/features/annict";
 import { trackEvent } from "@/lib/events";

@@ -118,7 +118,7 @@ jest.mock("@/lib/useWatchHistory", () => ({
   },
 }));
 
-jest.mock("@/lib/useFavorites", () => ({
+jest.mock("@/features/favorites/useFavorites", () => ({
   useFavoriteIds: () => new Set<number>(),
   useToggleFavorite: () => ({
     toggle: mockToggleFavorite,

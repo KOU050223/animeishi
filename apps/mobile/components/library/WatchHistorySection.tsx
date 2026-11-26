@@ -22,7 +22,10 @@ import type {
   WatchHistoryItem,
   UpsertWatchHistoryError,
 } from "@/lib/useWatchHistory";
-import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
+import {
+  useFavoriteIds,
+  useToggleFavorite,
+} from "@/features/favorites/useFavorites";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
