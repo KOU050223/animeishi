@@ -57,7 +57,7 @@ import type { ImageElement } from "@/features/meishi/types";
 import { PublicSettingsSection } from "@/components/profile/PublicSettingsSection";
 import type { PublicSettingItem } from "@/components/profile/PublicSettingsSection";
 import { usePublicSettings } from "@/features/me/usePublicSettings";
-import { useSocialLinks } from "@/lib/socialLinks";
+import { useSocialLinks } from "@/features/social-links/socialLinks";
 
 type Toast = { type: "success" | "error"; message: string };
 

@@ -57,7 +57,7 @@ jest.mock("@/features/favorites/useFavorites", () => ({
   useFavorites: () => ({ data: [] }),
 }));
 
-jest.mock("@/lib/socialLinks", () => ({
+jest.mock("@/features/social-links/socialLinks", () => ({
   useSocialLinks: () => ({ data: { items: [] } }),
 }));
 

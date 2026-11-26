@@ -2,8 +2,8 @@ import React from "react";
 import { Linking } from "react-native";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { SocialLinksList } from "./SocialLinksList";
-import type { SocialLink } from "@/lib/socialLinks";
-import { socialLinkLabel } from "@/lib/socialLinks";
+import type { SocialLink } from "@/features/social-links/socialLinks";
+import { socialLinkLabel } from "@/features/social-links/socialLinks";
 
 const links: SocialLink[] = [
   {

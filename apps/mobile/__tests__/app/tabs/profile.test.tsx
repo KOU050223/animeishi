@@ -132,7 +132,7 @@ jest.mock("@/features/me/usePublicSettings", () => ({
   }),
 }));
 
-jest.mock("@/lib/socialLinks", () => ({
+jest.mock("@/features/social-links/socialLinks", () => ({
   useSocialLinks: () => ({ data: { items: [] } }),
 }));
 

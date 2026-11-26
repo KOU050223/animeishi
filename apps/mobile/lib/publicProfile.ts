@@ -1,6 +1,6 @@
 import { apiUrl } from "@/lib/apiUrl";
 import { ApiRequestError } from "@/lib/apiError";
-import type { SocialLink } from "@/lib/socialLinks";
+import type { SocialLink } from "@/features/social-links/socialLinks";
 
 // 「いま見ている」吹き出し（issue #420）に載せる直近の話数記録 1 件。
 // 直近 24 時間に記録が無ければ null。GET /me/profile の nowWatching と同形。
