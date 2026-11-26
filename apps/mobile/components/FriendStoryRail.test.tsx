@@ -7,10 +7,10 @@ import {
 } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FriendStoryRail } from "@/components/FriendStoryRail";
-import type { FriendWatchStory } from "@/lib/useFriendWatchStories";
+import type { FriendWatchStory } from "@/features/feed/useFriendWatchStories";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
-// API・認証の振る舞いは lib/useFriendWatchStories の結合部なので、
+// API・認証の振る舞いは features/feed/useFriendWatchStories の結合部なので、
 // ここではフックの戻り値を差し替えてリングの UI 分岐を検証する。
 let mockStories: {
   data?: { friends: FriendWatchStory[] };
@@ -19,7 +19,7 @@ let mockStories: {
   refetch: jest.Mock;
 };
 
-jest.mock("@/lib/useFriendWatchStories", () => ({
+jest.mock("@/features/feed/useFriendWatchStories", () => ({
   useFriendWatchStories: () => mockStories,
 }));
 

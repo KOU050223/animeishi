@@ -10,14 +10,14 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
-import { useFriendWatchStories } from "@/lib/useFriendWatchStories";
-import type { FriendWatchStory } from "@/lib/useFriendWatchStories";
+import { useFriendWatchStories } from "@/features/feed/useFriendWatchStories";
+import type { FriendWatchStory } from "@/features/feed/useFriendWatchStories";
 import {
   isFriendUnread,
   loadStorySeenMap,
   markStorySeen,
-} from "@/lib/friendStorySeen";
-import type { StorySeenMap } from "@/lib/friendStorySeen";
+} from "@/features/feed/friendStorySeen";
+import type { StorySeenMap } from "@/features/feed/friendStorySeen";
 import { useThemeColors } from "@/lib/theme";
 import { FriendStoryViewer } from "@/components/FriendStoryViewer";
 

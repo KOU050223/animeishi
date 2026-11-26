@@ -4,7 +4,7 @@ import type { TFunction } from "i18next";
 import { useFriendUpdates } from "@/lib/useFriendUpdates";
 import type { FriendUpdateItem } from "@/lib/useFriendUpdates";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
-import { formatRelativeTime } from "@/lib/activityText";
+import { formatRelativeTime } from "@/features/feed/activityText";
 
 // 近況 1 件の表示文。相手の詳細ページ内なのでユーザー名は付けない。
 function updateText(item: FriendUpdateItem, t: TFunction): string {

@@ -1,4 +1,4 @@
-import type { ActivityFeedItem } from "@/lib/useActivityFeed";
+import type { ActivityFeedItem } from "@/features/feed/useActivityFeed";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
 import type { TFunction } from "i18next";
 

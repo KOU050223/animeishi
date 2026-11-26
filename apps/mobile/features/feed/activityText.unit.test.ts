@@ -3,8 +3,8 @@ import {
   activityText,
   activityGroupText,
   formatRelativeTime,
-} from "@/lib/activityText";
-import type { ActivityFeedItem } from "@/lib/useActivityFeed";
+} from "@/features/feed/activityText";
+import type { ActivityFeedItem } from "@/features/feed/useActivityFeed";
 import type { TFunction } from "i18next";
 
 const translations: Record<string, string> = {

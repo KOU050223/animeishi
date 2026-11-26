@@ -11,16 +11,16 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useActivityFeed } from "@/lib/useActivityFeed";
+import { useActivityFeed } from "@/features/feed/useActivityFeed";
 import { useFriends } from "@/lib/useFriends";
 import { useTranslation } from "react-i18next";
-import type { ActivityFeedItem } from "@/lib/useActivityFeed";
+import type { ActivityFeedItem } from "@/features/feed/useActivityFeed";
 import {
   activityText,
   activityGroupText,
   formatRelativeTime,
-} from "@/lib/activityText";
-import { groupActivityItems } from "@/lib/groupActivityItems";
+} from "@/features/feed/activityText";
+import { groupActivityItems } from "@/features/feed/groupActivityItems";
 import { useThemeColors } from "@/lib/theme";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";

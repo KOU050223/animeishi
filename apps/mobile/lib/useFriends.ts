@@ -2,12 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
-import { ACTIVITY_FEED_QUERY_KEY } from "@/lib/useActivityFeed";
+import { ACTIVITY_FEED_QUERY_KEY } from "@/features/feed/useActivityFeed";
 import {
   EVENT_EXCHANGED_FRIENDS_QUERY_KEY,
   EVENT_PARTICIPANTS_QUERY_KEY,
 } from "@/features/events/useEvents";
-import { FRIEND_WATCH_STORIES_QUERY_KEY } from "@/lib/useFriendWatchStories";
+import { FRIEND_WATCH_STORIES_QUERY_KEY } from "@/features/feed/useFriendWatchStories";
 import { EXCHANGE_RECORDS_QUERY_KEY } from "@/features/exchange-records/useExchangeRecords";
 import { FRIEND_THANKS_QUERY_KEY } from "@/lib/useFriendThanks";
 import { PUBLIC_PROFILE_QUERY_KEY } from "@/lib/publicProfile";

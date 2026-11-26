@@ -109,7 +109,7 @@ let mockFeed: {
   fetchNextPage: jest.Mock;
   isFetchingNextPage: boolean;
 };
-jest.mock("@/lib/useActivityFeed", () => ({
+jest.mock("@/features/feed/useActivityFeed", () => ({
   useActivityFeed: () => mockFeed,
   ACTIVITY_FEED_QUERY_KEY: ["activity-feed"],
 }));
@@ -120,7 +120,7 @@ jest.mock("@/lib/useFriends", () => ({
   useFriends: () => ({ data: [{ friendId: "f1" }], isLoading: false }),
 }));
 
-jest.mock("@/lib/useFriendWatchStories", () => ({
+jest.mock("@/features/feed/useFriendWatchStories", () => ({
   useFriendWatchStories: () => ({ data: undefined, refetch: jest.fn() }),
   FRIEND_WATCH_STORIES_QUERY_KEY: ["friend-watch-stories"],
 }));

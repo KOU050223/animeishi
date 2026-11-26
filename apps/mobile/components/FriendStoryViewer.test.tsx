@@ -1,7 +1,7 @@
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { FriendStoryViewer } from "@/components/FriendStoryViewer";
-import type { FriendWatchStory } from "@/lib/useFriendWatchStories";
+import type { FriendWatchStory } from "@/features/feed/useFriendWatchStories";
 import { WorkDetailContext } from "@/lib/workDetailContext";
 
 function friend(items: FriendWatchStory["items"]): FriendWatchStory {
