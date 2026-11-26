@@ -5,7 +5,7 @@
  * - useAddToAppleWallet.ios.ts ... iOS (WebBrowser で .pkpass を開く実装)
  * - useAddToAppleWallet.ts     ... 非 iOS フォールバック (canUse: false を返す)
  *
- * 呼び出し側は常に `@/lib/wallet` から import する。
+ * 呼び出し側は常に `@/features/pass` から import する。
  *
  * 表示文言はこの基盤に持たせず、フックは「何が起きたか」を表す
  * 判別可能な結果コードのみを返す。文言の組み立て (i18n の t() 等) は

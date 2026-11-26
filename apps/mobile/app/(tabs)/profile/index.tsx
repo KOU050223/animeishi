@@ -35,8 +35,8 @@ import { ApiRequestError } from "@/lib/apiError";
 import { useProfileAvatarUpload } from "@/features/me/useProfileAvatar";
 import { useMeishiLibrary } from "@/features/meishi/useMeishiLibrary";
 import { buildProfileUrl } from "@/lib/profileUrl";
-import { useAddToAppleWallet } from "@/lib/wallet";
-import type { AddToWalletResult } from "@/lib/wallet";
+import { useAddToAppleWallet } from "@/features/pass";
+import type { AddToWalletResult } from "@/features/pass";
 import { featureFlags } from "@/lib/featureFlags";
 import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
 import { useDanimeEpisodeJob } from "@/features/import/useDanimeImport";
@@ -62,7 +62,7 @@ import { useSocialLinks } from "@/lib/socialLinks";
 type Toast = { type: "success" | "error"; message: string };
 
 // Apple Wallet 追加の結果コードを、この画面で表示する文言へマッピングする。
-// 文言は低レベル基盤 (lib/wallet) には持たせず、呼び出し側で組み立てる。
+// 文言は低レベル基盤 (features/pass) には持たせず、呼び出し側で組み立てる。
 // 成功・非対応端末 (ボタン非表示) はトーストを出さないため null を返す。
 // t はキー補完つきの厳密な型（ReturnType<typeof useTranslation>["t"]）ではなく
 // TFunction で受ける。キー数が増えると厳密な型の展開が TypeScript の
