@@ -13,7 +13,7 @@ export function annictErrorResponse(c: Context, err: unknown) {
   if (err instanceof AnnictSharedTokenRejectedError) {
     return c.json(
       {
-        error: "作品情報を取得できません",
+        error: "The shared Annict token was rejected",
         code: "annict_shared_token_unavailable",
       },
       503,
@@ -22,18 +22,21 @@ export function annictErrorResponse(c: Context, err: unknown) {
   if (err instanceof AnnictApiError) {
     if (err.status === 401) {
       return c.json(
-        { error: "Annict 連携が無効です", code: "annict_token_invalid" },
+        { error: "Annict token is invalid", code: "annict_token_invalid" },
         401,
       );
     }
     if (err.status === 429) {
+      // 上流が指定した再試行秒数を転送する。Annict が付けない場合は
+      // 60 秒を返し、429 では必ず Retry-After が出る契約に揃える。
+      c.header("Retry-After", String(err.retryAfterSeconds ?? 60));
       return c.json(
-        { error: "Annict が混み合っています", code: "annict_rate_limited" },
+        { error: "Annict rate limit exceeded", code: "annict_rate_limited" },
         429,
       );
     }
     return c.json(
-      { error: "Annict との通信に失敗しました", code: "annict_upstream" },
+      { error: "Annict upstream request failed", code: "annict_upstream" },
       502,
     );
   }

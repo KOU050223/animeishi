@@ -29,7 +29,10 @@ const usersRoute = app
   .openapi(reportUserRoute, async (c) => {
     const { id: targetId } = c.req.valid("param");
     if (targetId === c.var.clerkUserId) {
-      return c.json({ error: "自分自身を通報することはできません" }, 400);
+      return c.json(
+        { error: "Cannot report yourself", code: "cannot_report_self" },
+        400,
+      );
     }
     const { reason } = c.req.valid("json");
 
@@ -39,11 +42,14 @@ const usersRoute = app
       await repo.createReport(targetId, reason);
     } catch (e) {
       if (e instanceof UserNotFoundError) {
-        return c.json({ error: "User not found" }, 404);
+        return c.json({ error: "User not found", code: "user_not_found" }, 404);
       }
       if (e instanceof ReportRateLimitError) {
         c.header("Retry-After", String(e.retryAfterSeconds));
-        return c.json({ error: e.message, code: e.kind }, 429);
+        return c.json(
+          { error: "Report rate limit reached", code: e.kind },
+          429,
+        );
       }
       throw e;
     }
@@ -60,7 +66,10 @@ const usersRoute = app
   .openapi(blockUserRoute, async (c) => {
     const { id: targetId } = c.req.valid("param");
     if (targetId === c.var.clerkUserId) {
-      return c.json({ error: "自分自身をブロックすることはできません" }, 400);
+      return c.json(
+        { error: "Cannot block yourself", code: "cannot_block_self" },
+        400,
+      );
     }
 
     const db = createDb(getBindings(c).DB);
@@ -80,7 +89,7 @@ const usersRoute = app
       await repo.blockUser(targetId);
     } catch (e) {
       if (e instanceof UserNotFoundError) {
-        return c.json({ error: "User not found" }, 404);
+        return c.json({ error: "User not found", code: "user_not_found" }, 404);
       }
       throw e;
     }
@@ -89,7 +98,10 @@ const usersRoute = app
   .openapi(unblockUserRoute, async (c) => {
     const { id: targetId } = c.req.valid("param");
     if (targetId === c.var.clerkUserId) {
-      return c.json({ error: "自分自身のブロックは解除できません" }, 400);
+      return c.json(
+        { error: "Cannot unblock yourself", code: "cannot_unblock_self" },
+        400,
+      );
     }
 
     const db = createDb(getBindings(c).DB);

@@ -2,6 +2,7 @@ import { createRoute, z } from "@hono/zod-openapi";
 import {
   bearerAuth,
   errorResponseSchema,
+  rateLimitedErrorResponse,
   successResponseSchema,
 } from "@/lib/openapi";
 import { userRateLimit } from "@/middleware/rateLimit";
@@ -12,8 +13,8 @@ const reportCreateSchema = z.object({
   reason: z
     .string()
     .trim()
-    .min(1, "通報理由を入力してください")
-    .max(500, "通報理由は500文字以内で入力してください"),
+    .min(1, "Report reason is required")
+    .max(500, "Report reason must be 500 characters or less"),
 });
 
 // Clerk user ID（user_xxxxx）のパスパラメータ。
@@ -56,6 +57,7 @@ export const reportUserRoute = createRoute({
     401: jsonError("未認証"),
     404: jsonError("対象ユーザーが存在しない"),
     429: {
+      headers: z.object({ "Retry-After": z.string() }),
       content: { "application/json": { schema: reportRateLimitedSchema } },
       description: "通報レート制限（Retry-After ヘッダ付き）",
     },
@@ -182,7 +184,7 @@ export const likeUserRoute = createRoute({
     400: publicUserJsonError("入力エラー・自分の名刺"),
     401: publicUserJsonError("未認証"),
     404: publicUserJsonError("公開ユーザーが見つからない"),
-    429: publicUserJsonError("レート制限"),
+    429: rateLimitedErrorResponse("レート制限"),
   },
 });
 
@@ -199,6 +201,6 @@ export const unlikeUserRoute = createRoute({
     400: publicUserJsonError("入力エラー"),
     401: publicUserJsonError("未認証"),
     404: publicUserJsonError("公開ユーザーが見つからない"),
-    429: publicUserJsonError("レート制限"),
+    429: rateLimitedErrorResponse("レート制限"),
   },
 });

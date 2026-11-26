@@ -69,7 +69,13 @@ const share = new Hono<ShareBindings>()
 
       if (!list) {
         if (wantsHtml) return c.html(notFoundHtml(), 404);
-        return c.json({ error: "Shared tier list not found" }, 404);
+        return c.json(
+          {
+            error: "Shared tier list not found",
+            code: "shared_tier_list_not_found",
+          },
+          404,
+        );
       }
 
       const workItems = list.items.filter(
@@ -156,7 +162,13 @@ const share = new Hono<ShareBindings>()
 
       if (!list) {
         if (wantsHtml) return c.html(workListNotFoundHtml(), 404);
-        return c.json({ error: "Shared work list not found" }, 404);
+        return c.json(
+          {
+            error: "Shared work list not found",
+            code: "shared_work_list_not_found",
+          },
+          404,
+        );
       }
 
       if (wantsHtml) {
@@ -210,7 +222,13 @@ const share = new Hono<ShareBindings>()
 
       if (!history) {
         if (wantsHtml) return c.html(watchHistoryNotFoundHtml(), 404);
-        return c.json({ error: "Shared watch history not found" }, 404);
+        return c.json(
+          {
+            error: "Shared watch history not found",
+            code: "shared_watch_history_not_found",
+          },
+          404,
+        );
       }
 
       // 共有解除で無効化されるコンテンツなのでキャッシュさせない

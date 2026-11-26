@@ -98,8 +98,8 @@ const analysis = app
     if (history.length === 0) {
       return c.json(
         {
-          error:
-            "分析するには視聴履歴が必要です。まず Annict と連携して作品を記録してください",
+          error: "Watch history is required",
+          code: "watch_history_required",
         },
         400,
       );
@@ -130,7 +130,10 @@ const analysis = app
       if (e instanceof AnalysisRateLimitError) {
         c.header("Retry-After", String(e.retryAfterSeconds));
         return c.json(
-          { error: e.message, code: "generation_limit" as const },
+          {
+            error: "Generation rate limit reached",
+            code: "generation_limit" as const,
+          },
           429,
         );
       }
@@ -152,7 +155,8 @@ const analysis = app
       reportApiFailure(e, c, 502);
       return c.json(
         {
-          error: "視聴傾向の分析に失敗しました。時間をおいて再度お試しください",
+          error: "Analysis generation failed",
+          code: "generation_failed",
         },
         502,
       );
@@ -215,8 +219,8 @@ const analysis = app
     if (history.length === 0) {
       return c.json(
         {
-          error:
-            "おすすめには視聴履歴が必要です。まず Annict と連携して作品を記録してください",
+          error: "Watch history is required",
+          code: "watch_history_required",
         },
         400,
       );
@@ -264,7 +268,7 @@ const analysis = app
     if (!annictToken) {
       return c.json(
         {
-          error: "Annict 連携が必要です",
+          error: "Annict token is required",
           code: "annict_token_required" as const,
         },
         401,
@@ -281,7 +285,10 @@ const analysis = app
       if (e instanceof RecommendationRateLimitError) {
         c.header("Retry-After", String(e.retryAfterSeconds));
         return c.json(
-          { error: e.message, code: "generation_limit" as const },
+          {
+            error: "Generation rate limit reached",
+            code: "generation_limit" as const,
+          },
           429,
         );
       }
@@ -299,7 +306,8 @@ const analysis = app
       reportApiFailure(e, c, 502);
       return c.json(
         {
-          error: "おすすめの生成に失敗しました。時間をおいて再度お試しください",
+          error: "Recommendation generation failed",
+          code: "generation_failed",
         },
         502,
       );

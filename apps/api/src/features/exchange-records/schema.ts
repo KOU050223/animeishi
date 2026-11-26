@@ -46,12 +46,12 @@ const snapshotRecordIdParamSchema = z.object({
 const exchangeRecordUpdateSchema = z.object({
   placeName: z
     .string()
-    .max(100, "場所は 100 文字以内で入力してください")
+    .max(100, "Location must be 100 characters or less")
     .nullable(),
   eventSlug: z.string().min(1).nullable(),
   eventName: z
     .string()
-    .max(100, "イベント名は 100 文字以内で入力してください")
+    .max(100, "Event name must be 100 characters or less")
     .nullable(),
 });
 
@@ -69,13 +69,13 @@ const exchangeRecordCreateSchema = z.object({
   friendId: z.string().min(1),
   placeName: z
     .string()
-    .max(100, "場所は 100 文字以内で入力してください")
+    .max(100, "Location must be 100 characters or less")
     .nullable()
     .default(null),
   eventSlug: z.string().min(1).nullable().default(null),
   eventName: z
     .string()
-    .max(100, "イベント名は 100 文字以内で入力してください")
+    .max(100, "Event name must be 100 characters or less")
     .nullable()
     .default(null),
 });

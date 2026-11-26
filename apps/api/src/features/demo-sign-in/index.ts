@@ -41,16 +41,17 @@ const demoSignIn = app.openapi(demoSignInRoute, async (c) => {
     limiter.limit({ key: `email:${email.toLowerCase()}` }),
   ]);
   if (results.some((r) => !r.success)) {
-    return c.json(
-      { error: "試行回数が多すぎます。しばらくしてからお試しください" },
-      429,
-    );
+    c.header("Retry-After", "60");
+    return c.json({ error: "Too many attempts", code: "rate_limited" }, 429);
   }
 
   // デモアカウントかどうか・パスワードが合うかを区別せず同じ 401 を返す
   // （どのアドレスがデモアカウントかを探られないようにする）。
   const unauthorized = () =>
-    c.json({ error: "メールアドレスまたはパスワードが違います" }, 401);
+    c.json(
+      { error: "Invalid email or password", code: "invalid_credentials" },
+      401,
+    );
 
   const clerk = createClerkClient({ secretKey: env.CLERK_SECRET_KEY });
   const { data: users } = await clerk.users.getUserList({

@@ -51,11 +51,23 @@ const annict = app
       getBindings(c);
 
     if (!ANNICT_CLIENT_ID || !ANNICT_CLIENT_SECRET) {
-      return c.json({ error: "Annict 連携が構成されていません" }, 500);
+      return c.json(
+        {
+          error: "Annict integration is not configured",
+          code: "annict_not_configured",
+        },
+        500,
+      );
     }
     // Web モードは暗号鍵が必須（無いと平文保存になり設計に反するため 500 で止める）。
     if (mode === "web" && !ANNICT_ENCRYPTION_KEY) {
-      return c.json({ error: "Annict 連携が構成されていません" }, 500);
+      return c.json(
+        {
+          error: "Annict integration is not configured",
+          code: "annict_not_configured",
+        },
+        500,
+      );
     }
 
     try {
@@ -113,7 +125,13 @@ const annict = app
         if (status === 502) {
           reportApiFailure(err, c, 502);
         }
-        return c.json({ error: "Annict 連携に失敗しました" }, status);
+        return c.json(
+          {
+            error: "Annict account linking failed",
+            code: "annict_link_failed",
+          },
+          status,
+        );
       }
       throw err;
     }

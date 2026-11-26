@@ -44,7 +44,13 @@ const friendRequests = app
   .openapi(sendFriendRequestRoute, async (c) => {
     const { userId } = c.req.valid("json");
     if (userId === c.var.clerkUserId) {
-      return c.json({ error: "自分自身にフレンド申請を送れません" }, 400);
+      return c.json(
+        {
+          error: "Cannot send a friend request to yourself",
+          code: "cannot_request_self",
+        },
+        400,
+      );
     }
 
     const db = createDb(getBindings(c).DB);
@@ -59,13 +65,22 @@ const friendRequests = app
       return c.json(result, 201);
     } catch (e) {
       if (e instanceof UserNotFoundError) {
-        return c.json({ error: "User not found" }, 404);
+        return c.json({ error: "User not found", code: "user_not_found" }, 404);
       }
       if (e instanceof UserBlockedError) {
-        return c.json({ error: "このユーザーには申請できません" }, 403);
+        return c.json(
+          {
+            error: "Cannot send a friend request to this user",
+            code: "friend_request_not_allowed",
+          },
+          403,
+        );
       }
       if (e instanceof AlreadyFriendsError) {
-        return c.json({ error: "すでにフレンドです" }, 409);
+        return c.json(
+          { error: "Already friends", code: "already_friends" },
+          409,
+        );
       }
       throw e;
     }
@@ -85,10 +100,22 @@ const friendRequests = app
       return c.json({ success: true }, 200);
     } catch (e) {
       if (e instanceof FriendRequestNotFoundError) {
-        return c.json({ error: "Friend request not found" }, 404);
+        return c.json(
+          {
+            error: "Friend request not found",
+            code: "friend_request_not_found",
+          },
+          404,
+        );
       }
       if (e instanceof UserBlockedError) {
-        return c.json({ error: "このユーザーは承認できません" }, 403);
+        return c.json(
+          {
+            error: "Cannot accept this friend request",
+            code: "friend_request_not_acceptable",
+          },
+          403,
+        );
       }
       throw e;
     }
@@ -108,7 +135,13 @@ const friendRequests = app
       return c.json({ success: true }, 200);
     } catch (e) {
       if (e instanceof FriendRequestNotFoundError) {
-        return c.json({ error: "Friend request not found" }, 404);
+        return c.json(
+          {
+            error: "Friend request not found",
+            code: "friend_request_not_found",
+          },
+          404,
+        );
       }
       throw e;
     }

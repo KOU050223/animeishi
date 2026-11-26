@@ -1,5 +1,7 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import {
+  annictRateLimitedResponse,
+  annictUpstreamErrorResponse,
   bearerAuth,
   bearerAuthWithAnnict,
   errorResponseSchema,
@@ -12,7 +14,7 @@ import { annictWorkIdParamSchema } from "../works/schema";
 // （bad=イマイチ / good=良い / great=最高。issue #416）。
 const workRatingUpsertSchema = z.object({
   rating: z.enum(WORK_RATINGS, {
-    error: () => "有効な評価を選択してください",
+    error: () => "Invalid rating",
   }),
 });
 
@@ -75,6 +77,8 @@ export const putWorkRatingRoute = createRoute({
     400: jsonError("入力エラー"),
     401: jsonError("未認証"),
     404: jsonError("作品が見つからない"),
+    429: annictRateLimitedResponse,
+    502: annictUpstreamErrorResponse,
   },
 });
 

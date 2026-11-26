@@ -195,7 +195,7 @@ export const danimeEpisodeJobs = app
     if (!tokenRow) {
       return c.json(
         {
-          error: "話数記録には Web の Annict 連携が必要です",
+          error: "Web Annict linking is required for episode import",
           code: "annict_token_required",
         },
         401,
@@ -203,7 +203,10 @@ export const danimeEpisodeJobs = app
     }
     if (!DANIME_EPISODE_IMPORT) {
       return c.json(
-        { error: "話数記録のバックグラウンド処理が利用できません" },
+        {
+          error: "Episode import is unavailable",
+          code: "episode_import_unavailable",
+        },
         503,
       );
     }

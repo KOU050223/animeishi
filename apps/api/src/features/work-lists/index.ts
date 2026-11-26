@@ -54,7 +54,14 @@ const workListsRoute = app
       input.items.map((item) => item.annictWorkId),
     );
     if (missing.length > 0) {
-      return c.json({ error: "Unknown works", annictWorkIds: missing }, 400);
+      return c.json(
+        {
+          error: "Unknown works",
+          code: "unknown_works",
+          annictWorkIds: missing,
+        },
+        400,
+      );
     }
 
     const repo = workListsRepository(db, c.var.clerkUserId);
@@ -74,7 +81,11 @@ const workListsRoute = app
     const db = createDb(getBindings(c).DB);
     const repo = workListsRepository(db, c.var.clerkUserId);
     const data = await repo.getMyWorkList(id);
-    if (!data) return c.json({ error: "Work list not found" }, 404);
+    if (!data)
+      return c.json(
+        { error: "Work list not found", code: "work_list_not_found" },
+        404,
+      );
     return c.json(withHostedImageUrls(data, c.req.url), 200);
   })
   // 全置換更新。並べ替えは 1 操作で多数の position が動くため、部分更新
@@ -89,7 +100,14 @@ const workListsRoute = app
       input.items.map((item) => item.annictWorkId),
     );
     if (missing.length > 0) {
-      return c.json({ error: "Unknown works", annictWorkIds: missing }, 400);
+      return c.json(
+        {
+          error: "Unknown works",
+          code: "unknown_works",
+          annictWorkIds: missing,
+        },
+        400,
+      );
     }
 
     const repo = workListsRepository(db, c.var.clerkUserId);
@@ -100,7 +118,11 @@ const workListsRoute = app
       isPublic: input.isPublic,
       items: withPositions(input.items),
     });
-    if (!result) return c.json({ error: "Work list not found" }, 404);
+    if (!result)
+      return c.json(
+        { error: "Work list not found", code: "work_list_not_found" },
+        404,
+      );
     return c.json(withHostedImageUrls(result.workList, c.req.url), 200);
   })
   // 作品 1 件を末尾に追加（issue #377）。アニメ一覧の「リストに追加」からの
@@ -114,12 +136,23 @@ const workListsRoute = app
 
     const missing = await unknownWorkIds(db, [annictWorkId]);
     if (missing.length > 0) {
-      return c.json({ error: "Unknown works", annictWorkIds: missing }, 400);
+      return c.json(
+        {
+          error: "Unknown works",
+          code: "unknown_works",
+          annictWorkIds: missing,
+        },
+        400,
+      );
     }
 
     const repo = workListsRepository(db, c.var.clerkUserId);
     const result = await repo.addMyWorkListItem(id, annictWorkId);
-    if (!result) return c.json({ error: "Work list not found" }, 404);
+    if (!result)
+      return c.json(
+        { error: "Work list not found", code: "work_list_not_found" },
+        404,
+      );
     return c.json(withHostedImageUrls(result.workList, c.req.url), 200);
   })
   // 削除。items は FK CASCADE で消える。
@@ -128,7 +161,11 @@ const workListsRoute = app
     const db = createDb(getBindings(c).DB);
     const repo = workListsRepository(db, c.var.clerkUserId);
     const deleted = await repo.deleteMyWorkList(id);
-    if (!deleted) return c.json({ error: "Work list not found" }, 404);
+    if (!deleted)
+      return c.json(
+        { error: "Work list not found", code: "work_list_not_found" },
+        404,
+      );
     return c.json({ success: true }, 200);
   })
   // 共有リンクの発行・破棄。トークンは冪等（tier 表と同じ方式）。
@@ -137,7 +174,11 @@ const workListsRoute = app
     const db = createDb(getBindings(c).DB);
     const repo = workListsRepository(db, c.var.clerkUserId);
     const result = await repo.shareMyWorkList(id);
-    if (!result) return c.json({ error: "Work list not found" }, 404);
+    if (!result)
+      return c.json(
+        { error: "Work list not found", code: "work_list_not_found" },
+        404,
+      );
     return c.json({ shareToken: result.shareToken }, 200);
   })
   .openapi(unshareWorkListRoute, async (c) => {
@@ -145,7 +186,11 @@ const workListsRoute = app
     const db = createDb(getBindings(c).DB);
     const repo = workListsRepository(db, c.var.clerkUserId);
     const found = await repo.unshareMyWorkList(id);
-    if (!found) return c.json({ error: "Work list not found" }, 404);
+    if (!found)
+      return c.json(
+        { error: "Work list not found", code: "work_list_not_found" },
+        404,
+      );
     return c.json({ success: true }, 200);
   });
 

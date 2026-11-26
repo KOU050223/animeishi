@@ -13,7 +13,7 @@ import {
 // offlineToken はオフライン交換用の長寿命トークン（issue #663）。どちらか
 // 一方でも検証を通れば即時成立する。
 const friendCreateSchema = z.object({
-  friendId: z.string().min(1, "friendId を指定してください"),
+  friendId: z.string().min(1, "friendId is required"),
   qrToken: z.string().min(1).optional(),
   offlineToken: z.string().min(1).optional(),
   // 読み取り側の交換キュー（issue #681）が送るスキャン時刻。交換記録
@@ -131,7 +131,7 @@ export const addFriendRoute = createRoute({
           // QR トークン不備のときだけ code=qr_exchange_required を返し、
           // クライアントはこれを見て申請フローへフォールバックする。
           schema: errorResponseSchema.extend({
-            code: z.string().optional(),
+            code: z.enum(["qr_exchange_required", "friend_add_not_allowed"]),
           }),
         },
       },
@@ -152,7 +152,7 @@ const friendNoteSchema = z.object({
 // PUT /me/friends/{friendId}/note のボディ。500 文字まで。
 // 空文字・空白のみは「メモを消す」として扱う（空行を残さない）。
 const friendNoteUpdateSchema = z.object({
-  body: z.string().max(500, "メモは 500 文字以内で入力してください"),
+  body: z.string().max(500, "Note must be 500 characters or less"),
 });
 
 export const getFriendNoteRoute = createRoute({

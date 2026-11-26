@@ -85,11 +85,11 @@ const workRatings = app
     if (!existing) {
       const token = await resolveAnnictToken(c);
       if (!token) {
-        return c.json({ error: "Work not found" }, 404);
+        return c.json({ error: "Work not found", code: "work_not_found" }, 404);
       }
       const resolved = await fetchAnnictWorkByAnnictId(token, annictWorkId);
       if (!resolved) {
-        return c.json({ error: "Work not found" }, 404);
+        return c.json({ error: "Work not found", code: "work_not_found" }, 404);
       }
       await worksRepo.upsertAnnictWork({
         annictWorkId: resolved.annictWorkId,

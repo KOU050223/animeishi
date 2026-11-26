@@ -55,7 +55,7 @@ const user = app.openapi(getPublicUserRoute, async (c) => {
       if (wantsHtml) {
         return c.html(notFoundHtml(), 404);
       }
-      return c.json({ error: "User not found" }, 404);
+      return c.json({ error: "User not found", code: "user_not_found" }, 404);
     }
   }
 
@@ -65,7 +65,7 @@ const user = app.openapi(getPublicUserRoute, async (c) => {
     if (wantsHtml) {
       return c.html(notFoundHtml(), 404);
     }
-    return c.json({ error: "User not found" }, 404);
+    return c.json({ error: "User not found", code: "user_not_found" }, 404);
   }
 
   const genreList = await findUserGenres(db, uid);

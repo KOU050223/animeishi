@@ -1,8 +1,8 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import {
   bearerAuth,
-  codedErrorResponseSchema,
   errorResponseSchema,
+  rateLimitedErrorResponse,
   successResponseSchema,
 } from "@/lib/openapi";
 import { userRateLimit } from "@/middleware/rateLimit";
@@ -19,22 +19,22 @@ const workListSaveSchema = z
     title: z
       .string()
       .trim()
-      .min(1, "タイトルを入力してください")
-      .max(50, "タイトルは50文字以内で入力してください"),
+      .min(1, "Title is required")
+      .max(50, "Title must be 50 characters or less"),
     description: z
       .string()
       .trim()
-      .max(500, "説明は500文字以内で入力してください")
+      .max(500, "Description must be 500 characters or less")
       .nullish(),
     // ひろばの公開一覧に載るか（issue #422）。省略時は新規作成=非公開、
     // 更新=既存値を維持する（isPublic 未対応のクライアントが全置換 PUT で
     // 公開設定を潰さないようにするため）。
     isPublic: z.boolean().optional(),
-    items: z.array(workListItemSchema).max(500, "作品数が多すぎます"),
+    items: z.array(workListItemSchema).max(500, "Too many works"),
   })
   .refine(
     (v) => new Set(v.items.map((i) => i.annictWorkId)).size === v.items.length,
-    { error: "同じ作品が複数登録されています", path: ["items"] },
+    { error: "Duplicate works", path: ["items"] },
   );
 
 // /me/work-lists/:id 系パスのパラメータ。パスパラメータは文字列なので coerce。
@@ -67,11 +67,11 @@ const publicWorkListsQuerySchema = z.object({
   sort: z.enum(["likes", "new"]).optional(),
   cursor: z
     .string()
-    .regex(/^\d+(_\d+)?$/, "cursor の形式が正しくありません")
+    .regex(/^\d+(_\d+)?$/, "Invalid cursor format")
     .optional(),
   limit: z
     .string()
-    .regex(/^[1-9]\d*$/, "limit は 1 以上の整数で指定してください")
+    .regex(/^[1-9]\d*$/, "limit must be a positive integer")
     .optional(),
 });
 
@@ -81,8 +81,8 @@ const workListReportSchema = z.object({
   reason: z
     .string()
     .trim()
-    .min(1, "通報理由を入力してください")
-    .max(500, "通報理由は500文字以内で入力してください"),
+    .min(1, "Report reason is required")
+    .max(500, "Report reason must be 500 characters or less"),
 });
 
 const jsonError = (description: string) => ({
@@ -95,6 +95,7 @@ const unknownWorksError = {
     "application/json": {
       schema: z.object({
         error: z.string(),
+        code: z.string(),
         annictWorkIds: z.array(z.number()).optional(),
       }),
     },
@@ -406,7 +407,7 @@ export const likeWorkListRoute = createRoute({
     400: jsonError("入力エラー・自分のリスト"),
     401: jsonError("未認証"),
     404: publicNotFound,
-    429: jsonError("レート制限"),
+    429: rateLimitedErrorResponse("レート制限"),
   },
 });
 
@@ -423,7 +424,7 @@ export const unlikeWorkListRoute = createRoute({
     400: jsonError("入力エラー"),
     401: jsonError("未認証"),
     404: publicNotFound,
-    429: jsonError("レート制限"),
+    429: rateLimitedErrorResponse("レート制限"),
   },
 });
 
@@ -449,9 +450,6 @@ export const reportWorkListRoute = createRoute({
     400: jsonError("入力エラー・自分のリスト"),
     401: jsonError("未認証"),
     404: publicNotFound,
-    429: {
-      content: { "application/json": { schema: codedErrorResponseSchema } },
-      description: "通報の回数制限（Retry-After ヘッダ付き）",
-    },
+    429: rateLimitedErrorResponse("通報の回数制限"),
   },
 });

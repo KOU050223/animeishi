@@ -6,6 +6,8 @@ export class AnnictApiError extends Error {
     message: string,
     readonly status: number,
     readonly detail?: unknown,
+    // 上流が 429 に付けてきた Retry-After（秒）。クライアントへそのまま転送する。
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = "AnnictApiError";
@@ -117,6 +119,7 @@ export async function annictGraphQL<T>(
       `Annict GraphQL request failed (${res.status})`,
       res.status,
       await safeReadText(res),
+      readRetryAfterSeconds(res),
     );
   }
 
@@ -137,6 +140,13 @@ export async function annictGraphQL<T>(
     throw new AnnictApiError("Annict GraphQL returned no data", res.status);
   }
   return json.data;
+}
+
+function readRetryAfterSeconds(res: Response): number | undefined {
+  const value = res.headers.get("Retry-After");
+  if (value === null) return undefined;
+  const seconds = Number(value);
+  return Number.isFinite(seconds) ? seconds : undefined;
 }
 
 export async function safeReadText(res: Response): Promise<string | undefined> {

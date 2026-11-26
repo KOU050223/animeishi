@@ -167,7 +167,10 @@ const watchHistory = app
   .openapi(upsertWatchHistoryRoute, async (c) => {
     const annictWorkId = Number(c.req.valid("param").annictWorkId);
     if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
-      return c.json({ error: "Invalid annictWorkId" }, 400);
+      return c.json(
+        { error: "Invalid annictWorkId", code: "invalid_annict_work_id" },
+        400,
+      );
     }
 
     const data = c.req.valid("json");
@@ -178,7 +181,7 @@ const watchHistory = app
 
     const resolved = await resolveWorkNodeId(worksRepo, token, annictWorkId);
     if (!resolved) {
-      return c.json({ error: "Work not found" }, 404);
+      return c.json({ error: "Work not found", code: "work_not_found" }, 404);
     }
     const { nodeId, resolvedWork } = resolved;
     let work = resolved.work;
@@ -195,7 +198,7 @@ const watchHistory = app
     // 作品メタがまだ無い（read-through 前で searchWorks も空振り）ことは上で
     // 404 にしているため、ここでは必ずキャッシュに存在する前提で履歴を upsert する。
     if (!work) {
-      return c.json({ error: "Work not found" }, 404);
+      return c.json({ error: "Work not found", code: "work_not_found" }, 404);
     }
 
     const { entry, changed } = await repo.upsertWatchHistory(annictWorkId, {
@@ -421,14 +424,16 @@ const watchHistory = app
     const db = createDb(getBindings(c).DB);
     const repo = watchHistoryRepository(db, c.var.clerkUserId);
     const shareToken = await repo.shareMyWatchHistory();
-    if (!shareToken) return c.json({ error: "User not found" }, 404);
+    if (!shareToken)
+      return c.json({ error: "User not found", code: "user_not_found" }, 404);
     return c.json({ shareToken }, 200);
   })
   .openapi(unshareWatchHistoryRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = watchHistoryRepository(db, c.var.clerkUserId);
     const found = await repo.unshareMyWatchHistory();
-    if (!found) return c.json({ error: "User not found" }, 404);
+    if (!found)
+      return c.json({ error: "User not found", code: "user_not_found" }, 404);
     return c.json({ success: true }, 200);
   })
   // ステータスの解除（未設定に戻す）。D1 の行だけ消しても Annict 側に
@@ -438,7 +443,10 @@ const watchHistory = app
   .openapi(deleteWatchHistoryRoute, async (c) => {
     const annictWorkId = Number(c.req.valid("param").annictWorkId);
     if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
-      return c.json({ error: "Invalid annictWorkId" }, 400);
+      return c.json(
+        { error: "Invalid annictWorkId", code: "invalid_annict_work_id" },
+        400,
+      );
     }
 
     const db = createDb(getBindings(c).DB);
@@ -448,7 +456,7 @@ const watchHistory = app
 
     const resolved = await resolveWorkNodeId(worksRepo, token, annictWorkId);
     if (!resolved) {
-      return c.json({ error: "Work not found" }, 404);
+      return c.json({ error: "Work not found", code: "work_not_found" }, 404);
     }
 
     await updateAnnictStatus(token, resolved.nodeId, "NO_STATE");

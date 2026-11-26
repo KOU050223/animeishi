@@ -43,14 +43,16 @@ const analysisResultSchema = z.object({
 });
 
 // 生成回数制限（429）の応答。Retry-After ヘッダに解放までの秒数を載せる。
+// おすすめ生成では照合に Annict を呼ぶため、Annict 上流のレート制限
+// （annict_rate_limited）も同じ 429 で返りうる。
 const rateLimitedSchema = z.object({
   error: z.string(),
-  code: z.enum(["generation_limit"]),
+  code: z.enum(["generation_limit", "annict_rate_limited"]),
 });
 
 const recommendationUnauthorizedSchema = z.object({
   error: z.string(),
-  code: z.enum(["annict_token_required", "annict_token_invalid"]).optional(),
+  code: z.enum(["annict_token_required", "annict_token_invalid"]),
 });
 
 // おすすめ 1 作品の応答形（issue #335）。

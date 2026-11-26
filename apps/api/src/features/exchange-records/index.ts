@@ -77,10 +77,13 @@ const exchangeRecords = app
       return c.json(toJson(record, c.req.url), created ? 201 : 200);
     } catch (e) {
       if (e instanceof NotFriendError) {
-        return c.json({ error: "フレンドではありません" }, 404);
+        return c.json({ error: "Not friends", code: "not_friends" }, 404);
       }
       if (e instanceof EventNotFoundError) {
-        return c.json({ error: "イベントが見つかりません" }, 400);
+        return c.json(
+          { error: "Event not found", code: "event_not_found" },
+          400,
+        );
       }
       throw e;
     }
@@ -104,10 +107,19 @@ const exchangeRecords = app
       return c.json(toJson(updated, c.req.url), 200);
     } catch (e) {
       if (e instanceof ExchangeRecordNotFoundError) {
-        return c.json({ error: "交換記録が見つかりません" }, 404);
+        return c.json(
+          {
+            error: "Exchange record not found",
+            code: "exchange_record_not_found",
+          },
+          404,
+        );
       }
       if (e instanceof EventNotFoundError) {
-        return c.json({ error: "イベントが見つかりません" }, 400);
+        return c.json(
+          { error: "Event not found", code: "event_not_found" },
+          400,
+        );
       }
       throw e;
     }
@@ -129,7 +141,13 @@ const exchangeRecords = app
       return c.json({ success: true }, 200);
     } catch (e) {
       if (e instanceof ExchangeRecordNotFoundError) {
-        return c.json({ error: "交換記録が見つかりません" }, 404);
+        return c.json(
+          {
+            error: "Exchange record not found",
+            code: "exchange_record_not_found",
+          },
+          404,
+        );
       }
       throw e;
     }
@@ -140,7 +158,7 @@ const exchangeRecords = app
   .openapi(exchangeCardSnapshotRoute, async (c) => {
     const recordId = Number(c.req.valid("param").recordId);
     if (!Number.isInteger(recordId) || recordId <= 0) {
-      return c.json({ error: "Not found" }, 404);
+      return c.json({ error: "Not found", code: "not_found" }, 404);
     }
     const db = createDb(getBindings(c).DB);
     const record = await db.query.exchangeRecords.findFirst({
@@ -160,11 +178,11 @@ const exchangeRecords = app
         `${EXCHANGE_CARD_SNAPSHOT_KEY_PREFIX}${c.var.clerkUserId}/`,
       )
     ) {
-      return c.json({ error: "Not found" }, 404);
+      return c.json({ error: "Not found", code: "not_found" }, 404);
     }
     const object = await getBindings(c).AVATARS.get(key);
     if (!object) {
-      return c.json({ error: "Not found" }, 404);
+      return c.json({ error: "Not found", code: "not_found" }, 404);
     }
     // コピーはキーごとにイミュータブル（記録ごとに新キー）。本人専用なので
     // private キャッシュに留め、共有キャッシュへは載せない。クライアントは

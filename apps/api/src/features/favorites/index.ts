@@ -41,7 +41,10 @@ const favorites = app
     const { annictWorkId: rawId } = c.req.valid("param");
     const annictWorkId = Number(rawId);
     if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
-      return c.json({ error: "Invalid annictWorkId" }, 400);
+      return c.json(
+        { error: "Invalid annictWorkId", code: "invalid_annict_work_id" },
+        400,
+      );
     }
 
     const db = createDb(getBindings(c).DB);
@@ -57,11 +60,11 @@ const favorites = app
     if (!existing) {
       const catalog = await resolveAnnictWorkCatalog(c);
       if (!catalog) {
-        return c.json({ error: "Work not found" }, 404);
+        return c.json({ error: "Work not found", code: "work_not_found" }, 404);
       }
       const resolved = await catalog.fetchWork(annictWorkId);
       if (!resolved) {
-        return c.json({ error: "Work not found" }, 404);
+        return c.json({ error: "Work not found", code: "work_not_found" }, 404);
       }
       await worksRepo.upsertAnnictWork({
         annictWorkId: resolved.annictWorkId,
@@ -91,7 +94,10 @@ const favorites = app
     const { annictWorkId: rawId } = c.req.valid("param");
     const annictWorkId = Number(rawId);
     if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
-      return c.json({ error: "Invalid annictWorkId" }, 400);
+      return c.json(
+        { error: "Invalid annictWorkId", code: "invalid_annict_work_id" },
+        400,
+      );
     }
 
     const db = createDb(getBindings(c).DB);

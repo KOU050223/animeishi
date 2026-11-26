@@ -73,7 +73,7 @@ export const getFriendThanksRoute = createRoute({
 // presetKey は必須（定型文を 1 つ選ぶ）、body は任意の 1 行
 // （60 文字まで・改行不可・空文字や空白のみは未入力として扱う）。
 const friendThanksSendSchema = z.object({
-  friendId: z.string().min(1, "friendId を指定してください"),
+  friendId: z.string().min(1, "friendId is required"),
   presetKey: z.enum(FRIEND_THANKS_PRESET_KEYS),
   body: z
     .string()
@@ -81,7 +81,7 @@ const friendThanksSendSchema = z.object({
       FRIEND_THANKS_BODY_MAX_LENGTH,
       `ひとことは ${FRIEND_THANKS_BODY_MAX_LENGTH} 文字以内で入力してください`,
     )
-    .refine((s) => !/[\r\n]/.test(s), "ひとことに改行は使えません")
+    .refine((s) => !/[\r\n]/.test(s), "Newlines are not allowed")
     .nullable()
     .default(null),
 });
@@ -113,7 +113,7 @@ export const sendFriendThanksRoute = createRoute({
           // 日本時間の暦日で既に送っているとき code=daily_limit を返す。
           // クライアントはこれを見て「今日はもう送っています」を出す。
           schema: errorResponseSchema.extend({
-            code: z.string().optional(),
+            code: z.literal("daily_limit"),
           }),
         },
       },

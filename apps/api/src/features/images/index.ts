@@ -35,7 +35,7 @@ export const images = new Hono<{
 }>().get("/works/:annictWorkId{[0-9]+}", async (c) => {
   const annictWorkId = Number(c.req.param("annictWorkId"));
   if (!Number.isSafeInteger(annictWorkId)) {
-    return c.json({ error: "Not found" }, 404);
+    return c.json({ error: "Not found", code: "not_found" }, 404);
   }
 
   // クエリ文字列でキャッシュを分けられないよう、パスだけでキーを作る。
@@ -65,10 +65,7 @@ export const images = new Hono<{
   if (!cached && gate === "deny") {
     c.header("Cache-Control", "no-store");
     c.header("Retry-After", "60");
-    return c.json(
-      { error: "リクエストが多すぎます。しばらくしてからお試しください" },
-      429,
-    );
+    return c.json({ error: "Too many requests", code: "rate_limited" }, 429);
   }
   // キャッシュ由来の Response はヘッダが immutable なことがあり、後段の
   // CORS ミドルウェアがヘッダを足せなくなるので作り直して返す。

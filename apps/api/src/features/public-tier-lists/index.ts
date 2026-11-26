@@ -73,7 +73,10 @@ const publicTierListsRoute = app
     // sort と形式が合わない cursor（new に 2 連、likes に単独 id 等）は 400
     // （公開作品リストと同じ扱い）。
     if (cursor !== undefined && parsedCursor === undefined) {
-      return c.json({ error: "cursor の形式が正しくありません" }, 400);
+      return c.json(
+        { error: "Invalid cursor format", code: "invalid_cursor" },
+        400,
+      );
     }
     const { items, hasMore } = await repo.getPublicTierLists({
       sort,
@@ -131,7 +134,10 @@ const publicTierListsRoute = app
     const repo = publicTierListsRepository(db, c.var.clerkUserId);
     const detail = await repo.getPublicTierList(id);
     if (!detail) {
-      return c.json({ error: "Tier list not found" }, 404);
+      return c.json(
+        { error: "Tier list not found", code: "tier_list_not_found" },
+        404,
+      );
     }
     const requestUrl = c.req.url;
     return c.json(
@@ -172,11 +178,21 @@ const publicTierListsRoute = app
     const repo = publicTierListsRepository(db, c.var.clerkUserId);
     try {
       const result = await repo.likeTierList(id);
-      if (!result) return c.json({ error: "Tier list not found" }, 404);
+      if (!result)
+        return c.json(
+          { error: "Tier list not found", code: "tier_list_not_found" },
+          404,
+        );
       return c.json({ likeCount: result.likeCount, likedByMe: true }, 200);
     } catch (e) {
       if (e instanceof OwnTierListError) {
-        return c.json({ error: e.message }, 400);
+        return c.json(
+          {
+            error: "Cannot like your own tier list",
+            code: "cannot_like_own_tier_list",
+          },
+          400,
+        );
       }
       throw e;
     }
@@ -188,7 +204,11 @@ const publicTierListsRoute = app
     const db = createDb(getBindings(c).DB);
     const repo = publicTierListsRepository(db, c.var.clerkUserId);
     const result = await repo.unlikeTierList(id);
-    if (!result) return c.json({ error: "Tier list not found" }, 404);
+    if (!result)
+      return c.json(
+        { error: "Tier list not found", code: "tier_list_not_found" },
+        404,
+      );
     return c.json({ likeCount: result.likeCount, likedByMe: false }, 200);
   })
   // 公開 tier 表の通報。reports 行は reported_user_id = リスト所有者、
@@ -201,9 +221,19 @@ const publicTierListsRoute = app
     const repo = publicTierListsRepository(db, c.var.clerkUserId);
 
     const list = await repo.findPublicTierList(id);
-    if (!list) return c.json({ error: "Tier list not found" }, 404);
+    if (!list)
+      return c.json(
+        { error: "Tier list not found", code: "tier_list_not_found" },
+        404,
+      );
     if (list.userId === c.var.clerkUserId) {
-      return c.json({ error: "自分の tier 表を通報することはできません" }, 400);
+      return c.json(
+        {
+          error: "Cannot report your own tier list",
+          code: "cannot_report_own_tier_list",
+        },
+        400,
+      );
     }
 
     const usersRepo = usersRepository(db, c.var.clerkUserId);
@@ -215,11 +245,17 @@ const publicTierListsRoute = app
       });
     } catch (e) {
       if (e instanceof ReportTargetGoneError) {
-        return c.json({ error: "Tier list not found" }, 404);
+        return c.json(
+          { error: "Tier list not found", code: "tier_list_not_found" },
+          404,
+        );
       }
       if (e instanceof ReportRateLimitError) {
         c.header("Retry-After", String(e.retryAfterSeconds));
-        return c.json({ error: e.message, code: e.kind }, 429);
+        return c.json(
+          { error: "Report rate limit reached", code: e.kind },
+          429,
+        );
       }
       throw e;
     }

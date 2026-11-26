@@ -6,7 +6,7 @@ const INAPPROPRIATE_PATTERNS = [/死ね|殺す|バカ|アホ/, /https?:\/\/[^\s]
 const commentSchema = z
   .string()
   .trim()
-  .max(500, "コメントは500文字以内で入力してください")
+  .max(500, "Comment must be 500 characters or less")
   .refine(
     (v) => !INAPPROPRIATE_PATTERNS.some((p) => p.test(v)),
     "不適切な内容が含まれています",
@@ -18,9 +18,9 @@ const RESERVED_WORDS = ["admin", "root", "test", "system", "null", "undefined"];
 const usernameSchema = z
   .string()
   .trim()
-  .min(1, "ユーザー名を入力してください")
-  .min(2, "ユーザー名は2文字以上で入力してください")
-  .max(20, "ユーザー名は20文字以内で入力してください")
+  .min(1, "Username is required")
+  .min(2, "Username must be at least 2 characters")
+  .max(20, "Username must be 20 characters or less")
   .refine(
     (v) => /^[a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\-_ @]+$/.test(v),
     "ユーザー名に使用できない文字が含まれています",
@@ -51,7 +51,7 @@ export const VALID_GENRES = [
 export type Genre = (typeof VALID_GENRES)[number];
 
 const genreSchema = z.enum(VALID_GENRES, {
-  error: () => "有効なジャンルを選択してください",
+  error: () => "Invalid genre",
 });
 
 export const profileUpdateSchema = z.object({
@@ -311,7 +311,7 @@ const deletionFeedbackSchema = z
     freeText: z.string().trim().min(1).max(500).optional(),
   })
   .refine((v) => v.reasons.length > 0 || v.freeText !== undefined, {
-    message: "理由または自由記述のどちらかを入力してください",
+    message: "Reason or comment is required",
   });
 
 export const getDeletionSummaryRoute = createRoute({

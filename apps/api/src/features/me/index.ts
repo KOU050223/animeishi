@@ -65,22 +65,40 @@ const me = app
   })
   .openapi(uploadMeishiSnapshotRoute, async (c) => {
     if (c.req.header("content-type")?.split(";")[0] !== "image/png") {
-      return c.json({ error: "PNG 画像のみ対応しています" }, 400);
+      return c.json(
+        {
+          error: "Only PNG images are supported",
+          code: "invalid_image_format",
+        },
+        400,
+      );
     }
     const declaredLength = Number(c.req.header("content-length") ?? 0);
     if (declaredLength > PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES) {
-      return c.json({ error: "画像サイズが不正です（5MBまで）" }, 400);
+      return c.json(
+        { error: "Invalid image size (up to 5MB)", code: "invalid_image_size" },
+        400,
+      );
     }
     const read = await readBodyWithLimit(
       c.req.raw.body,
       PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES,
     );
     if (!read.ok || read.data.byteLength === 0) {
-      return c.json({ error: "画像サイズが不正です（5MBまで）" }, 400);
+      return c.json(
+        { error: "Invalid image size (up to 5MB)", code: "invalid_image_size" },
+        400,
+      );
     }
     const body = read.data;
     if (!isPngData(body)) {
-      return c.json({ error: "PNG 画像のみ対応しています" }, 400);
+      return c.json(
+        {
+          error: "Only PNG images are supported",
+          code: "invalid_image_format",
+        },
+        400,
+      );
     }
     const version = crypto.randomUUID();
     await getBindings(c).AVATARS.put(
@@ -102,7 +120,10 @@ const me = app
     const profile = await repo.getMyProfile();
 
     if (!profile) {
-      return c.json({ error: "Profile not found" }, 404);
+      return c.json(
+        { error: "Profile not found", code: "profile_not_found" },
+        404,
+      );
     }
 
     // 「いま見ている」吹き出し用の直近話数記録（issue #420）。
@@ -164,17 +185,26 @@ const me = app
     const ext = ALLOWED_AVATAR_TYPES[mimeType];
     if (!ext) {
       return c.json(
-        { error: "対応していない画像形式です（webp/jpeg/png のみ）" },
+        {
+          error: "Unsupported image format (webp/jpeg/png only)",
+          code: "invalid_image_format",
+        },
         400,
       );
     }
 
     const body = await c.req.arrayBuffer();
     if (body.byteLength === 0) {
-      return c.json({ error: "画像データが空です" }, 400);
+      return c.json(
+        { error: "Image data is empty", code: "empty_image_data" },
+        400,
+      );
     }
     if (body.byteLength > MAX_AVATAR_BYTES) {
-      return c.json({ error: "画像サイズが大きすぎます（5MBまで）" }, 400);
+      return c.json(
+        { error: "Image is too large (up to 5MB)", code: "image_too_large" },
+        400,
+      );
     }
 
     const userId = c.var.clerkUserId;
@@ -238,17 +268,26 @@ const me = app
     const ext = ALLOWED_AVATAR_TYPES[mimeType];
     if (!ext) {
       return c.json(
-        { error: "対応していない画像形式です（webp/jpeg/png のみ）" },
+        {
+          error: "Unsupported image format (webp/jpeg/png only)",
+          code: "invalid_image_format",
+        },
         400,
       );
     }
 
     const body = await c.req.arrayBuffer();
     if (body.byteLength === 0) {
-      return c.json({ error: "画像データが空です" }, 400);
+      return c.json(
+        { error: "Image data is empty", code: "empty_image_data" },
+        400,
+      );
     }
     if (body.byteLength > MEISHI_ASSET_MAX_BYTES) {
-      return c.json({ error: "画像サイズが大きすぎます（500KBまで）" }, 400);
+      return c.json(
+        { error: "Image is too large (up to 500KB)", code: "image_too_large" },
+        400,
+      );
     }
 
     const userId = c.var.clerkUserId;
@@ -266,7 +305,8 @@ const me = app
     ) {
       return c.json(
         {
-          error: `名刺画像のアップロード上限（${MEISHI_ASSET_MAX_PER_USER}件）に達しています`,
+          error: `Meishi asset upload limit reached (${MEISHI_ASSET_MAX_PER_USER} per user)`,
+          code: "meishi_asset_limit",
         },
         400,
       );
@@ -390,12 +430,12 @@ const avatar = new Hono<{
   // `/me/profile/avatar/` 以降をキーとして取り出す。
   const key = avatarKeyFromUrl(c.req.url);
   if (!key) {
-    return c.json({ error: "Not found" }, 404);
+    return c.json({ error: "Not found", code: "not_found" }, 404);
   }
 
   const object = await c.env.AVATARS.get(key);
   if (!object) {
-    return c.json({ error: "Not found" }, 404);
+    return c.json({ error: "Not found", code: "not_found" }, 404);
   }
 
   return r2ImageResponse(object);
@@ -408,7 +448,7 @@ const meishiAssets = new Hono<{
 }>().get("/meishi-assets/*", async (c) => {
   const key = meishiAssetKeyFromUrl(c.req.url);
   if (!key) {
-    return c.json({ error: "Not found" }, 404);
+    return c.json({ error: "Not found", code: "not_found" }, 404);
   }
   if (key.endsWith("/public-snapshot.png")) {
     const userId = key.slice(
@@ -416,12 +456,13 @@ const meishiAssets = new Hono<{
       -"/public-snapshot.png".length,
     );
     const user = await findUserById(createDb(c.env.DB), userId);
-    if (!user?.isPublic) return c.json({ error: "Not found" }, 404);
+    if (!user?.isPublic)
+      return c.json({ error: "Not found", code: "not_found" }, 404);
   }
 
   const object = await c.env.AVATARS.get(key);
   if (!object) {
-    return c.json({ error: "Not found" }, 404);
+    return c.json({ error: "Not found", code: "not_found" }, 404);
   }
 
   return r2ImageResponse(object);

@@ -1,9 +1,9 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { errorResponseSchema } from "@/lib/openapi";
+import { errorResponseSchema, rateLimitedErrorResponse } from "@/lib/openapi";
 
 const demoSignInSchema = z.object({
-  email: z.email("メールアドレスの形式が正しくありません").max(320),
-  password: z.string().min(1, "パスワードを入力してください").max(256),
+  email: z.email("Invalid email format").max(320),
+  password: z.string().min(1, "Password is required").max(256),
 });
 
 const demoSignInResponseSchema = z.object({
@@ -39,6 +39,6 @@ export const demoSignInRoute = createRoute({
     },
     400: jsonError("入力エラー"),
     401: jsonError("デモアカウントではない、またはパスワードが違う"),
-    429: jsonError("試行回数の上限"),
+    429: rateLimitedErrorResponse("試行回数の上限"),
   },
 });

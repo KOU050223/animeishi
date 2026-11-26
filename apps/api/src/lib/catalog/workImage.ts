@@ -253,13 +253,16 @@ function imageResponse(
 }
 
 function notFound(): Response {
-  return new Response(JSON.stringify({ error: "Not found" }), {
-    status: 404,
-    headers: {
-      "content-type": "application/json",
-      "cache-control": MISS_CACHE_CONTROL,
+  return new Response(
+    JSON.stringify({ error: "Not found", code: "not_found" }),
+    {
+      status: 404,
+      headers: {
+        "content-type": "application/json",
+        "cache-control": MISS_CACHE_CONTROL,
+      },
     },
-  });
+  );
 }
 
 /** 検証済みの外部画像 URL への誘導。edge・クライアント双方で短くキャッシュする。 */

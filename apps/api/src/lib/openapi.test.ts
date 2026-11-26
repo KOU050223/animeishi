@@ -178,7 +178,7 @@ describe("OpenAPI 3.1 契約", () => {
       type: "string",
       enum: ["annict_token_required", "annict_token_invalid"],
     });
-    expect(schema?.required).toEqual(["error"]);
+    expect(schema?.required).toEqual(["error", "code"]);
   });
 
   it("推し登録の 401 は Annict 連携切れの code を宣言する", () => {
@@ -191,7 +191,7 @@ describe("OpenAPI 3.1 契約", () => {
       type: "string",
       enum: ["annict_token_invalid"],
     });
-    expect(schema?.required).toEqual(["error"]);
+    expect(schema?.required).toEqual(["error", "code"]);
   });
 
   it("tier 表作成・更新の 400 は未キャッシュ ID の配列を任意フィールドで宣言する", () => {
@@ -214,7 +214,7 @@ describe("OpenAPI 3.1 契約", () => {
         type: "array",
         items: { type: "integer" },
       });
-      expect(schema?.required).toEqual(["error"]);
+      expect(schema?.required).toEqual(["error", "code"]);
     }
   });
 

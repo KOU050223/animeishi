@@ -81,13 +81,13 @@ const friendThanks = app
       return c.json(sentToJson(item), 201);
     } catch (e) {
       if (e instanceof NotFriendError) {
-        return c.json({ error: "フレンドではありません" }, 404);
+        return c.json({ error: "Not friends", code: "not_friends" }, 404);
       }
       if (e instanceof FriendThanksDailyLimitError) {
         return c.json(
           {
-            error: "この相手へのお礼は今日すでに送っています",
-            code: "daily_limit",
+            error: "Already sent thanks to this friend today",
+            code: "daily_limit" as const,
           },
           409,
         );
@@ -111,7 +111,10 @@ const friendThanks = app
       return c.json({ success: true }, 200);
     } catch (e) {
       if (e instanceof FriendThanksNotFoundError) {
-        return c.json({ error: "お礼が見つかりません" }, 404);
+        return c.json(
+          { error: "Friend thanks not found", code: "friend_thanks_not_found" },
+          404,
+        );
       }
       throw e;
     }

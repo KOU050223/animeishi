@@ -48,7 +48,10 @@ const publicWorkListsRoute = app
     // cursor: new は「<id>」、likes は「<likeCount>_<id>」の複合キー。
     const parsedCursor = parseCursor(cursor, sort);
     if (cursor !== undefined && parsedCursor === undefined) {
-      return c.json({ error: "cursor の形式が正しくありません" }, 400);
+      return c.json(
+        { error: "Invalid cursor format", code: "invalid_cursor" },
+        400,
+      );
     }
 
     const db = createDb(getBindings(c).DB);
@@ -92,7 +95,11 @@ const publicWorkListsRoute = app
     const db = createDb(getBindings(c).DB);
     const repo = workListsRepository(db, c.var.clerkUserId);
     const detail = await repo.getPublicWorkList(id);
-    if (!detail) return c.json({ error: "Work list not found" }, 404);
+    if (!detail)
+      return c.json(
+        { error: "Work list not found", code: "work_list_not_found" },
+        404,
+      );
     return c.json(
       {
         ...detail,
@@ -112,11 +119,21 @@ const publicWorkListsRoute = app
     const repo = workListsRepository(db, c.var.clerkUserId);
     try {
       const result = await repo.likeWorkList(id);
-      if (!result) return c.json({ error: "Work list not found" }, 404);
+      if (!result)
+        return c.json(
+          { error: "Work list not found", code: "work_list_not_found" },
+          404,
+        );
       return c.json({ likeCount: result.likeCount, likedByMe: true }, 200);
     } catch (e) {
       if (e instanceof OwnWorkListError) {
-        return c.json({ error: e.message }, 400);
+        return c.json(
+          {
+            error: "Cannot like your own work list",
+            code: "cannot_like_own_work_list",
+          },
+          400,
+        );
       }
       throw e;
     }
@@ -128,7 +145,11 @@ const publicWorkListsRoute = app
     const db = createDb(getBindings(c).DB);
     const repo = workListsRepository(db, c.var.clerkUserId);
     const result = await repo.unlikeWorkList(id);
-    if (!result) return c.json({ error: "Work list not found" }, 404);
+    if (!result)
+      return c.json(
+        { error: "Work list not found", code: "work_list_not_found" },
+        404,
+      );
     return c.json({ likeCount: result.likeCount, likedByMe: false }, 200);
   })
   // 公開リストの通報（issue #186 の対象拡大）。reports 行は
@@ -141,10 +162,17 @@ const publicWorkListsRoute = app
     const repo = workListsRepository(db, c.var.clerkUserId);
 
     const list = await repo.findPublicWorkList(id);
-    if (!list) return c.json({ error: "Work list not found" }, 404);
+    if (!list)
+      return c.json(
+        { error: "Work list not found", code: "work_list_not_found" },
+        404,
+      );
     if (list.userId === c.var.clerkUserId) {
       return c.json(
-        { error: "自分の作品リストを通報することはできません" },
+        {
+          error: "Cannot report your own work list",
+          code: "cannot_report_own_work_list",
+        },
         400,
       );
     }
@@ -158,7 +186,10 @@ const publicWorkListsRoute = app
     } catch (e) {
       if (e instanceof ReportRateLimitError) {
         c.header("Retry-After", String(e.retryAfterSeconds));
-        return c.json({ error: e.message, code: e.kind }, 429);
+        return c.json(
+          { error: "Report rate limit reached", code: e.kind },
+          429,
+        );
       }
       throw e;
     }

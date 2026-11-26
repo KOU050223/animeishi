@@ -13,7 +13,7 @@ export const common = app.openapi(getCommonRoute, async (c) => {
   const repo = commonRepository(db, c.var.clerkUserId);
   const { id } = c.req.valid("param");
   if (!(await repo.isAllowed(id))) {
-    return c.json({ error: "Forbidden" }, 403);
+    return c.json({ error: "Forbidden", code: "forbidden" }, 403);
   }
   const data = await repo.getCommon(id);
   const withImage = (works: { annictWorkId: number; title: string }[]) =>
