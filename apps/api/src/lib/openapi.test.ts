@@ -125,7 +125,7 @@ describe("OpenAPI ドキュメント", () => {
   );
 });
 
-type OpenApi31Operation = {
+type OpenApiOperation = {
   security?: unknown;
   requestBody?: { content?: Record<string, unknown> };
   responses?: Record<
@@ -145,15 +145,15 @@ type OpenApi31Operation = {
   >;
 };
 
-type OpenApi31Document = {
-  paths: Record<string, Record<string, OpenApi31Operation>>;
+type OpenApiDocument = {
+  paths: Record<string, Record<string, OpenApiOperation>>;
 };
 
-function buildOpenApi31Document(): OpenApi31Document {
+function buildOpenApi31Document(): OpenApiDocument {
   return routes.getOpenAPI31Document({
     ...openApiDocumentConfig,
     openapi: "3.1.0",
-  }) as unknown as OpenApi31Document;
+  }) as unknown as OpenApiDocument;
 }
 
 describe("OpenAPI 3.1 契約", () => {
@@ -177,6 +177,19 @@ describe("OpenAPI 3.1 契約", () => {
     expect(schema?.properties?.code).toEqual({
       type: "string",
       enum: ["annict_token_required", "annict_token_invalid"],
+    });
+    expect(schema?.required).toEqual(["error"]);
+  });
+
+  it("推し登録の 401 は Annict 連携切れの code を宣言する", () => {
+    const doc = buildOpenApi31Document();
+    const schema =
+      doc.paths["/me/favorites/{annictWorkId}"]?.post?.responses?.["401"]
+        ?.content?.["application/json"]?.schema;
+
+    expect(schema?.properties?.code).toEqual({
+      type: "string",
+      enum: ["annict_token_invalid"],
     });
     expect(schema?.required).toEqual(["error"]);
   });
@@ -226,6 +239,46 @@ describe("OpenAPI 3.1 契約", () => {
         "200"
       ]?.content?.["image/png"],
     ).toEqual({});
+  });
+
+  it("OpenAPI 3.0 の /doc では画像の生バイトを format: binary で宣言する", async () => {
+    const res = await routes.request("/doc", {}, {});
+    expect(res.status).toBe(200);
+    const doc = (await res.json()) as OpenApiDocument;
+    const schemaOf = (mediaTypeObject: unknown) =>
+      (mediaTypeObject as { schema?: unknown } | undefined)?.schema;
+    const binarySchema = { type: "string", format: "binary" };
+
+    for (const mediaType of ["image/webp", "image/jpeg", "image/png"]) {
+      expect(
+        schemaOf(
+          doc.paths["/me/profile/avatar"]?.put?.requestBody?.content?.[
+            mediaType
+          ],
+        ),
+      ).toEqual(binarySchema);
+      expect(
+        schemaOf(
+          doc.paths["/me/meishi-assets"]?.post?.requestBody?.content?.[
+            mediaType
+          ],
+        ),
+      ).toEqual(binarySchema);
+    }
+    expect(
+      schemaOf(
+        doc.paths["/me/meishi-snapshot"]?.post?.requestBody?.content?.[
+          "image/png"
+        ],
+      ),
+    ).toEqual(binarySchema);
+    expect(
+      schemaOf(
+        doc.paths["/me/exchange-records/{recordId}/snapshot"]?.get?.responses?.[
+          "200"
+        ]?.content?.["image/png"],
+      ),
+    ).toEqual(binarySchema);
   });
 });
 

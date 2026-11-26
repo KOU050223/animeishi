@@ -285,7 +285,7 @@ export const createTierListRoute = createRoute({
   responses: {
     200: tierListWithItemsResponse("作成・置き換え後の tier 表"),
     400: invalidTierListError(
-      "入力エラー・未キャッシュの作品/キャラクター（annictWorkIds / annictCharacterIds に列挙）",
+      "入力エラー・未知の作品/対象作品に属さないキャラクター（アイテムの該当 ID は annictWorkIds / annictCharacterIds に列挙）",
     ),
     401: jsonError("未認証"),
   },
@@ -324,7 +324,7 @@ export const updateTierListRoute = createRoute({
   responses: {
     200: tierListWithItemsResponse("置き換え後の tier 表"),
     400: invalidTierListError(
-      "入力エラー・未キャッシュの作品/キャラクター（annictWorkIds / annictCharacterIds に列挙）",
+      "入力エラー・未知の作品/対象作品に属さないキャラクター（アイテムの該当 ID は annictWorkIds / annictCharacterIds に列挙）",
     ),
     401: jsonError("未認証"),
     404: notFound,

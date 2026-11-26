@@ -6586,7 +6586,7 @@
             }
           },
           "401": {
-            "description": "未認証",
+            "description": "未認証 / Annict 連携が無効",
             "content": {
               "application/json": {
                 "schema": {
@@ -6594,6 +6594,12 @@
                   "properties": {
                     "error": {
                       "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "annict_token_invalid"
+                      ]
                     }
                   },
                   "required": [
@@ -12213,7 +12219,7 @@
             }
           },
           "400": {
-            "description": "入力エラー・未キャッシュの作品/キャラクター（annictWorkIds / annictCharacterIds に列挙）",
+            "description": "入力エラー・未知の作品/対象作品に属さないキャラクター（アイテムの該当 ID は annictWorkIds / annictCharacterIds に列挙）",
             "content": {
               "application/json": {
                 "schema": {
@@ -12931,7 +12937,7 @@
             }
           },
           "400": {
-            "description": "入力エラー・未キャッシュの作品/キャラクター（annictWorkIds / annictCharacterIds に列挙）",
+            "description": "入力エラー・未知の作品/対象作品に属さないキャラクター（アイテムの該当 ID は annictWorkIds / annictCharacterIds に列挙）",
             "content": {
               "application/json": {
                 "schema": {

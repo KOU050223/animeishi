@@ -33,6 +33,61 @@ export const codedErrorResponseSchema = z.object({
   code: z.string().optional(),
 });
 
+const binaryImageMediaTypes = ["image/webp", "image/jpeg", "image/png"];
+const openApi30BinarySchema = { type: "string", format: "binary" };
+const httpMethods = [
+  "get",
+  "put",
+  "post",
+  "delete",
+  "options",
+  "head",
+  "patch",
+  "trace",
+];
+
+function asObject(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
+function addOpenApi30BinarySchemasToContent(content: unknown): void {
+  const contentObject = asObject(content);
+  if (!contentObject) return;
+  for (const mediaType of binaryImageMediaTypes) {
+    const mediaTypeObject = asObject(contentObject[mediaType]);
+    if (mediaTypeObject && mediaTypeObject.schema === undefined) {
+      mediaTypeObject.schema = openApi30BinarySchema;
+    }
+  }
+}
+
+// createRoute の画像バイナリは OpenAPI 3.1 向けに schema を置かない。
+// 3.0 では生バイトを type: string / format: binary で表す必要があるため、
+// /doc の応答だけ 3.0 形式に補う。ルート定義に format: binary を残すと、
+// 3.1 生成物でも string 型として読み取られるため両立できない。
+function addOpenApi30BinarySchemas(document: unknown): void {
+  const paths = asObject(asObject(document)?.paths);
+  if (!paths) return;
+  for (const pathItemValue of Object.values(paths)) {
+    const pathItem = asObject(pathItemValue);
+    if (!pathItem) continue;
+    for (const method of httpMethods) {
+      const operation = asObject(pathItem[method]);
+      if (!operation) continue;
+      addOpenApi30BinarySchemasToContent(
+        asObject(operation.requestBody)?.content,
+      );
+      const responses = asObject(operation.responses);
+      for (const responseValue of Object.values(responses ?? {})) {
+        addOpenApi30BinarySchemasToContent(asObject(responseValue)?.content);
+      }
+    }
+  }
+}
+
 /**
  * 入力バリデーション失敗時の応答を API 共通の `{error}` 形に揃えるフック。
  * @hono/zod-openapi 既定の `{success: false, error: ZodError}` ではなく、
@@ -109,7 +164,11 @@ export function registerOpenApiDocs<E extends Env>(app: OpenAPIHono<E>): void {
     description:
       "Annict のアクセストークン（ネイティブのみ。Web は連携時に保存したトークンをサーバーが使う）",
   });
-  app.get("/doc", (c) => c.json(app.getOpenAPIDocument(openApiDocumentConfig)));
+  app.get("/doc", (c) => {
+    const document = app.getOpenAPIDocument(openApiDocumentConfig);
+    addOpenApi30BinarySchemas(document);
+    return c.json(document);
+  });
   const ui = swaggerUI<E>({ url: "/doc" });
   app.get("/ui", async (c) => {
     const res = await ui(c, async () => {});

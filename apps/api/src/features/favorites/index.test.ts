@@ -293,6 +293,25 @@ describe("お気に入り API", () => {
       fetchMock.mockRestore();
     });
 
+    it("POST /me/favorites/:annictWorkId: 本人の Annict トークンが拒否されたら annict_token_invalid で 401", async () => {
+      const UNCACHED = 67892;
+      const fetchMock = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(new Response("Unauthorized", { status: 401 }));
+
+      const app = buildApp();
+      const res = await app.request(
+        `/me/favorites/${UNCACHED}`,
+        { method: "POST", headers: { "X-Annict-Token": "tok_invalid" } },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(401);
+      const body = (await res.json()) as { code?: string };
+      expect(body.code).toBe("annict_token_invalid");
+      fetchMock.mockRestore();
+    });
+
     it("POST /me/favorites/:annictWorkId: 未キャッシュ作品で searchWorks も空なら 404", async () => {
       const fetchMock = vi
         .spyOn(globalThis, "fetch")

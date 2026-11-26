@@ -44,6 +44,11 @@ const jsonError = (description: string) => ({
   description,
 });
 
+const addFavoriteUnauthorizedSchema = z.object({
+  error: z.string(),
+  code: z.enum(["annict_token_invalid"]).optional(),
+});
+
 export const getFavoritesRoute = createRoute({
   method: "get",
   path: "/",
@@ -72,7 +77,12 @@ export const addFavoriteRoute = createRoute({
       description: "登録した推し作品",
     },
     400: jsonError("annictWorkId が不正"),
-    401: jsonError("未認証"),
+    401: {
+      content: {
+        "application/json": { schema: addFavoriteUnauthorizedSchema },
+      },
+      description: "未認証 / Annict 連携が無効",
+    },
     404: jsonError("作品が見つからない"),
   },
 });
