@@ -38,12 +38,15 @@ import {
   useUpsertWorkRating,
   useWorkRating,
   WORK_RATING_LABELS,
-} from "@/lib/useWorkRating";
-import type { WorkRating, WorkRatingError } from "@/lib/useWorkRating";
+} from "@/features/work-ratings/useWorkRating";
+import type {
+  WorkRating,
+  WorkRatingError,
+} from "@/features/work-ratings/useWorkRating";
 import {
   loadWorkRatingHintSeen,
   markWorkRatingHintSeen,
-} from "@/lib/workRatingHint";
+} from "@/features/work-ratings/workRatingHint";
 import type { WatchState } from "@/features/watch-history/watchStatusLabels";
 import { alert } from "@/lib/dialog";
 import {

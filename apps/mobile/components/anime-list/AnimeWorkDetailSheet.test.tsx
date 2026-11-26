@@ -66,7 +66,7 @@ const mockUseWorkRating = jest.fn();
 const mockRatingUpsertAsync = jest.fn();
 const mockRatingDeleteAsync = jest.fn();
 
-jest.mock("@/lib/useWorkRating", () => ({
+jest.mock("@/features/work-ratings/useWorkRating", () => ({
   useWorkRating: (...args: unknown[]) => mockUseWorkRating(...args),
   useUpsertWorkRating: () => ({
     mutateAsync: mockRatingUpsertAsync,

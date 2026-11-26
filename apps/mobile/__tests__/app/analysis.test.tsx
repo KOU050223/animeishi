@@ -145,7 +145,7 @@ jest.mock("@/lib/useWorkDetail", () => ({
 // 詳細シートの評価フックも実物だと QueryClient が要るためスタブにする
 // （評価セクション自体は AnimeWorkDetailSheet.test.tsx で検証）。
 // 未評価を返すので視聴済み以外ではセクションは出ない。
-jest.mock("@/lib/useWorkRating", () => ({
+jest.mock("@/features/work-ratings/useWorkRating", () => ({
   useWorkRating: () => ({
     data: undefined,
     isLoading: false,

@@ -8,8 +8,8 @@ import {
   useUpsertWorkRating,
   useWorkRating,
   WORK_RATING_QUERY_KEY,
-} from "@/lib/useWorkRating";
-import type { WorkRating } from "@/lib/useWorkRating";
+} from "@/features/work-ratings/useWorkRating";
+import type { WorkRating } from "@/features/work-ratings/useWorkRating";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";
