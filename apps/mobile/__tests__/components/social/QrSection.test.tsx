@@ -212,7 +212,7 @@ let mockProfile:
   | undefined = {
   username: "テストユーザー",
 };
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useProfile: () => ({ data: mockProfile }),
 }));
 

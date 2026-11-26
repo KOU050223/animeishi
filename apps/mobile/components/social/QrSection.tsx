@@ -38,7 +38,7 @@ import { shareTierListUrl } from "@/lib/tierList/share";
 import { saveQrImage } from "@/features/friends/qrImage";
 import { alert } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
-import { useProfile } from "@/lib/useProfile";
+import { useProfile } from "@/features/me/useProfile";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
 import { SegmentedControl } from "@/components/ui";
 

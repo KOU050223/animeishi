@@ -44,7 +44,7 @@ import {
   pickMeishiImage,
   useMeishiAssetUpload,
 } from "@/lib/useMeishiAssetUpload";
-import { useProfile } from "@/lib/useProfile";
+import { useProfile } from "@/features/me/useProfile";
 import { useWatchHistory } from "@/lib/useWatchHistory";
 import { useThemeColors } from "@/lib/theme";
 import type { ThemeColors } from "@/lib/theme";

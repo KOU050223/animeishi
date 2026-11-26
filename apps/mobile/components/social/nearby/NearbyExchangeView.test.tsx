@@ -87,7 +87,7 @@ jest.mock("@/features/friends/exchangeQueue", () => ({
   enqueueExchange: (item: unknown) => mockEnqueueExchange(item),
 }));
 
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useProfile: () => ({ data: { username: "みお" } }),
 }));
 

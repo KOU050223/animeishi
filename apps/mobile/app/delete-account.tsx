@@ -24,7 +24,7 @@ import {
   submitDeletionFeedback,
   useDeleteAccount,
   useDeletionSummary,
-} from "@/lib/useProfile";
+} from "@/features/me/useProfile";
 
 type Step = "reason" | "summary" | "confirm";
 

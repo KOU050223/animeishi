@@ -3,7 +3,7 @@ import { useAuth } from "@clerk/expo";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { buildQrExchangeUrl } from "@/features/friends/qrParser";
 import { readOfflineExchangeToken } from "@/features/friends/offlineExchangeToken";
-import { useProfile } from "@/lib/useProfile";
+import { useProfile } from "@/features/me/useProfile";
 import { useQrExchangeToken } from "@/features/friends/useFriends";
 
 /**

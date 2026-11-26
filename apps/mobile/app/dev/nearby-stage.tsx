@@ -8,7 +8,7 @@ import {
   NearbyExchangeStage,
   type StagePhase,
 } from "@/components/social/nearby/NearbyExchangeStage";
-import { useProfile } from "@/lib/useProfile";
+import { useProfile } from "@/features/me/useProfile";
 
 const STEPS: { label: string; phase: StagePhase; meters: number | null }[] = [
   { label: "探索", phase: "search", meters: null },

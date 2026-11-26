@@ -22,7 +22,7 @@ import {
 import { parseQrPayload, type QrPayload } from "@/features/friends/qrParser";
 import { useExchangeQrValue } from "@/features/friends/useExchangeQrValue";
 import { useAddFriend } from "@/features/friends/useFriends";
-import { useProfile } from "@/lib/useProfile";
+import { useProfile } from "@/features/me/useProfile";
 import { NearbyExchangeStage, type StagePhase } from "./NearbyExchangeStage";
 import { NearbyFallback } from "./NearbyFallback";
 import { nearbyHint } from "./nearbyHint";

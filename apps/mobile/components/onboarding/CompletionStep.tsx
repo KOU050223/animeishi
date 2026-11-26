@@ -9,7 +9,7 @@ import {
   MEISHI_COMPLETION_STEP_LABELS,
 } from "@/lib/meishi/completion";
 import type { MeishiDocument } from "@/lib/meishi/types";
-import { useProfile } from "@/lib/useProfile";
+import { useProfile } from "@/features/me/useProfile";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useThemeColors } from "@/lib/theme";
 import { OnboardingScaffold } from "./OnboardingScaffold";

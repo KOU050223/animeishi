@@ -104,7 +104,7 @@ jest.mock("@/components/meishi/TextEditSheet", () => ({
   TextEditSheet: () => null,
 }));
 
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useProfile: () => ({
     data: {
       id: "user_1",

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiClient, apiFetch } from "@/lib/api";
-import { PROFILE_QUERY_KEY, useProfile } from "@/lib/useProfile";
+import { PROFILE_QUERY_KEY, useProfile } from "@/features/me/useProfile";
 import type { PublicSettingVisibility } from "@/components/profile/PublicSettingsSection";
 
 // プロフィール画面の「公開設定」セクション（issue #604）の現在値と

@@ -37,7 +37,7 @@ let mockFavorites: {
   isError: boolean;
 };
 
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useProfile: () => mockProfile,
 }));
 

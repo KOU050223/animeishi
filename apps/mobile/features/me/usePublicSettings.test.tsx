@@ -2,8 +2,8 @@ import { act } from "react";
 import { renderHook } from "@testing-library/react-native";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test-utils/queryClient";
-import { usePublicSettings } from "@/lib/usePublicSettings";
-import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
+import { usePublicSettings } from "@/features/me/usePublicSettings";
+import { PROFILE_QUERY_KEY } from "@/features/me/useProfile";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";
@@ -33,7 +33,7 @@ const mockUseProfile = jest.fn(
     data: { username: "testuser", isPublic: true },
   }),
 );
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useProfile: () => mockUseProfile(),
   PROFILE_QUERY_KEY: ["profile"],
 }));

@@ -5,7 +5,7 @@ import { workQueries } from "@/lib/queries/works";
 import type { WorkEpisodesResponse } from "@/lib/queries/works";
 import { ACHIEVEMENTS_QUERY_KEY } from "@/features/achievements/useAchievements";
 import { useAnnictConnection } from "@/features/annict";
-import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
+import { PROFILE_QUERY_KEY } from "@/features/me/useProfile";
 import { PUBLIC_PROFILE_QUERY_KEY } from "@/lib/publicProfile";
 
 export type { WorkEpisode } from "@/lib/queries/works";

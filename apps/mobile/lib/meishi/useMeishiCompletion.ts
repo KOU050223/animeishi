@@ -5,7 +5,7 @@ import { defaultCard } from "./library";
 import { loadMeishiLibrary } from "./storage";
 import type { MeishiDocument } from "./types";
 import { useFavorites } from "@/features/favorites/useFavorites";
-import { useProfile } from "@/lib/useProfile";
+import { useProfile } from "@/features/me/useProfile";
 
 export type MeishiCompletion = {
   /** 完成に足りない項目（空なら完成）。「残り N ステップ」の N に対応する。 */

@@ -9,7 +9,7 @@ import {
   useUnrecordEpisode,
   useWorkEpisodes,
 } from "@/lib/useWorkEpisodes";
-import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
+import { PROFILE_QUERY_KEY } from "@/features/me/useProfile";
 import { publicProfileQueryKey } from "@/lib/publicProfile";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";

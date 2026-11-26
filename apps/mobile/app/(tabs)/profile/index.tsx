@@ -29,10 +29,10 @@ import { DeleteAccountSection } from "@/components/profile/DeleteAccountSection"
 import { MalAttribution } from "@/components/profile/MalAttribution";
 import { PasskeySection } from "@/components/profile/PasskeySection";
 import { AppVersionFooter } from "@/components/AppVersionFooter";
-import { useProfile, useUpdateProfile } from "@/lib/useProfile";
+import { useProfile, useUpdateProfile } from "@/features/me/useProfile";
 import { useSignOut } from "@/features/auth/useSignOut";
 import { ApiRequestError } from "@/lib/apiError";
-import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
+import { useProfileAvatarUpload } from "@/features/me/useProfileAvatar";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useAddToAppleWallet } from "@/lib/wallet";
@@ -56,7 +56,7 @@ import { resolveMeishiDocument } from "@/lib/meishi/templates";
 import type { ImageElement } from "@/lib/meishi/types";
 import { PublicSettingsSection } from "@/components/profile/PublicSettingsSection";
 import type { PublicSettingItem } from "@/components/profile/PublicSettingsSection";
-import { usePublicSettings } from "@/lib/usePublicSettings";
+import { usePublicSettings } from "@/features/me/usePublicSettings";
 import { useSocialLinks } from "@/lib/socialLinks";
 
 type Toast = { type: "success" | "error"; message: string };

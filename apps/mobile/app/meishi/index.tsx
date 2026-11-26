@@ -25,7 +25,7 @@ import { useWatchHistory } from "@/lib/useWatchHistory";
 import { useAchievements } from "@/features/achievements/useAchievements";
 import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
 import type { MeishiCardData } from "@/lib/meishi/types";
-import { useProfile } from "@/lib/useProfile";
+import { useProfile } from "@/features/me/useProfile";
 import { useThemeColors } from "@/lib/theme";
 import type { ThemeColors } from "@/lib/theme";
 

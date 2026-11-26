@@ -111,7 +111,7 @@ let mockProfile: {
   refetch: jest.Mock;
 };
 
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useProfile: () => mockProfile,
   useUpdateProfile: () => ({
     isPending: false,
@@ -123,7 +123,7 @@ jest.mock("@/lib/useProfile", () => ({
   }),
 }));
 
-jest.mock("@/lib/usePublicSettings", () => ({
+jest.mock("@/features/me/usePublicSettings", () => ({
   usePublicSettings: () => ({
     profileVisibility:
       (mockProfile?.data?.isPublic ?? true) === false ? "private" : "public",
@@ -150,7 +150,7 @@ jest.mock("@/features/annict/storage", () => ({
   },
 }));
 
-jest.mock("@/lib/useProfileAvatar", () => ({
+jest.mock("@/features/me/useProfileAvatar", () => ({
   useProfileAvatarUpload: () => ({
     isPending: false,
     mutate: jest.fn(),

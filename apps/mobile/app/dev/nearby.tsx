@@ -15,7 +15,7 @@ import type {
   DirectionVector,
   ProximityHaptics,
 } from "@/features/friends/nearbyExchange";
-import { useProfile } from "@/lib/useProfile";
+import { useProfile } from "@/features/me/useProfile";
 
 type PeerView = {
   peerId: string;

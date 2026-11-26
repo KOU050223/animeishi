@@ -41,7 +41,7 @@ jest.mock("@/components/MeishiCard", () => ({
   },
 }));
 
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useProfile: () => ({
     data: {
       id: "user_1",

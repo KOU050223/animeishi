@@ -50,7 +50,7 @@ jest.mock("expo-router", () => ({
   }),
 }));
 
-jest.mock("@/lib/useProfile", () => ({
+jest.mock("@/features/me/useProfile", () => ({
   useDeletionSummary: () => mockSummary,
   submitDeletionFeedback: (input: unknown) => mockSubmitFeedback(input),
   useDeleteAccount: () => ({

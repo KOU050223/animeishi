@@ -3,7 +3,7 @@ import { useAuth } from "@clerk/expo";
 import * as ImagePicker from "expo-image-picker";
 import { apiClient, apiFetch } from "@/lib/api";
 import { compressAvatarImage } from "@/lib/imageCompression";
-import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
+import { PROFILE_QUERY_KEY } from "@/features/me/useProfile";
 
 /** apiClient のベース URL を取得する。バイナリ body の PUT は RPC では扱いにくいため fetch で直接送る。 */
 const AVATAR_UPLOAD_URL = apiClient.me.profile.avatar.$url().toString();

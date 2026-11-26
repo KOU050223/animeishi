@@ -22,7 +22,7 @@ import { buildProfileUrl } from "@/lib/profileUrl";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
 import { useMeishiPrintExport } from "@/lib/meishi/printExport";
 import { useMeishiRenderContext } from "@/lib/meishi/useMeishiRenderContext";
-import { useProfile } from "@/lib/useProfile";
+import { useProfile } from "@/features/me/useProfile";
 import { useThemeColors } from "@/lib/theme";
 import { useSocialLinks } from "@/lib/socialLinks";
 import { SocialLinksList } from "@/components/profile/SocialLinksList";
