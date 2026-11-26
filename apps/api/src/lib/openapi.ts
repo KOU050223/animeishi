@@ -80,7 +80,7 @@ const HTTP_EXCEPTION_CODES: Record<number, string> = {
   422: "unprocessable_content",
 };
 
-export function httpExceptionCode(status: number): string {
+function httpExceptionCode(status: number): string {
   return (
     HTTP_EXCEPTION_CODES[status] ??
     (status >= 500 ? "internal_error" : "bad_request")
