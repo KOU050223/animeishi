@@ -11,7 +11,7 @@ import { FRIEND_WATCH_STORIES_QUERY_KEY } from "@/features/feed/useFriendWatchSt
 import { EXCHANGE_RECORDS_QUERY_KEY } from "@/features/exchange-records/useExchangeRecords";
 import { FRIEND_THANKS_QUERY_KEY } from "@/features/friend-thanks/useFriendThanks";
 import { PUBLIC_PROFILE_QUERY_KEY } from "@/features/user/publicProfile";
-import { COMMON_POINTS_QUERY_KEY } from "@/lib/useCommonPoints";
+import { COMMON_POINTS_QUERY_KEY } from "@/features/users/useCommonPoints";
 import { friendQueries } from "@/lib/queries/friends";
 import type { AddFriendResponse } from "@/lib/queries/friends";
 

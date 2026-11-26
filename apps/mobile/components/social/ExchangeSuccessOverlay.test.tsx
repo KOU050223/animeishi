@@ -9,7 +9,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { haptics } from "@/lib/haptics";
 import { useFavorites } from "@/features/favorites/useFavorites";
-import { useCommonPoints } from "@/lib/useCommonPoints";
+import { useCommonPoints } from "@/features/users/useCommonPoints";
 import { useFriends } from "@/features/friends/useFriends";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { createTestQueryClient } from "@/test-utils/queryClient";
@@ -45,7 +45,9 @@ jest.mock("@/lib/haptics", () => ({
 jest.mock("@/features/favorites/useFavorites", () => ({
   useFavorites: jest.fn(() => ({ data: undefined })),
 }));
-jest.mock("@/lib/useCommonPoints", () => ({ useCommonPoints: jest.fn() }));
+jest.mock("@/features/users/useCommonPoints", () => ({
+  useCommonPoints: jest.fn(),
+}));
 jest.mock("@/features/friends/useFriends", () => ({ useFriends: jest.fn() }));
 
 function wrapper({ children }: { children: React.ReactNode }) {

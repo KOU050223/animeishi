@@ -18,7 +18,7 @@ import {
 } from "@animeishi/danime-core";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import { ACHIEVEMENTS_QUERY_KEY } from "@/features/achievements/useAchievements";
-import { invalidateCommonPoints } from "@/lib/useCommonPoints";
+import { invalidateCommonPoints } from "@/features/users/useCommonPoints";
 import type { TranslationKey } from "@/lib/i18n/keys";
 import { danimeQueries, type DanimeEpisodeJob } from "@/lib/queries/danime";
 

@@ -5,7 +5,7 @@ import { apiClient, apiFetch } from "@/lib/api";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { hiraganaToKana } from "@/lib/textNormalize";
-import { invalidateCommonPoints } from "@/lib/useCommonPoints";
+import { invalidateCommonPoints } from "@/features/users/useCommonPoints";
 import { favoriteQueries, type FavoriteItem } from "@/lib/queries/favorites";
 
 export type { FavoriteItem };

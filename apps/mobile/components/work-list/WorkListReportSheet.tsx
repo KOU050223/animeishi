@@ -1,7 +1,10 @@
 import { Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { REPORT_REASONS, type ReportReason } from "@/lib/useModeration";
+import {
+  REPORT_REASONS,
+  type ReportReason,
+} from "@/features/users/useModeration";
 
 /**
  * 公開作品リストの通報理由を選ぶシート（issue #422）。

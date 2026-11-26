@@ -26,7 +26,7 @@ import {
   type PublicWorkListSort,
 } from "@/lib/workList/useWorkLists";
 import { useReportWorkListFlow } from "@/lib/workList/useReportWorkListFlow";
-import type { ReportReason } from "@/lib/useModeration";
+import type { ReportReason } from "@/features/users/useModeration";
 
 // ひろば「みつける」の作品リストフィード（issue #422）。
 // is_public を立てた作品リストをフレンド以外も含めて一覧し、

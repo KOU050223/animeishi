@@ -6,7 +6,7 @@ import {
   View,
 } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useCommonPoints } from "@/lib/useCommonPoints";
+import { useCommonPoints } from "@/features/users/useCommonPoints";
 import { useThemeColors } from "@/lib/theme";
 
 type Work = {

@@ -24,7 +24,7 @@ import {
   useToggleWorkListLike,
 } from "@/lib/workList/useWorkLists";
 import { useReportWorkListFlow } from "@/lib/workList/useReportWorkListFlow";
-import type { ReportReason } from "@/lib/useModeration";
+import type { ReportReason } from "@/features/users/useModeration";
 
 type PublicWorkListDetail = NonNullable<
   ReturnType<typeof usePublicWorkList>["data"]

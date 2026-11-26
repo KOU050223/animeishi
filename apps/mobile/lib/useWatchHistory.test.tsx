@@ -14,7 +14,7 @@ import { WORK_DETAIL_QUERY_KEY, useWorkDetail } from "@/lib/useWorkDetail";
 import {
   COMMON_POINTS_QUERY_KEY,
   useCommonPoints,
-} from "@/lib/useCommonPoints";
+} from "@/features/users/useCommonPoints";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";

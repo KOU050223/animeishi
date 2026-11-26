@@ -6,8 +6,8 @@ import {
   getReportErrorMessage,
   useBlockUser,
   useReportUser,
-} from "@/lib/useModeration";
-import { PUBLIC_USERS_KEY } from "@/lib/usePublicUsers";
+} from "@/features/users/useModeration";
+import { PUBLIC_USERS_KEY } from "@/features/users/usePublicUsers";
 
 /**
  * 公開名刺（ユーザー）の通報フロー（issue #418）。

@@ -1,9 +1,11 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { CommonPoints } from "./CommonPoints";
-import { useCommonPoints } from "@/lib/useCommonPoints";
+import { useCommonPoints } from "@/features/users/useCommonPoints";
 
-jest.mock("@/lib/useCommonPoints", () => ({ useCommonPoints: jest.fn() }));
+jest.mock("@/features/users/useCommonPoints", () => ({
+  useCommonPoints: jest.fn(),
+}));
 
 const work = {
   annictWorkId: 1,

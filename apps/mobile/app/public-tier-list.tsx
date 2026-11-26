@@ -29,7 +29,7 @@ import {
   tierLabelTextColor,
 } from "@/features/tier-lists/label";
 import { DiscoverReportSheet } from "@/components/hiroba/DiscoverReportSheet";
-import type { ReportReason } from "@/lib/useModeration";
+import type { ReportReason } from "@/features/users/useModeration";
 
 type PublicTierListDetail = NonNullable<
   ReturnType<typeof usePublicTierList>["data"]

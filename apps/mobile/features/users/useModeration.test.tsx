@@ -5,7 +5,7 @@ import {
   getReportErrorMessage,
   useReportUser,
   useBlockUser,
-} from "@/lib/useModeration";
+} from "@/features/users/useModeration";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { createTestQueryClient } from "@/test-utils/queryClient";

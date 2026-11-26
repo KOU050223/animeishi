@@ -47,8 +47,8 @@ import {
   REPORT_REASONS,
   useBlockUser,
   useReportUser,
-} from "@/lib/useModeration";
-import type { ReportReason } from "@/lib/useModeration";
+} from "@/features/users/useModeration";
+import type { ReportReason } from "@/features/users/useModeration";
 import { useFriends } from "@/features/friends/useFriends";
 import {
   useAcceptFriendRequest,

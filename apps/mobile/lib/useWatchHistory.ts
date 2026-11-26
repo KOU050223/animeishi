@@ -9,7 +9,7 @@ import {
   WATCH_HISTORY_WRITE_SCOPE,
 } from "@/lib/watchHistoryKey";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
-import { invalidateCommonPoints } from "@/lib/useCommonPoints";
+import { invalidateCommonPoints } from "@/features/users/useCommonPoints";
 import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/queries/achievements";
 import {
   watchHistoryQueries,

@@ -83,7 +83,7 @@ jest.mock("@/lib/haptics", () => ({
   },
 }));
 
-jest.mock("@/lib/useModeration", () => ({
+jest.mock("@/features/users/useModeration", () => ({
   REPORT_REASONS: ["不適切なコンテンツ", "スパム・宣伝"],
   useReportUser: () => ({ mutate: mockReportMutate, isPending: false }),
   useBlockUser: () => ({ mutate: mockBlockMutate, isPending: false }),

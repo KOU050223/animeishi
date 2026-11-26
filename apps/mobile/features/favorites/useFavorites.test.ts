@@ -9,7 +9,7 @@ import {
   useAddFavorite,
   useRemoveFavorite,
 } from "@/features/favorites/useFavorites";
-import { useCommonPoints } from "@/lib/useCommonPoints";
+import { useCommonPoints } from "@/features/users/useCommonPoints";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 

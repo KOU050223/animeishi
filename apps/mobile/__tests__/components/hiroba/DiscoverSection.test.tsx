@@ -138,12 +138,12 @@ jest.mock("@/features/tier-lists/useReportTierListFlow", () => ({
   useReportTierListFlow: () => ({ submit: jest.fn(), isPending: false }),
 }));
 
-jest.mock("@/lib/usePublicUsers", () => ({
+jest.mock("@/features/users/usePublicUsers", () => ({
   usePublicUsers: () => inertList(),
   useToggleUserLike: () => ({ mutate: jest.fn() }),
 }));
 
-jest.mock("@/lib/useReportUserFlow", () => ({
+jest.mock("@/features/users/useReportUserFlow", () => ({
   useReportUserFlow: () => ({ submit: jest.fn(), isPending: false }),
 }));
 

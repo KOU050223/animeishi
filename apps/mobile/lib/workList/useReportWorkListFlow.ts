@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@clerk/expo";
 import { alert, confirm } from "@/lib/dialog";
-import { useBlockUser } from "@/lib/useModeration";
+import { useBlockUser } from "@/features/users/useModeration";
 import { useReportWorkList } from "@/lib/workList/useWorkLists";
 
 /**
