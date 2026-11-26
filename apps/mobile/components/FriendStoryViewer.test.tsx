@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { FriendStoryViewer } from "@/components/FriendStoryViewer";
 import type { FriendWatchStory } from "@/lib/useFriendWatchStories";
 import { WorkDetailContext } from "@/lib/workDetailContext";
@@ -46,8 +46,17 @@ function itemWithImage(
 }
 
 describe("FriendStoryViewer", () => {
-  it("作品を選ぶとビューアを閉じて詳細を開く", async () => {
+  beforeEach(() => {
+    // スライドの自動送りは RN Animated の rAF タイマーで進む。実タイマーのままだと
+    // テストの act 境界の外で Animated.View が再描画されるため、明示的に進める。
     jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("作品を選ぶとビューアを閉じて詳細を開く", async () => {
     const openWork = jest.fn();
     const onClose = jest.fn();
     await render(
@@ -64,12 +73,13 @@ describe("FriendStoryViewer", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(openWork).not.toHaveBeenCalled();
     // テスト環境（= Android と同じく onDismiss が来ない）ではタイマーで開く。
-    jest.advanceTimersByTime(300);
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(openWork).toHaveBeenCalledWith(
       expect.objectContaining({ annictWorkId: 1, title: "作品A" }),
     );
-    jest.useRealTimers();
   });
   it("最初のスライドとして作品名と視聴状態を表示する", async () => {
     await render(
