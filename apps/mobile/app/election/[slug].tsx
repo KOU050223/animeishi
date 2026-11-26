@@ -19,8 +19,11 @@ import {
   useElection,
   useElectionVote,
   useCancelElectionVote,
-} from "@/lib/useElections";
-import type { ElectionCandidate, ElectionDetail } from "@/lib/useElections";
+} from "@/features/elections/useElections";
+import type {
+  ElectionCandidate,
+  ElectionDetail,
+} from "@/features/elections/useElections";
 import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
 import { alert } from "@/lib/dialog";

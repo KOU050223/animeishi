@@ -1,8 +1,8 @@
 import { FlatList, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useElections } from "@/lib/useElections";
-import type { ElectionListItem } from "@/lib/useElections";
+import { useElections } from "@/features/elections/useElections";
+import type { ElectionListItem } from "@/features/elections/useElections";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
 import { useThemeColors } from "@/lib/theme";

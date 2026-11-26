@@ -179,7 +179,7 @@ let mockElections: {
       }
     | undefined;
 };
-jest.mock("@/lib/useElections", () => ({
+jest.mock("@/features/elections/useElections", () => ({
   useElections: () => mockElections,
   ELECTIONS_QUERY_KEY: ["elections"],
 }));
