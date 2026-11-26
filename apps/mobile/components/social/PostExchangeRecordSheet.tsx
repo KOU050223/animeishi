@@ -4,7 +4,7 @@ import {
   useExchangeRecordsForFriend,
   useUpdateExchangeRecord,
   type ExchangeRecordUpdate,
-} from "@/lib/useExchangeRecords";
+} from "@/features/exchange-records/useExchangeRecords";
 import { ExchangeRecordSheet } from "./ExchangeRecordSheet";
 
 /**

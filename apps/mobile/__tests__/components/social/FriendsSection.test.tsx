@@ -123,7 +123,7 @@ jest.mock("@/lib/useFriendRequests", () => ({
 // イベント絞り込み（issue #661）の交換記録。既定は空（絞り込み UI なし）。
 let mockExchangeRecordsData: { friendId: string; eventName: string | null }[] =
   [];
-jest.mock("@/lib/useExchangeRecords", () => ({
+jest.mock("@/features/exchange-records/useExchangeRecords", () => ({
   useExchangeRecords: () => ({
     data: mockExchangeRecordsData,
     refetch: jest.fn(),

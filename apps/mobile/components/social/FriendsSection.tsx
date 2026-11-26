@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
-import { useExchangeRecords } from "@/lib/useExchangeRecords";
+import { useExchangeRecords } from "@/features/exchange-records/useExchangeRecords";
 import { useFriendThanks, useUnreadThanksCount } from "@/lib/useFriendThanks";
 import { useFriendRequests } from "@/lib/useFriendRequests";
 import type { FriendRequestItem } from "@/lib/useFriendRequests";

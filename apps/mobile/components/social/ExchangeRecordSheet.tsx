@@ -18,12 +18,12 @@ import { alert } from "@/lib/dialog";
 import { useThemeColors, type ThemeColors } from "@/lib/theme";
 import { featureFlags } from "@/lib/featureFlags";
 import { useEventList } from "@/features/events/useEvents";
-import { resolvePlaceName } from "@/lib/exchangePlace";
+import { resolvePlaceName } from "@/features/exchange-records/exchangePlace";
 import {
   rankEventCandidates,
   type RankedEventCandidate,
-} from "@/lib/exchangeEventCandidates";
-import type { ExchangeRecordUpdate } from "@/lib/useExchangeRecords";
+} from "@/features/exchange-records/exchangeEventCandidates";
+import type { ExchangeRecordUpdate } from "@/features/exchange-records/useExchangeRecords";
 
 const EXCHANGE_PLACE_MAX_LENGTH = 100;
 const EXCHANGE_EVENT_MAX_LENGTH = 100;

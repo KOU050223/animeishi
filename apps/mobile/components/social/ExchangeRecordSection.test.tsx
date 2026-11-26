@@ -8,7 +8,7 @@ import {
   useCreateExchangeRecord,
   useUpdateExchangeRecord,
   useDeleteExchangeRecord,
-} from "@/lib/useExchangeRecords";
+} from "@/features/exchange-records/useExchangeRecords";
 import { resetAuth } from "@/test-utils/auth";
 
 const FRIEND_ID = "user_friend";
@@ -29,7 +29,7 @@ function makeRecord(overrides: Record<string, unknown>) {
   };
 }
 
-jest.mock("@/lib/useExchangeRecords", () => ({
+jest.mock("@/features/exchange-records/useExchangeRecords", () => ({
   useExchangeRecordsForFriend: jest.fn(),
   useCreateExchangeRecord: jest.fn(),
   useUpdateExchangeRecord: jest.fn(),

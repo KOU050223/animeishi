@@ -8,7 +8,7 @@ jest.mock("@/features/events/useEvents", () => ({
   useEventList: jest.fn(),
 }));
 
-jest.mock("@/lib/exchangePlace", () => ({
+jest.mock("@/features/exchange-records/exchangePlace", () => ({
   resolvePlaceName: jest.fn(),
 }));
 

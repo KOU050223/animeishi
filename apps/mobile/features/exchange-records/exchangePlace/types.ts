@@ -1,6 +1,6 @@
 /**
  * 「出会った場所」を残すための位置解決（issue #661）の共通型。
- * 呼び出し側は常に `@/lib/exchangePlace` から import する。
+ * 呼び出し側は常に `@/features/exchange-records/exchangePlace` から import する。
  */
 
 /**
