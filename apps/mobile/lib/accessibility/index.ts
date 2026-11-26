@@ -1,1 +1,4 @@
-export { selectionAccessibilityProps } from "./selection";
+export {
+  currentAccessibilityProps,
+  selectionAccessibilityProps,
+} from "./selection";

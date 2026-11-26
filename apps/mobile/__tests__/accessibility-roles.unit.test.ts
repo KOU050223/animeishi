@@ -183,7 +183,9 @@ function findSelectedStateElements(filePath: string): SelectedStateElement[] {
 }
 
 function hasSelectionAccessibilitySpread(attributesOnly: string): boolean {
-  return /\{\s*\.\.\.\s*selectionAccessibilityProps\s*\(/.test(attributesOnly);
+  return /\{\s*\.\.\.\s*(?:selectionAccessibilityProps|currentAccessibilityProps)\s*\(/.test(
+    attributesOnly,
+  );
 }
 
 describe("押せる要素の accessibilityRole（issue #722）", () => {
@@ -230,6 +232,11 @@ describe("押せる要素の accessibilityRole（issue #722）", () => {
     expect(
       hasSelectionAccessibilitySpread(
         "<Pressable accessibilityState={{ selected: isSelected }} {...selectionAccessibilityProps(isSelected)}>",
+      ),
+    ).toBe(true);
+    expect(
+      hasSelectionAccessibilitySpread(
+        "<Pressable accessibilityState={{ selected: isCurrent }} {...currentAccessibilityProps(isCurrent)}>",
       ),
     ).toBe(true);
     expect(

@@ -162,6 +162,11 @@ describe("MenuPicker (web DOM)", () => {
         '[data-testid="test-menu-option-2025"][aria-pressed="true"]',
       ),
     ).toBeNull();
+    expect(
+      document.querySelector(
+        '[data-testid="test-menu-option-2025"][aria-pressed="false"]',
+      ),
+    ).not.toBeNull();
   });
 
   it("選択肢をクリックすると onValueChange が呼ばれて閉じる", async () => {
