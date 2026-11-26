@@ -194,7 +194,7 @@ jest.mock("@/lib/dialog", () => ({
 
 // 名刺画像の保存（issue #675）。プラットフォーム実装は呼び出し内容だけ見る。
 const mockSaveReceivedMeishi = jest.fn((_input: unknown) => Promise.resolve());
-jest.mock("@/lib/receivedMeishi", () => ({
+jest.mock("@/features/received-meishi", () => ({
   saveReceivedMeishi: (input: unknown) => mockSaveReceivedMeishi(input),
 }));
 

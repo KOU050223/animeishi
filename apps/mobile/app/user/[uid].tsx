@@ -33,7 +33,7 @@ import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordS
 import { CommonPoints } from "@/components/social/CommonPoints";
 import { GuestSignUpCta } from "@/components/social/GuestSignUpCta";
 import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
-import { saveReceivedMeishi } from "@/lib/receivedMeishi";
+import { saveReceivedMeishi } from "@/features/received-meishi";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";
 import type { WorkDetailSheetTarget } from "@/components/anime-list";

@@ -9,7 +9,7 @@ import type { ViewInstance } from "react-native";
  * - saveReceivedMeishi.native.ts ... iOS/Android（view-shot + OS 共有シート）
  * - saveReceivedMeishi.web.ts    ... Web（画像 URL の fetch → ダウンロード）
  *
- * 呼び出し側は常に `@/lib/receivedMeishi` から import する。
+ * 呼び出し側は常に `@/features/received-meishi` から import する。
  */
 
 /**
