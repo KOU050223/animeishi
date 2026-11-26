@@ -11,8 +11,6 @@ import {
 import { shareTokenParamSchema } from "./schema";
 import {
   buildCanonicalShareUrl,
-  buildSharedCharacterTierListHtml,
-  buildSharedCustomTierListHtml,
   buildSharedTierListHtml,
   buildSharedWatchHistoryHtml,
   buildSharedWatchHistoryMarkdown,
@@ -21,9 +19,11 @@ import {
   parseTiersJson,
   parseWatchHistoryView,
   proxyImage,
+  sharedTierListCtaSource,
   watchHistoryNotFoundHtml,
   workListNotFoundHtml,
 } from "./service";
+import type { SharedTierListPageInput } from "./service";
 import { workImageUrl } from "@/lib/catalog/workImage";
 import type {
   TierListItemWithCharacter,
@@ -87,21 +87,18 @@ const share = new Hono<ShareBindings>()
         // 共有解除で無効化されるコンテンツなのでキャッシュさせない。
         // public キャッシュを許すと、解除後も CDN/ブラウザが古いページを
         // 返し続ける可能性がある。
-        let html: string;
+        let pageInput: SharedTierListPageInput;
+        logGuestCtaView(sharedTierListCtaSource(list.kind));
         if (list.kind === "character") {
-          logGuestCtaView("share_character_tier_list");
-          html = buildSharedCharacterTierListHtml(
-            {
-              annictWorkId: list.annictWorkId ?? 0,
-              workTitle: list.workTitle ?? "",
-              title: list.title,
-              description: list.description,
-              tiersJson: list.tiersJson,
-              ownerUsername: list.ownerUsername,
-              items: characterItems,
-            },
-            canonicalUrl,
-          );
+          pageInput = {
+            kind: "character",
+            workTitle: list.workTitle ?? "",
+            title: list.title,
+            description: list.description,
+            tiersJson: list.tiersJson,
+            ownerUsername: list.ownerUsername,
+            items: characterItems,
+          };
         } else {
           const page = {
             title: list.title,
@@ -111,17 +108,16 @@ const share = new Hono<ShareBindings>()
             items: workItems,
           };
           if (list.kind === "season") {
-            logGuestCtaView("share_tier_list");
-            html = buildSharedTierListHtml(
-              { ...page, season: list.season ?? "" },
-              c.req.url,
-              canonicalUrl,
-            );
+            pageInput = { ...page, kind: "season", season: list.season ?? "" };
           } else {
-            logGuestCtaView("share_custom_tier_list");
-            html = buildSharedCustomTierListHtml(page, c.req.url, canonicalUrl);
+            pageInput = { ...page, kind: "custom" };
           }
         }
+        const html = buildSharedTierListHtml(
+          pageInput,
+          c.req.url,
+          canonicalUrl,
+        );
         return c.html(html, 200, { "Cache-Control": "no-store" });
       }
 

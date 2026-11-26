@@ -12,6 +12,7 @@ import { renderSharePage, statsHtml } from "./layout";
 import { isKnownImageUrl } from "./repository";
 import type { SharedWatchHistory, SharedWorkList } from "./repository";
 import type {
+  TierListItem,
   TierListItemWithCharacter,
   TierListItemWithWork,
 } from "../tier-lists/repository";
@@ -354,96 +355,78 @@ function tierLabelHtml(tier: TierRow): HtmlEscapedString {
   return html`<div class="tier-label" style="background-color: ${color}; color: ${tierLabelTextColor(color)}">${tier.label}</div>`;
 }
 
-// HTML ビルダーに渡す形。SharedTierList（repository.ts）の items は
-// kind 別の union なので、呼び出し側（share/index.ts）で kind ごとに
-// 絞ってから渡す。
-export type WorkTierListPageInput = {
+// SharedTierList（repository.ts）の items は kind 別の union なので、
+// 呼び出し側（share/index.ts）で kind ごとに絞ってから渡す。
+type SharedTierListPageInputBase = {
   title: string;
   /** 表の説明文。未設定なら null。 */
   description: string | null;
   tiersJson: string;
   ownerUsername: string;
-  items: TierListItemWithWork[];
 };
-export type SeasonTierListPageInput = WorkTierListPageInput & {
-  season: string;
-};
-export type CharacterTierListPageInput = {
-  annictWorkId: number;
-  /** 表の対象作品のタイトル（共有ページの見出し・OGP 用）。 */
-  workTitle: string;
-  title: string;
-  /** 表の説明文。未設定なら null。 */
-  description: string | null;
-  tiersJson: string;
-  ownerUsername: string;
-  items: TierListItemWithCharacter[];
-};
+
+export type SharedTierListPageInput =
+  | (SharedTierListPageInputBase & {
+      kind: "season";
+      season: string;
+      items: TierListItemWithWork[];
+    })
+  | (SharedTierListPageInputBase & {
+      kind: "custom";
+      items: TierListItemWithWork[];
+    })
+  | (SharedTierListPageInputBase & {
+      kind: "character";
+      /** 表の対象作品のタイトル（共有ページの見出し・OGP 用）。 */
+      workTitle: string;
+      items: TierListItemWithCharacter[];
+    });
+
+export function sharedTierListCtaSource(
+  kind: SharedTierListPageInput["kind"],
+): GuestCtaSource {
+  switch (kind) {
+    case "season":
+      return "share_tier_list";
+    case "custom":
+      return "share_custom_tier_list";
+    case "character":
+      return "share_character_tier_list";
+  }
+}
+
+function tierListItemHtml(
+  item: TierListItem,
+  requestUrl: string,
+): HtmlEscapedString {
+  if (item.kind === "work") {
+    return html`<div class="card">
+        ${posterHtml(item, requestUrl)}
+        <span class="card-title">${item.title}</span>
+      </div>`;
+  }
+  return html`<div class="card">
+        <div class="poster">${characterImageHtml(item)}</div>
+        <span class="card-title">${item.name}</span>
+      </div>`;
+}
+
+function pickCharacterOgImage(
+  items: TierListItemWithCharacter[],
+): string | undefined {
+  return items
+    .map((item) => item.imageUrl)
+    .find((u): u is string => !!u && isSafeImageUrl(u) && /^https:/i.test(u));
+}
 
 export function buildSharedTierListHtml(
-  list: SeasonTierListPageInput,
+  list: SharedTierListPageInput,
   requestUrl: string,
   canonicalUrl: string,
 ): string {
-  return buildWorkTierListHtml({
-    list: {
-      title: list.title,
-      description: list.description,
-      tiersJson: list.tiersJson,
-      items: list.items,
-    },
-    ownerLine: `${list.ownerUsername} の Tier 表（${list.season}）`,
-    ownerUsername: list.ownerUsername,
-    requestUrl,
-    canonicalUrl,
-    ctaSource: "share_tier_list",
-  });
-}
-
-/**
- * 自由作成 tier 表の共有ページ。シーズン版と同じ盤面だがシーズンを持たない
- * ため、所有者行は「の Tier 表」だけにする（issue #348）。
- */
-export function buildSharedCustomTierListHtml(
-  list: WorkTierListPageInput,
-  requestUrl: string,
-  canonicalUrl: string,
-): string {
-  return buildWorkTierListHtml({
-    list: {
-      title: list.title,
-      description: list.description,
-      tiersJson: list.tiersJson,
-      items: list.items,
-    },
-    ownerLine: `${list.ownerUsername} の Tier 表`,
-    ownerUsername: list.ownerUsername,
-    requestUrl,
-    canonicalUrl,
-    ctaSource: "share_custom_tier_list",
-  });
-}
-
-// 作品 tier 表（シーズン版・自由作成版）で共通の共有ページ組み立て。
-// 違いは所有者行の表記（シーズン併記の有無）だけなので、そこだけ引数化する。
-function buildWorkTierListHtml(input: {
-  list: {
-    title: string;
-    // 表の説明文（issue #476）。あれば所有者行の下に出す
-    // （work-list の共有ページと同じ扱い）。
-    description?: string | null;
-    tiersJson: string;
-    items: TierListItemWithWork[];
-  };
-  ownerLine: string;
-  ownerUsername: string;
-  requestUrl: string;
-  canonicalUrl: string;
-  ctaSource: GuestCtaSource;
-}): string {
-  const tiers = parseTiersJson(input.list.tiersJson);
-  const itemsByTier = new Map<string, TierListItemWithWork[]>();
-  for (const item of input.list.items) {
+  const tiers = parseTiersJson(list.tiersJson);
+  const itemsByTier = new Map<string, TierListItem[]>();
+  for (const item of list.items) {
     const arr = itemsByTier.get(item.tierKey) ?? [];
     arr.push(item);
     itemsByTier.set(item.tierKey, arr);
@@ -455,31 +438,45 @@ function buildWorkTierListHtml(input: {
 
   const rowsHtml = joinHtml(
     tiers.map((tier) => {
-      const worksHtml = (itemsByTier.get(tier.key) ?? []).map(
-        (item) => html`<div class="card">
-        ${posterHtml(item, input.requestUrl)}
-        <span class="card-title">${item.title}</span>
-      </div>`,
+      const itemsHtml = (itemsByTier.get(tier.key) ?? []).map((item) =>
+        tierListItemHtml(item, requestUrl),
       );
       return html`<div class="tier-row">
       ${tierLabelHtml(tier)}
-      <div class="tier-items">${worksHtml}</div>
+      <div class="tier-items">${itemsHtml}</div>
     </div>`;
     }),
     "\n    ",
   );
 
+  const ownerLine =
+    list.kind === "season"
+      ? `${list.ownerUsername} の Tier 表（${list.season}）`
+      : list.kind === "character"
+        ? `${list.ownerUsername} の${list.workTitle} キャラクター Tier 表`
+        : `${list.ownerUsername} の Tier 表`;
+
   return renderSharePage({
-    title: `${input.list.title} - Animeishi`,
-    metaDescription: `${input.ownerUsername} のアニメ Tier 表`,
-    canonicalUrl: input.canonicalUrl,
-    // og:image には先頭の作品画像を使う。クローラは直接取得できる。
-    ogImage: pickWorkOgImage(input.list.items, input.requestUrl),
-    kind: "Tier 表",
-    heading: input.list.title,
-    ownerLine: input.ownerLine,
-    description: input.list.description,
-    statsHtml: statsHtml([{ label: "作品", value: placedCount }]),
+    title: `${list.title} - Animeishi`,
+    metaDescription:
+      list.kind === "character"
+        ? ownerLine
+        : `${list.ownerUsername} のアニメ Tier 表`,
+    canonicalUrl,
+    ogImage:
+      list.kind === "character"
+        ? pickCharacterOgImage(list.items)
+        : pickWorkOgImage(list.items, requestUrl),
+    kind: list.kind === "character" ? "キャラクター Tier 表" : "Tier 表",
+    heading: list.title,
+    ownerLine,
+    description: list.description,
+    statsHtml: statsHtml([
+      {
+        label: list.kind === "character" ? "キャラクター" : "作品",
+        value: placedCount,
+      },
+    ]),
     bodyHtml:
       tiers.length > 0
         ? html`<div class="board">
@@ -488,7 +485,10 @@ function buildWorkTierListHtml(input: {
         : html`<p class="empty">Tier 表はまだありません。</p>`,
     pageCss: raw(TIER_BOARD_CSS),
     width: "wide",
-    guestCta: { source: input.ctaSource, label: TIER_LIST_CTA_LABEL },
+    guestCta: {
+      source: sharedTierListCtaSource(list.kind),
+      label: TIER_LIST_CTA_LABEL,
+    },
   });
 }
 
@@ -569,66 +569,6 @@ function characterImageHtml(
   const src = item.imageUrl;
   if (!src || !isSafeImageUrl(src)) return html``;
   return html`<img class="character-image" src="${src}" alt="" loading="lazy" onerror="${raw(REMOVE_IMAGE_ONERROR)}" />`;
-}
-
-export function buildSharedCharacterTierListHtml(
-  list: CharacterTierListPageInput,
-  canonicalUrl: string,
-): string {
-  const tiers = parseTiersJson(list.tiersJson);
-  const itemsByTier = new Map<string, TierListItemWithCharacter[]>();
-  for (const item of list.items) {
-    const arr = itemsByTier.get(item.tierKey) ?? [];
-    arr.push(item);
-    itemsByTier.set(item.tierKey, arr);
-  }
-  const placedCount = tiers.reduce(
-    (sum, tier) => sum + (itemsByTier.get(tier.key)?.length ?? 0),
-    0,
-  );
-
-  const rowsHtml = joinHtml(
-    tiers.map((tier) => {
-      const charactersHtml = (itemsByTier.get(tier.key) ?? []).map(
-        (item) => html`<div class="card">
-        <div class="poster">${characterImageHtml(item)}</div>
-        <span class="card-title">${item.name}</span>
-      </div>`,
-      );
-      return html`<div class="tier-row">
-      ${tierLabelHtml(tier)}
-      <div class="tier-items">${charactersHtml}</div>
-    </div>`;
-    }),
-    "\n    ",
-  );
-
-  return renderSharePage({
-    title: `${list.title} - Animeishi`,
-    metaDescription: `${list.ownerUsername} の${list.workTitle} キャラクター Tier 表`,
-    canonicalUrl,
-    // og:image には先頭のキャラクター画像を使う。
-    ogImage: list.items
-      .map((item) => item.imageUrl)
-      .find((u): u is string => !!u && isSafeImageUrl(u) && /^https:/i.test(u)),
-    kind: "キャラクター Tier 表",
-    guestCta: {
-      source: "share_character_tier_list",
-      label: TIER_LIST_CTA_LABEL,
-    },
-    heading: list.title,
-    ownerLine: `${list.ownerUsername} の${list.workTitle} キャラクター Tier 表`,
-    description: list.description,
-    statsHtml: statsHtml([{ label: "キャラクター", value: placedCount }]),
-    bodyHtml:
-      tiers.length > 0
-        ? html`<div class="board">
-    ${rowsHtml}
-  </div>`
-        : html`<p class="empty">Tier 表はまだありません。</p>`,
-    pageCss: raw(TIER_BOARD_CSS),
-    width: "wide",
-  });
 }
 
 export function notFoundHtml(): string {
