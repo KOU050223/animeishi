@@ -1,6 +1,6 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import {
   getReportErrorMessage,
   useReportUser,
@@ -8,6 +8,7 @@ import {
 } from "@/lib/useModeration";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import { setMockClerkState } from "../../__mocks__/@clerk/expo";
 
 const mockReportPost = jest.fn();
@@ -26,7 +27,7 @@ jest.mock("@/lib/api", () => ({
 }));
 
 function makeWrapper() {
-  const client = new QueryClient({
+  const client = createTestQueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return {
@@ -38,7 +39,7 @@ function makeWrapper() {
 }
 
 function wrapper({ children }: { children: React.ReactNode }) {
-  const client = new QueryClient({
+  const client = createTestQueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;

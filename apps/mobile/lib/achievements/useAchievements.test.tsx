@@ -1,6 +1,8 @@
 import React from "react";
 import { cleanup, renderHook, waitFor } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
+import type { QueryClient } from "@tanstack/react-query";
 import {
   ACHIEVEMENTS_QUERY_KEY,
   achievementsQueryKey,
@@ -82,13 +84,8 @@ describe("useAchievements", () => {
         },
       }),
     });
-    client = new QueryClient();
+    client = createTestQueryClient();
     await cleanup();
-  });
-
-  afterEach(async () => {
-    await cleanup();
-    client.clear();
   });
 
   it("クエリキーに現在シーズンを含めて取得する", async () => {

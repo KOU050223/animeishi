@@ -1,5 +1,6 @@
 import { renderHook, act, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import React from "react";
 import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
@@ -56,7 +57,7 @@ beforeEach(async () => {
 });
 
 function wrapper({ children }: { children: React.ReactNode }) {
-  const client = new QueryClient();
+  const client = createTestQueryClient();
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 

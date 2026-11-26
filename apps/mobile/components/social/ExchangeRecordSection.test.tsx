@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import { ExchangeRecordSection } from "@/components/social/ExchangeRecordSection";
 import {
   useExchangeRecordsForFriend,
@@ -76,7 +77,7 @@ jest.mock("@/components/social/ExchangeRecordSheet", () => {
 });
 
 function wrapper({ children }: { children: React.ReactNode }) {
-  const client = new QueryClient({
+  const client = createTestQueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;

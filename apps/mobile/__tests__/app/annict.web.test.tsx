@@ -3,7 +3,8 @@
  */
 import { createElement } from "react";
 import { render } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import AnnictCallbackScreen from "@/app/annict.web";
 import { ANNICT_CONNECTION_QUERY_KEY } from "@/lib/annict";
 
@@ -56,7 +57,7 @@ describe("AnnictCallbackScreen (web)", () => {
 
   it("連携成功で連携状態と評価クエリを無効化して一覧へ戻る", async () => {
     mockExchange.mockResolvedValue({ status: "success" });
-    const client = new QueryClient();
+    const client = createTestQueryClient();
     const invalidateSpy = jest.spyOn(client, "invalidateQueries");
 
     await render(

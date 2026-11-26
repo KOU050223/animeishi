@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import { enqueueExchange, readExchangeQueue } from "@/lib/exchangeQueue";
 import { useExchangeQueueSync } from "@/lib/useExchangeQueueSync";
 import { confirm } from "@/lib/dialog";
@@ -58,7 +59,7 @@ const errorResponse = (status: number, code?: string) =>
   new ApiRequestError(status, "名刺交換の送信に失敗しました", code);
 
 function wrapper({ children }: { children: React.ReactNode }) {
-  const client = new QueryClient({
+  const client = createTestQueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;

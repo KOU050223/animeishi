@@ -5,13 +5,14 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { haptics } from "@/lib/haptics";
 import { useFavorites } from "@/lib/useFavorites";
 import { useCommonPoints } from "@/lib/useCommonPoints";
 import { useFriends } from "@/lib/useFriends";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 
 const PROFILE = {
   id: "user_partner",
@@ -48,7 +49,7 @@ jest.mock("@/lib/useCommonPoints", () => ({ useCommonPoints: jest.fn() }));
 jest.mock("@/lib/useFriends", () => ({ useFriends: jest.fn() }));
 
 function wrapper({ children }: { children: React.ReactNode }) {
-  const client = new QueryClient({
+  const client = createTestQueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;

@@ -1,11 +1,8 @@
 import React from "react";
-import {
-  act,
-  cleanup,
-  renderHook,
-  waitFor,
-} from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, renderHook, waitFor } from "@testing-library/react-native";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
+import type { QueryClient } from "@tanstack/react-query";
 import {
   WATCH_HISTORY_QUERY_KEY,
   WATCH_STATUS_LABELS,
@@ -99,28 +96,13 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     );
   }
 
-  // QueryClient はクエリ・ミューテーションごとに gcTime（既定5分）のタイマーを
-  // 抱えるため、放置すると Jest が終了しない。アンマウントで mutation が
-  // unused 化して GC タイマーが起きるので cleanup() の後で止める。
-  // mutationCache の clear()/remove() はタイマーを止めない
-  // （queryCache 側は query.destroy() する非対称）ため、各 Mutation を
-  // destroy() してから client.clear() する。
   let client: QueryClient;
   beforeEach(async () => {
     resetAuth();
     jest.clearAllMocks();
     loggedInUser({ userId });
     setMockClerkState({ getToken: async () => "test-token" });
-    client = new QueryClient();
-  });
-
-  afterEach(async () => {
-    await cleanup();
-    client
-      .getMutationCache()
-      .getAll()
-      .forEach((m) => m.destroy());
-    client.clear();
+    client = createTestQueryClient();
   });
 
   it("API 応答を待たずキャッシュのステータスを先に書き換える", async () => {
@@ -416,16 +398,7 @@ describe("useDeleteWatchHistory の楽観的更新", () => {
     jest.clearAllMocks();
     loggedInUser({ userId });
     setMockClerkState({ getToken: async () => "test-token" });
-    client = new QueryClient();
-  });
-
-  afterEach(async () => {
-    await cleanup();
-    client
-      .getMutationCache()
-      .getAll()
-      .forEach((m) => m.destroy());
-    client.clear();
+    client = createTestQueryClient();
   });
 
   it("API 応答を待たずキャッシュから行を先に消す", async () => {
@@ -577,16 +550,7 @@ describe("視聴状態を変更した後の共通点", () => {
     jest.clearAllMocks();
     loggedInUser({ userId });
     setMockClerkState({ getToken: async () => "test-token" });
-    client = new QueryClient();
-  });
-
-  afterEach(async () => {
-    await cleanup();
-    client
-      .getMutationCache()
-      .getAll()
-      .forEach((m) => m.destroy());
-    client.clear();
+    client = createTestQueryClient();
   });
 
   it("視聴状態の保存・削除後に開いている共通点を再取得する", async () => {
@@ -675,16 +639,7 @@ describe("useWatchHistory 取得時の作品詳細キャッシュ整合", () => 
     jest.clearAllMocks();
     loggedInUser({ userId });
     setMockClerkState({ getToken: async () => "test-token" });
-    client = new QueryClient();
-  });
-
-  afterEach(async () => {
-    await cleanup();
-    client
-      .getMutationCache()
-      .getAll()
-      .forEach((m) => m.destroy());
-    client.clear();
+    client = createTestQueryClient();
   });
 
   it("同期後の履歴と state が食い違う詳細キャッシュだけを無効化する", async () => {
@@ -765,16 +720,7 @@ describe("useWorkDetail 取得時の履歴キャッシュ追従", () => {
     jest.clearAllMocks();
     loggedInUser({ userId });
     setMockClerkState({ getToken: async () => "test-token" });
-    client = new QueryClient();
-  });
-
-  afterEach(async () => {
-    await cleanup();
-    client
-      .getMutationCache()
-      .getAll()
-      .forEach((m) => m.destroy());
-    client.clear();
+    client = createTestQueryClient();
   });
 
   it("詳細の方が新しい state なら履歴キャッシュの該当行を書き換える", async () => {

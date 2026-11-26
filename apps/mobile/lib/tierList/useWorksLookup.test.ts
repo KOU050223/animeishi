@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderHook, waitFor } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import { useWorksLookup } from "./useWorksLookup";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, signedOutUser, resetAuth } from "@/test-utils/auth";
@@ -32,7 +33,7 @@ jest.mock("@/lib/annict", () => ({
 }));
 
 function makeWrapper(
-  client = new QueryClient({
+  client = createTestQueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   }),
 ) {

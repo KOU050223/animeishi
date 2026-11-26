@@ -4,6 +4,7 @@
 import { createElement } from "react";
 import { renderHook, act, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import * as Sentry from "@sentry/react-native";
 import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
@@ -38,7 +39,7 @@ const ORIGINAL_ENV = process.env.EXPO_PUBLIC_ANNICT_CLIENT_ID;
 const ORIGINAL_WEB_REDIRECT = process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
 
 function makeWrapper() {
-  const client = new QueryClient({
+  const client = createTestQueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
   return ({ children }: { children: React.ReactNode }) =>

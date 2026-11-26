@@ -1,11 +1,8 @@
 import React from "react";
-import {
-  act,
-  cleanup,
-  renderHook,
-  waitFor,
-} from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, renderHook, waitFor } from "@testing-library/react-native";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
+import type { QueryClient } from "@tanstack/react-query";
 import {
   WORK_EPISODES_QUERY_KEY,
   useRecordEpisode,
@@ -100,16 +97,7 @@ beforeEach(async () => {
   jest.clearAllMocks();
   loggedInUser({ userId: USER_ID });
   setMockClerkState({ getToken: async () => "test-token" });
-  client = new QueryClient();
-});
-
-afterEach(async () => {
-  await cleanup();
-  client
-    .getMutationCache()
-    .getAll()
-    .forEach((m) => m.destroy());
-  client.clear();
+  client = createTestQueryClient();
 });
 
 describe("useWorkEpisodes", () => {

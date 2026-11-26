@@ -4,7 +4,7 @@
 // このテストは分割・逐次送信・結果の結合が正しく行われることを保証する。
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import {
   useBulkRegisterWatchHistory,
   useDanimeMatch,
@@ -18,6 +18,7 @@ import type {
   DanimeMatchItem,
 } from "@animeishi/danime-core";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import { setMockClerkState } from "../../__mocks__/@clerk/expo";
 
 const mockMatchPost = jest.fn();
@@ -44,7 +45,7 @@ jest.mock("@/lib/annict", () => ({
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {
-  const client = new QueryClient({
+  const client = createTestQueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
@@ -383,7 +384,7 @@ describe("useBulkRegisterWatchHistory", () => {
   // 一括登録は共通点（視聴済み数・一緒に視聴中）の入力である履歴を
   // 書き換えるため、完了後に共通点キャッシュを無効化する必要がある。
   it("一括登録が完了したら共通点のキャッシュを無効化する", async () => {
-    const client = new QueryClient({
+    const client = createTestQueryClient({
       defaultOptions: {
         queries: { retry: false },
         mutations: { retry: false },
@@ -413,10 +414,5 @@ describe("useBulkRegisterWatchHistory", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(client.getQueryState(commonKey)?.isInvalidated).toBe(true);
-    client
-      .getMutationCache()
-      .getAll()
-      .forEach((m) => m.destroy());
-    client.clear();
   });
 });

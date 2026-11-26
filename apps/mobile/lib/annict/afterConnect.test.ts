@@ -1,8 +1,11 @@
-import { QueryClient, QueryObserver } from "@tanstack/react-query";
+import { QueryObserver } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test-utils/queryClient";
 import { refetchWorksAfterAnnictConnect } from "./afterConnect";
 
 function makeClient() {
-  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return createTestQueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
