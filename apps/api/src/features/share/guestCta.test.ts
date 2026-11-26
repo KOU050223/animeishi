@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { guestCtaHref } from "./layout";
 import {
-  buildSharedCharacterTierListHtml,
-  buildSharedCustomTierListHtml,
   buildSharedTierListHtml,
   buildSharedWatchHistoryHtml,
   buildSharedWorkListHtml,
@@ -32,6 +30,7 @@ describe("共有ページの登録 CTA（issue #217）", () => {
         label: "あなたも Tier 表を作る",
         html: buildSharedTierListHtml(
           {
+            kind: "season",
             title: "春",
             description: null,
             season: "2026-spring",
@@ -46,8 +45,9 @@ describe("共有ページの登録 CTA（issue #217）", () => {
       {
         source: "share_custom_tier_list",
         label: "あなたも Tier 表を作る",
-        html: buildSharedCustomTierListHtml(
+        html: buildSharedTierListHtml(
           {
+            kind: "custom",
             title: "自由",
             description: null,
             tiersJson: TIERS_JSON,
@@ -61,9 +61,9 @@ describe("共有ページの登録 CTA（issue #217）", () => {
       {
         source: "share_character_tier_list",
         label: "あなたも Tier 表を作る",
-        html: buildSharedCharacterTierListHtml(
+        html: buildSharedTierListHtml(
           {
-            annictWorkId: 1,
+            kind: "character",
             workTitle: "作品",
             title: "キャラ",
             description: null,
@@ -71,6 +71,7 @@ describe("共有ページの登録 CTA（issue #217）", () => {
             ownerUsername: "owner",
             items: [],
           },
+          REQUEST_URL,
           CANONICAL_URL,
         ),
       },

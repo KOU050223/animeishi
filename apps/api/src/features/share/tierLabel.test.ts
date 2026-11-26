@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildSharedCustomTierListHtml } from "./service";
+import { buildSharedTierListHtml } from "./service";
 
 function render(color: string): string {
-  return buildSharedCustomTierListHtml(
+  return buildSharedTierListHtml(
     {
+      kind: "custom",
       title: "表",
       description: null,
       ownerUsername: "u",
