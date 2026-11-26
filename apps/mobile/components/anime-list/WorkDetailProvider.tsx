@@ -4,8 +4,8 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
-import { WorkDetailContext } from "@/lib/workDetailContext";
-import type { WorkDetailTarget } from "@/lib/workDetailContext";
+import { WorkDetailContext } from "@/features/works/workDetailContext";
+import type { WorkDetailTarget } from "@/features/works/workDetailContext";
 import {
   useFavoriteIds,
   useToggleFavorite,

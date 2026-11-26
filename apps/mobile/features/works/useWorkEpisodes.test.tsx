@@ -8,7 +8,7 @@ import {
   useRecordEpisode,
   useUnrecordEpisode,
   useWorkEpisodes,
-} from "@/lib/useWorkEpisodes";
+} from "@/features/works/useWorkEpisodes";
 import { PROFILE_QUERY_KEY } from "@/features/me/useProfile";
 import { publicProfileQueryKey } from "@/features/user/publicProfile";
 import { ApiRequestError } from "@/lib/apiError";

@@ -106,7 +106,7 @@ jest.mock("@/features/tier-lists/useWorksLookup", () => ({
   useWorksLookup: () => ({ data: undefined, isLoading: false, isError: false }),
 }));
 
-jest.mock("@/lib/useAnimeList", () => ({
+jest.mock("@/features/works/useAnimeList", () => ({
   usePrefetchSeasonWorks: jest.fn(),
 }));
 

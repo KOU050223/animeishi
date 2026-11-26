@@ -119,7 +119,7 @@ jest.mock("@/features/tier-lists/useWorkCharacters", () => ({
   }),
 }));
 
-jest.mock("@/lib/useAnimeList", () => ({
+jest.mock("@/features/works/useAnimeList", () => ({
   usePrefetchSeasonWorks: jest.fn(),
 }));
 

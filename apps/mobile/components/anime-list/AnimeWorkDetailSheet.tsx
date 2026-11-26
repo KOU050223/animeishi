@@ -19,7 +19,7 @@ import {
   useWorkDetail,
   WORK_DETAIL_QUERY_KEY,
   workDetailQueryKey,
-} from "@/lib/useWorkDetail";
+} from "@/features/works/useWorkDetail";
 import {
   useDeleteWatchHistory,
   useUpsertWatchHistory,
@@ -30,9 +30,12 @@ import {
   useRecordEpisode,
   useUnrecordEpisode,
   useWorkEpisodes,
-} from "@/lib/useWorkEpisodes";
-import type { EpisodeRecordError, WorkEpisode } from "@/lib/useWorkEpisodes";
-import { episodeLabel } from "@/lib/episodeLabel";
+} from "@/features/works/useWorkEpisodes";
+import type {
+  EpisodeRecordError,
+  WorkEpisode,
+} from "@/features/works/useWorkEpisodes";
+import { episodeLabel } from "@/features/works/episodeLabel";
 import {
   useDeleteWorkRating,
   useUpsertWorkRating,

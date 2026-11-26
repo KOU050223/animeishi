@@ -11,23 +11,23 @@ import {
   workQueries,
   type WorksSearchResponse,
 } from "@/lib/queries/works";
-import { sortAnimeList } from "@/lib/animeListSortFilter";
+import { sortAnimeList } from "@/features/works/animeListSortFilter";
 import type {
   AnimeListSortKey,
   AnimeListSortOrder,
-} from "@/lib/animeListSortFilter";
+} from "@/features/works/animeListSortFilter";
 
 // 検索語入力のたびに Annict へ問い合わせないためのデバウンス時間（ms）。
 const SEARCH_DEBOUNCE_MS = 300;
 
 export type AnimeTitle = WorksSearchResponse["works"][number];
 
-// ソートキー・順序の実体は lib/animeListSortFilter.ts（純関数）。呼び出し側の
+// ソートキー・順序の実体は features/works/animeListSortFilter.ts（純関数）。呼び出し側の
 // 互換のためここからも再 export する（issue #346 で watchersCount を追加）。
 export type {
   AnimeListSortKey as SortKey,
   AnimeListSortOrder as SortOrder,
-} from "@/lib/animeListSortFilter";
+} from "@/features/works/animeListSortFilter";
 
 // 検索応答の作品配列の dedupe と 1 ページ分の取得は
 // クエリファクトリ（lib/queries/works）に集約した。呼び出し側の互換のため
@@ -190,7 +190,7 @@ export function usePrefetchSeasonWorks(
 
 /**
  * 検索結果をクライアント側でソートする。
- * 比較ロジックは lib/animeListSortFilter.ts の純関数（sortAnimeList）に委譲する。
+ * 比較ロジックは features/works/animeListSortFilter.ts の純関数（sortAnimeList）に委譲する。
  */
 export function useSortedAnimeList(
   data: AnimeTitle[] | undefined,

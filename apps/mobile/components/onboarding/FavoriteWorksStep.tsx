@@ -11,7 +11,10 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { selectionAccessibilityProps } from "@/lib/accessibility";
-import { useWorkCandidates, type WorkCandidate } from "@/lib/useWorkCandidates";
+import {
+  useWorkCandidates,
+  type WorkCandidate,
+} from "@/features/works/useWorkCandidates";
 import { useThemeColors } from "@/lib/theme";
 import { OnboardingScaffold } from "./OnboardingScaffold";
 

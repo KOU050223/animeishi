@@ -128,7 +128,7 @@ jest.mock("@/features/annict", () => ({
   }),
 }));
 
-jest.mock("@/lib/useAnimeList", () => ({
+jest.mock("@/features/works/useAnimeList", () => ({
   usePrefetchSeasonWorks: jest.fn(),
 }));
 

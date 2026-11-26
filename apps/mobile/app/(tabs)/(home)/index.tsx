@@ -27,7 +27,7 @@ import { ELECTIONS_QUERY_KEY } from "@/features/elections/useElections";
 import { EVENTS_QUERY_KEY } from "@/features/events/useEvents";
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "@/features/feed/useFriendWatchStories";
 import { WATCH_HISTORY_QUERY_KEY } from "@/features/watch-history/useWatchHistory";
-import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";
+import { ANIME_LIST_QUERY_KEY } from "@/features/works/useAnimeList";
 import { featureFlags } from "@/lib/featureFlags";
 import { useThemeColors } from "@/lib/theme";
 import { alert } from "@/lib/dialog";

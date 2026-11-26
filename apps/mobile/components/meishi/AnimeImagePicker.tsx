@@ -14,7 +14,7 @@ import {
 import type { ListRenderItem } from "react-native";
 import { isAnnictTokenError, useAnnictConnection } from "@/features/annict";
 import type { CollageStateFilter } from "@/features/meishi/types";
-import { useAnimeList } from "@/lib/useAnimeList";
+import { useAnimeList } from "@/features/works/useAnimeList";
 import { WATCH_STATUS_LABELS } from "@/features/watch-history/useWatchHistory";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";

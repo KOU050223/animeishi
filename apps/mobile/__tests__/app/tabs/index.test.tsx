@@ -1,6 +1,6 @@
 import React from "react";
 import { Platform } from "react-native";
-import { WorkDetailContext } from "@/lib/workDetailContext";
+import { WorkDetailContext } from "@/features/works/workDetailContext";
 import {
   render,
   screen,

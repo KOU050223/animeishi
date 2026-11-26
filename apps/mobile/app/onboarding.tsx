@@ -17,7 +17,7 @@ import {
 } from "@/features/meishi/storage";
 import type { MeishiDocument } from "@/features/meishi/types";
 import { useAddFavorite } from "@/features/favorites/useFavorites";
-import type { WorkCandidate } from "@/lib/useWorkCandidates";
+import type { WorkCandidate } from "@/features/works/useWorkCandidates";
 import { ApiRequestError } from "@/lib/apiError";
 import { trackEvent } from "@/lib/events";
 import {

@@ -35,7 +35,7 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
-jest.mock("@/lib/useAnimeList", () => ({
+jest.mock("@/features/works/useAnimeList", () => ({
   useAnimeList: (query: unknown, season: unknown, options: unknown) =>
     mockUseAnimeList(query, season, options),
   usePrefetchSeasonWorks: jest.fn(),
@@ -43,7 +43,7 @@ jest.mock("@/lib/useAnimeList", () => ({
     mockUseSortedAnimeList(data, sortKey, sortOrder),
 }));
 
-jest.mock("@/lib/useWorkDetail", () => ({
+jest.mock("@/features/works/useWorkDetail", () => ({
   useWorkDetail: () => ({
     data: undefined,
     isLoading: false,
@@ -76,7 +76,7 @@ jest.mock("@/features/work-ratings/useWorkRating", () => ({
 
 // 詳細シート内の話数一覧・記録フックも実物だと QueryClient が要るため
 // スタブにする（話数セクション自体は AnimeWorkDetailSheet.test.tsx で検証）。
-jest.mock("@/lib/useWorkEpisodes", () => ({
+jest.mock("@/features/works/useWorkEpisodes", () => ({
   useWorkEpisodes: () => ({
     data: undefined,
     isLoading: false,

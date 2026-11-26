@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareBroadcastSeason } from "@/lib/broadcastSeason";
+import { compareBroadcastSeason } from "@/features/works/broadcastSeason";
 
 function entry(
   id: number,

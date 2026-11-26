@@ -7,7 +7,7 @@ import {
   useAnimeList,
   usePrefetchSeasonWorks,
   useSortedAnimeList,
-} from "@/lib/useAnimeList";
+} from "@/features/works/useAnimeList";
 import { loggedInUser, signedOutUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 import { createTestQueryClient } from "@/test-utils/queryClient";

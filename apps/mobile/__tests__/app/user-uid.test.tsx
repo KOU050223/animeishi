@@ -169,7 +169,7 @@ let mockWorkEpisodesData:
       }[];
     }
   | undefined;
-jest.mock("@/lib/useWorkEpisodes", () => ({
+jest.mock("@/features/works/useWorkEpisodes", () => ({
   useWorkEpisodes: () => ({ data: mockWorkEpisodesData }),
 }));
 

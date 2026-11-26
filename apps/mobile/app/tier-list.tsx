@@ -25,7 +25,7 @@ import {
   type SeasonKey,
 } from "@/components/anime-list/animeListUtils";
 import { TierBoard } from "@/components/tier-list/TierBoard";
-import { useOpenWorkDetail } from "@/lib/workDetailContext";
+import { useOpenWorkDetail } from "@/features/works/workDetailContext";
 import {
   TierBoardSnapshot,
   type SnapshotItem,
@@ -69,7 +69,7 @@ import type { TierListScope } from "@/lib/queries/tierLists";
 import { useSeasonWorks } from "@/features/tier-lists/useSeasonWorks";
 import { useWorkCharacters } from "@/features/tier-lists/useWorkCharacters";
 import { useWorksLookup } from "@/features/tier-lists/useWorksLookup";
-import { usePrefetchSeasonWorks } from "@/lib/useAnimeList";
+import { usePrefetchSeasonWorks } from "@/features/works/useAnimeList";
 import {
   useSavedTierList,
   useSaveTierList,

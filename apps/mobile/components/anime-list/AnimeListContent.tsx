@@ -14,8 +14,12 @@ import {
   useAnimeList,
   usePrefetchSeasonWorks,
   useSortedAnimeList,
-} from "@/lib/useAnimeList";
-import type { AnimeTitle, SortKey, SortOrder } from "@/lib/useAnimeList";
+} from "@/features/works/useAnimeList";
+import type {
+  AnimeTitle,
+  SortKey,
+  SortOrder,
+} from "@/features/works/useAnimeList";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import {
   isAnnictRateLimitedError,
@@ -62,7 +66,7 @@ import {
   filterAnimeList,
   isAnimeListFilterActive,
   type AnimeListFilters,
-} from "@/lib/animeListSortFilter";
+} from "@/features/works/animeListSortFilter";
 
 export function AnimeListContent({
   favoriteIds,

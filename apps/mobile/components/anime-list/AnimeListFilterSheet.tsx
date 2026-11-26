@@ -12,7 +12,7 @@ import { selectionAccessibilityProps } from "@/lib/accessibility";
 import {
   animeGenreJapaneseName,
   matchesAnimeGenreSearch,
-} from "@/lib/animeGenreTags";
+} from "@/features/works/animeGenreTags";
 import {
   ANIME_LIST_MEDIA_KEYS,
   ANIME_LIST_MEDIA_LABELS,
@@ -20,7 +20,7 @@ import {
   UNKNOWN_GENRE_KEY,
   type AnimeListFilters,
   type AnimeListMedia,
-} from "@/lib/animeListSortFilter";
+} from "@/features/works/animeListSortFilter";
 
 export function AnimeListFilterSheet({
   genreOptions,

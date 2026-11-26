@@ -73,7 +73,7 @@ jest.mock("@/features/favorites/useFavorites", () => ({
   useToggleFavorite: () => ({ toggle: jest.fn(), isPending: false }),
 }));
 
-jest.mock("@/lib/useWorkEpisodes", () => ({
+jest.mock("@/features/works/useWorkEpisodes", () => ({
   useWorkEpisodes: () => ({ data: undefined }),
 }));
 

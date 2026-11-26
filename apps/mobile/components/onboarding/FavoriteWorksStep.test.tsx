@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react-native";
 import { FavoriteWorksStep } from "./FavoriteWorksStep";
 
-jest.mock("@/lib/useWorkCandidates", () => ({
+jest.mock("@/features/works/useWorkCandidates", () => ({
   useWorkCandidates: () => ({
     isLoading: false,
     data: {

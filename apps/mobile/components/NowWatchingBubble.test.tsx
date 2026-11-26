@@ -6,7 +6,7 @@ import {
 } from "@/components/NowWatchingBubble";
 import type { NowWatching } from "@/features/user/publicProfile";
 
-jest.mock("@/lib/useWorkEpisodes", () => ({
+jest.mock("@/features/works/useWorkEpisodes", () => ({
   useWorkEpisodes: () => ({ data: undefined }),
 }));
 

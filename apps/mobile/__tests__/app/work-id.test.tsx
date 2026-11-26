@@ -32,7 +32,7 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
 }));
 
-jest.mock("@/lib/useWorkDetail", () => ({
+jest.mock("@/features/works/useWorkDetail", () => ({
   useWorkDetail: (...args: unknown[]) => mockUseWorkDetail(...args),
 }));
 

@@ -3,7 +3,7 @@ import { useAuth } from "@clerk/expo";
 import type { InferRequestType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 import { useAnnictConnection } from "@/features/annict";
-import { workDetailQueryKey } from "@/lib/useWorkDetail";
+import { workDetailQueryKey } from "@/features/works/useWorkDetail";
 import {
   WATCH_HISTORY_QUERY_KEY,
   WATCH_HISTORY_WRITE_SCOPE,

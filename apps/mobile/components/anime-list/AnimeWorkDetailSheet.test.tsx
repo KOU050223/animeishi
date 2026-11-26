@@ -31,7 +31,7 @@ const mockFunnelTrack = jest.fn();
 const mockUseAnnictTokenErrorPrompt = jest.fn();
 const mockPromptAnnictTokenError = jest.fn();
 
-jest.mock("@/lib/useWorkDetail", () => ({
+jest.mock("@/features/works/useWorkDetail", () => ({
   useWorkDetail: (...args: unknown[]) => mockUseWorkDetail(...args),
   WORK_DETAIL_QUERY_KEY: ["works", "detail"],
   workDetailQueryKey: (userId: string, annictWorkId: number) => [
@@ -48,7 +48,7 @@ const mockUseWorkEpisodes = jest.fn();
 const mockRecordEpisodeAsync = jest.fn();
 const mockUnrecordEpisodeAsync = jest.fn();
 
-jest.mock("@/lib/useWorkEpisodes", () => ({
+jest.mock("@/features/works/useWorkEpisodes", () => ({
   useWorkEpisodes: (...args: unknown[]) => mockUseWorkEpisodes(...args),
   useRecordEpisode: () => ({
     mutateAsync: mockRecordEpisodeAsync,

@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import type { FriendWatchStory } from "@/features/feed/useFriendWatchStories";
 import { WATCH_STATUS_LABELS } from "@/features/watch-history/watchStatusLabels";
 import { formatRelativeTime } from "@/features/feed/activityText";
-import { useOpenWorkDetail } from "@/lib/workDetailContext";
+import { useOpenWorkDetail } from "@/features/works/workDetailContext";
 
 // 1 スライドの表示時間。Instagram のストーリー（写真 5 秒）に合わせる。
 const SLIDE_DURATION_MS = 5000;
