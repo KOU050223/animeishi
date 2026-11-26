@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   d1ObjectIdFromName,
+  lazyLocalD1DbCredentials,
   localD1DatabaseIds,
   resolveLocalD1Sqlite,
 } from "./local-d1-sqlite.mjs";
@@ -91,7 +92,7 @@ describe("resolveLocalD1Sqlite", () => {
     ).toBe(EXPECTED);
   });
 
-  it("対応するファイルが無いときは dev 起動を促すエラーを投げる", () => {
+  it("対応するファイルが無いときはローカル D1 の作成方法を促すエラーを投げる", () => {
     expect(() =>
       resolveLocalD1Sqlite(
         ["00000000-0000-0000-0000-000000000000"],
@@ -100,7 +101,7 @@ describe("resolveLocalD1Sqlite", () => {
           "metadata.sqlite",
         ],
       ),
-    ).toThrow(/dev/);
+    ).toThrow(/db:migrate:local/);
   });
 
   it("database_id の一覧が空のときは設定不備のエラーを投げる", () => {
@@ -122,5 +123,34 @@ describe("resolveLocalD1Sqlite", () => {
         files,
       ),
     ).toThrow(/1つに絞れません/);
+  });
+});
+
+describe("lazyLocalD1DbCredentials", () => {
+  const DATABASE_ID = "00000000-0000-0000-0000-000000000000";
+  const EXPECTED =
+    "9ba2b04bf514d9facfd57ed57d849e77241a7adc99d1c1545d06688b43d84248.sqlite";
+
+  it("SQLite ファイルが無くても生成時はエラーにならず、url アクセス時にエラーを投げる", () => {
+    const credentials = lazyLocalD1DbCredentials(
+      [DATABASE_ID],
+      "d1-dir",
+      () => [],
+    );
+
+    expect(() => credentials.url).toThrow(/db:migrate:local/);
+  });
+
+  it("url アクセス時にファイル一覧を取得して SQLite ファイルへのパスを返す", () => {
+    const listFiles = vi.fn(() => [EXPECTED]);
+    const credentials = lazyLocalD1DbCredentials(
+      [DATABASE_ID],
+      "d1-dir",
+      listFiles,
+    );
+
+    expect(listFiles).not.toHaveBeenCalled();
+    expect(credentials.url).toBe(`d1-dir/${EXPECTED}`);
+    expect(listFiles).toHaveBeenCalledTimes(1);
   });
 });

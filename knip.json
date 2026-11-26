@@ -39,10 +39,9 @@
       ]
     },
     "apps/api": {
-      // drizzle.config.ts はローカル D1 の SQLite ファイルが無いと import 時に
-      // throw する（db:migrate:local 前提のガード）。knip が config を読み込むと
-      // 必ず失敗するためプラグインを無効化し、config と CLI スクリプトは
-      // entry で個別に指定する。
+      // drizzle.config.ts は wrangler.toml を cwd から読む。knip はリポジトリ
+      // ルートから config を import するため ENOENT で失敗する。プラグインを
+      // 無効化し、config と CLI スクリプトは entry で個別に指定する。
       "drizzle": false,
       "entry": [
         "drizzle.config.ts",

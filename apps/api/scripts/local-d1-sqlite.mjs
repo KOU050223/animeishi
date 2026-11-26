@@ -54,11 +54,25 @@ export function resolveLocalD1Sqlite(databaseIds, files) {
     throw new Error(
       matches.length === 0
         ? `ローカルD1のSQLiteファイルが見つかりません。` +
-            `先に 'vp run @animeishi/api#dev' を一度起動してください。` +
-            `（期待するファイル: ${[...expected].join(", ")}）`
+            `'vp run @animeishi/api#db:migrate:local' を実行すると` +
+            `ローカルD1を作成してマイグレーションを適用できます。` +
+            `（'vp run @animeishi/api#dev' の起動でもファイルは作成されます。` +
+            `期待するファイル: ${[...expected].join(", ")}）`
         : `ローカルD1のSQLiteファイルを1つに絞れません: ${matches.join(", ")}`,
     );
   }
 
   return matches[0];
+}
+
+// drizzle-kit generate は dbCredentials を読まず、studio だけが読む。
+// ここで即時解決するとローカル D1 未作成の worktree で generate まで
+// 失敗するため、ファイル一覧の取得を含めて studio が値を読むときまで
+// 解決を遅らせる（issue #836）。
+export function lazyLocalD1DbCredentials(databaseIds, directory, listFiles) {
+  return {
+    get url() {
+      return `${directory}/${resolveLocalD1Sqlite(databaseIds, listFiles())}`;
+    },
+  };
 }
