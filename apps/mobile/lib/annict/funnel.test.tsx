@@ -5,7 +5,7 @@ import {
   EVENT_RATE_LIMIT,
 } from "@animeishi/observability";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
-import { resetEventTrackingForTest } from "../events";
+import { resetEventTrackingForTest } from "@/lib/events";
 import { trackAnnictFunnel, useAnnictFunnel } from "./funnel";
 
 // ハッシュ化は expo-crypto 経由。テストでは固定値を返して

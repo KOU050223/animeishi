@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   animeGenreJapaneseName,
   matchesAnimeGenreSearch,
-} from "./animeGenreTags";
+} from "@/lib/animeGenreTags";
 import {
   ANIME_LIST_DEFAULT_SORT_KEY,
   ANIME_LIST_DEFAULT_SORT_ORDER,
@@ -14,7 +14,7 @@ import {
   filterAnimeList,
   isAnimeListFilterActive,
   sortAnimeList,
-} from "./animeListSortFilter";
+} from "@/lib/animeListSortFilter";
 
 function entry(
   annictWorkId: number,

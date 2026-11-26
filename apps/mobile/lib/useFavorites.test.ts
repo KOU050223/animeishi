@@ -11,7 +11,7 @@ import {
 } from "@/lib/useFavorites";
 import { useCommonPoints } from "@/lib/useCommonPoints";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
-import { setMockClerkState } from "../__mocks__/@clerk/expo";
+import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 
 let mockFavoriteMatchCount = 0;
 const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());

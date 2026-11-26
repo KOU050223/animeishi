@@ -1,5 +1,5 @@
-import type { WatchState } from "./watchStatusLabels";
-import { compareBroadcastSeason } from "./broadcastSeason";
+import type { WatchState } from "@/lib/watchStatusLabels";
+import { compareBroadcastSeason } from "@/lib/broadcastSeason";
 import type { TranslationKey } from "@/lib/i18n/keys";
 
 // 視聴履歴セクションのソート・絞り込み（issue #345）。

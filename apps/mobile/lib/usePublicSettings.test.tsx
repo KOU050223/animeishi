@@ -6,7 +6,7 @@ import { usePublicSettings } from "@/lib/usePublicSettings";
 import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser } from "@/test-utils/auth";
-import { setMockClerkState } from "../__mocks__/@clerk/expo";
+import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 
 // PUT /me/profile/visibility（is_public だけを更新する専用エンドポイント）への
 // リクエストが正しく組み立てられるかだけを確認する。

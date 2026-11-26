@@ -3,8 +3,8 @@ import {
   groupActivityItems,
   ACTIVITY_GROUP_GAP_MS,
   ACTIVITY_GROUP_MIN_ITEMS,
-} from "./groupActivityItems";
-import type { ActivityFeedItem } from "./useActivityFeed";
+} from "@/lib/groupActivityItems";
+import type { ActivityFeedItem } from "@/lib/useActivityFeed";
 
 const T0 = new Date("2026-01-10T12:00:00.000Z").getTime();
 

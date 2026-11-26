@@ -1,4 +1,4 @@
-import * as native from "../../modules/nearby-exchange/src";
+import * as native from "@/modules/nearby-exchange/src";
 
 import type { NearbyExchange } from "./types";
 

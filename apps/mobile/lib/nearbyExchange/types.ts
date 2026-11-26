@@ -2,7 +2,7 @@ import type {
   DirectionVector,
   NearbyExchangeModuleEvents,
   NearbyExchangeStartOptions,
-} from "../../modules/nearby-exchange/src";
+} from "@/modules/nearby-exchange/src";
 
 export type { DirectionVector, NearbyExchangeModuleEvents };
 

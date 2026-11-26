@@ -17,7 +17,7 @@ import {
 } from "@/lib/useCommonPoints";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
-import { setMockClerkState } from "../__mocks__/@clerk/expo";
+import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 
 const mockPut = jest.fn();
 const mockDelete = jest.fn();

@@ -1,4 +1,4 @@
-import type { ActivityFeedItem } from "./useActivityFeed";
+import type { ActivityFeedItem } from "@/lib/useActivityFeed";
 
 // ステータス変更の活動は個別の PUT ごとに記録されるため、履歴画面などで
 // 続けて更新すると秒〜分単位で同種の行が連なって並ぶ。この間隔を超えた

@@ -1,5 +1,5 @@
-import { compareBroadcastSeason } from "./broadcastSeason";
-import { canonicalAnimeGenre } from "./animeGenreTags";
+import { compareBroadcastSeason } from "@/lib/broadcastSeason";
+import { canonicalAnimeGenre } from "@/lib/animeGenreTags";
 
 // アニメセクション（ライブラリタブ）のソート・絞り込み（issue #346）。
 // コンポーネントから切り離した純関数にし、vitest（*.unit.test.ts）で検証する。

@@ -10,7 +10,7 @@ import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import { useAnnictTokenErrorPrompt } from "./tokenErrorPrompt";
 import type { AnnictConnectResult } from "@/lib/annict";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
-import { setMockClerkState } from "../../__mocks__/@clerk/expo";
+import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 
 // useAnnictConnect は expo-web-browser / SecureStore 等のネイティブ依存を
 // 持つため、connect の戻り値だけ差し替えてダイアログの分岐を検証する。

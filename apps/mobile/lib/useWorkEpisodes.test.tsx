@@ -13,7 +13,7 @@ import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
 import { publicProfileQueryKey } from "@/lib/publicProfile";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
-import { setMockClerkState } from "../__mocks__/@clerk/expo";
+import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 
 const mockGet = jest.fn();
 const mockPut = jest.fn();

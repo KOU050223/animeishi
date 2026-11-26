@@ -6,7 +6,7 @@ import { enqueueExchange, readExchangeQueue } from "@/lib/exchangeQueue";
 import { useExchangeQueueSync } from "@/lib/useExchangeQueueSync";
 import { confirm } from "@/lib/dialog";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
-import { setMockClerkState } from "../__mocks__/@clerk/expo";
+import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 import { ApiRequestError } from "@/lib/apiError";
 
 // POST /me/friends の応答をテストごとに差し替える。

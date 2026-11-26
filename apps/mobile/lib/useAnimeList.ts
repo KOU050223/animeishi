@@ -11,11 +11,11 @@ import {
   workQueries,
   type WorksSearchResponse,
 } from "@/lib/queries/works";
-import { sortAnimeList } from "./animeListSortFilter";
+import { sortAnimeList } from "@/lib/animeListSortFilter";
 import type {
   AnimeListSortKey,
   AnimeListSortOrder,
-} from "./animeListSortFilter";
+} from "@/lib/animeListSortFilter";
 
 // 検索語入力のたびに Annict へ問い合わせないためのデバウンス時間（ms）。
 const SEARCH_DEBOUNCE_MS = 300;
@@ -27,7 +27,7 @@ export type AnimeTitle = WorksSearchResponse["works"][number];
 export type {
   AnimeListSortKey as SortKey,
   AnimeListSortOrder as SortOrder,
-} from "./animeListSortFilter";
+} from "@/lib/animeListSortFilter";
 
 // 検索応答の作品配列の dedupe と 1 ページ分の取得は
 // クエリファクトリ（lib/queries/works）に集約した。呼び出し側の互換のため

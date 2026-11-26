@@ -2,7 +2,7 @@
 // ベースは Web ドメイン（EXPO_PUBLIC_WEB_URL 由来の webUrl）を渡す想定。
 // /share/* は Web Worker が API へ転送する（issue #408）。
 // Expo 依存の import を含むモジュールのため vitest ではなく jest で書く。
-import { buildWatchHistoryShareUrl } from "./useWatchHistoryShare";
+import { buildWatchHistoryShareUrl } from "@/lib/useWatchHistoryShare";
 
 describe("buildWatchHistoryShareUrl", () => {
   it("Web の共有ページを指す URL を組み立てる", () => {

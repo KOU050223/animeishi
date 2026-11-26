@@ -2,16 +2,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
-import { ACTIVITY_FEED_QUERY_KEY } from "./useActivityFeed";
+import { ACTIVITY_FEED_QUERY_KEY } from "@/lib/useActivityFeed";
 import {
   EVENT_EXCHANGED_FRIENDS_QUERY_KEY,
   EVENT_PARTICIPANTS_QUERY_KEY,
-} from "./useEvents";
-import { FRIEND_WATCH_STORIES_QUERY_KEY } from "./useFriendWatchStories";
-import { EXCHANGE_RECORDS_QUERY_KEY } from "./useExchangeRecords";
-import { FRIEND_THANKS_QUERY_KEY } from "./useFriendThanks";
-import { PUBLIC_PROFILE_QUERY_KEY } from "./publicProfile";
-import { COMMON_POINTS_QUERY_KEY } from "./useCommonPoints";
+} from "@/lib/useEvents";
+import { FRIEND_WATCH_STORIES_QUERY_KEY } from "@/lib/useFriendWatchStories";
+import { EXCHANGE_RECORDS_QUERY_KEY } from "@/lib/useExchangeRecords";
+import { FRIEND_THANKS_QUERY_KEY } from "@/lib/useFriendThanks";
+import { PUBLIC_PROFILE_QUERY_KEY } from "@/lib/publicProfile";
+import { COMMON_POINTS_QUERY_KEY } from "@/lib/useCommonPoints";
 import { friendQueries } from "@/lib/queries/friends";
 import type { AddFriendResponse } from "@/lib/queries/friends";
 

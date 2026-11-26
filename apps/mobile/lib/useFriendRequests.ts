@@ -7,7 +7,7 @@ import {
   readRetryAfterSeconds,
 } from "@/lib/apiError";
 import { apiErrorMessage } from "@/lib/apiErrorMessages";
-import { invalidateFriendRelatedQueries } from "./useFriends";
+import { invalidateFriendRelatedQueries } from "@/lib/useFriends";
 import { friendQueries } from "@/lib/queries/friends";
 import type { FriendRequestSendResponse } from "@/lib/queries/friends";
 

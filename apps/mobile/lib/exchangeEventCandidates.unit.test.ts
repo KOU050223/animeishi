@@ -3,7 +3,7 @@ import {
   rankEventCandidates,
   isNearbyEvent,
   type EventCandidate,
-} from "./exchangeEventCandidates";
+} from "@/lib/exchangeEventCandidates";
 
 const candidate = (
   slug: string,

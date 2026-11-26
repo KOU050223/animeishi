@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tabBadgeText } from "./tabBadge";
+import { tabBadgeText } from "@/lib/tabBadge";
 
 describe("tabBadgeText", () => {
   it("1 件以上なら件数を文字列で返す", () => {

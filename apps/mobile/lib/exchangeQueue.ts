@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { MiniMeishi } from "./qrParser";
+import type { MiniMeishi } from "@/lib/qrParser";
 
 // 読み取り側の交換キュー（issue #681、設計 docs/13_offline-exchange-design.md）。
 // スキャン時に POST /me/friends がネットワークへ届かない（オフライン等）場合、
