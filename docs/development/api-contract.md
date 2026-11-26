@@ -78,3 +78,38 @@ mobile 側の `@/*` は apps/mobile 内だけを指す。mobile が Hono RPC の
 持たない。`apps/mobile/worker/` は Workers 固有の型を使うため、
 `worker/tsconfig.json` にだけ `@cloudflare/workers-types` を持たせて別に
 型チェックする。
+
+## エラー応答の約束（issue #838）
+
+API のエラー応答はすべて次の形を返す。
+
+```json
+{ "error": "Work not found", "code": "work_not_found" }
+```
+
+- `code` … 機械が読む識別子。snake_case。省略しない（必須）。
+  クライアントが文言や挙動を分けるために使う。既存の code
+  （`annict_token_required` など）の名前は変えない
+- `error` … 開発者向けの英語メッセージ。利用者の画面には出さない
+  （かつて日本語の利用者向け文言を入れていたが、表示文言の翻訳は
+  クライアント側で行うため英語に統一した）
+- 429 では `Retry-After` ヘッダ（秒数）を返し、OpenAPI のスキーマにも
+  ヘッダを宣言する。Annict 上流のエラー（429 / 502 / 503）も同じ形で、
+  code（`annict_rate_limited` / `annict_upstream` /
+  `annict_shared_token_unavailable` 等）をスキーマに宣言する
+
+スキーマは `apps/api/src/lib/openapi.ts` の `errorResponseSchema` が
+`{ error, code }` を必須で持ち、各ルートはそれを使ってレスポンスを
+宣言する。特定の code だけを返すレスポンスは `code` を enum / literal
+で絞って宣言する。ミドルウェア（認証・流量制限・バリデーション失敗の
+`invalid_request`・未処理例外の `internal_error`）も同じ形で返す。
+
+クライアント（mobile）の扱い:
+
+- サーバーの `error` は画面に出さない。表示文言は `code` から
+  `apps/mobile/lib/apiErrorMessages.ts` の対応表で翻訳キーを引き、
+  i18n（ja / en）で表示する
+- 対応表に無い（未知の）code は、呼び出し側に従来からある汎用文言へ
+  フォールバックする
+- 429 の再試行タイミングが必要なら `Retry-After` を読む
+  （`readRetryAfterSeconds`）。`ApiRequestError` に code と秒数が乗る
