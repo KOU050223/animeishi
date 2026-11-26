@@ -1,6 +1,9 @@
 import { FlatList, Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import type { NearbyPeer, NearbyTapRequest } from "@/lib/nearbyExchange";
+import type {
+  NearbyPeer,
+  NearbyTapRequest,
+} from "@/features/friends/nearbyExchange";
 
 /**
  * タップで交換する相手の一覧（issue #693、どちらかが UWB 非対応のとき）。

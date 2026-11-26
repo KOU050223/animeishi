@@ -13,7 +13,7 @@ import * as Clipboard from "expo-clipboard";
 import { QrSection } from "@/components/social/QrSection";
 import { alert } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";
-import { parseQrPayload } from "@/lib/qrParser";
+import { parseQrPayload } from "@/features/friends/qrParser";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
 
 // react-native-qrcode-svg の描画結果ではなく、QR に埋め込む値を検証するため
@@ -70,7 +70,7 @@ jest.mock("expo-router", () => ({
 const mockAddFriendMutate = jest.fn();
 // 交換キュー（issue #681）。オフライン時の積み上げを検証するため差し替える。
 const mockEnqueueExchange = jest.fn();
-jest.mock("@/lib/exchangeQueue", () => ({
+jest.mock("@/features/friends/exchangeQueue", () => ({
   enqueueExchange: (item: unknown) => mockEnqueueExchange(item),
 }));
 
@@ -80,7 +80,7 @@ let mockQrToken: { token: string; expiresAt: number } | undefined = {
   token: "test-qt-token",
   expiresAt: 1999999999,
 };
-jest.mock("@/lib/useFriends", () => ({
+jest.mock("@/features/friends/useFriends", () => ({
   useFriends: () => ({ data: [] }),
   useAddFriend: () => ({ mutate: mockAddFriendMutate, isPending: false }),
   useQrExchangeToken: () => ({ data: mockQrToken }),
@@ -89,7 +89,7 @@ jest.mock("@/lib/useFriends", () => ({
 // オフライン交換トークンの端末キャッシュ（issue #680）。テストごとに
 // 差し替えられるよう変数で持つ。
 let mockOfflineToken: string | null = null;
-jest.mock("@/lib/offlineExchangeToken", () => ({
+jest.mock("@/features/friends/offlineExchangeToken", () => ({
   readOfflineExchangeToken: () => Promise.resolve(mockOfflineToken),
   saveOfflineExchangeToken: jest.fn(),
 }));
@@ -109,7 +109,7 @@ let capturedOnScanned:
   | undefined;
 // カメラ権限の状態。テストごとに差し替える。
 let mockScannerPermission: { granted: boolean } | null = { granted: true };
-jest.mock("@/lib/useQrScanner", () => ({
+jest.mock("@/features/friends/useQrScanner", () => ({
   useQrScanner: (options: {
     onScanned?: (result: {
       userId: string;
@@ -135,7 +135,7 @@ jest.mock("@/lib/useQrScanner", () => ({
 // NearbyExchangeView 側のテストで担保する。
 let mockNearbySupported = false;
 let mockNearbyPlatformAvailable = false;
-jest.mock("@/lib/nearbyExchange", () => ({
+jest.mock("@/features/friends/nearbyExchange", () => ({
   nearbyExchange: {
     get platformAvailable() {
       return mockNearbyPlatformAvailable;
@@ -176,7 +176,7 @@ jest.mock("@/lib/tierList/share", () => ({
 }));
 
 const mockSaveQrImage = jest.fn();
-jest.mock("@/lib/qrImage", () => ({
+jest.mock("@/features/friends/qrImage", () => ({
   saveQrImage: (...args: unknown[]) => mockSaveQrImage(...args),
 }));
 

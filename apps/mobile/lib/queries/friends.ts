@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
-import { saveOfflineExchangeToken } from "@/lib/offlineExchangeToken";
+import { saveOfflineExchangeToken } from "@/features/friends/offlineExchangeToken";
 
 type FriendsResponse = InferResponseType<
   (typeof apiClient.me.friends)["$get"],

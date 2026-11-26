@@ -97,7 +97,7 @@ const mockFriendsRefetch = jest.fn();
 // 「失敗かつデータ無し」だけがエラー表示になる（issue #417 レビュー対応）。
 let mockFriendsData: { friendId: string }[] | undefined = [];
 let mockFriendsError = false;
-jest.mock("@/lib/useFriends", () => ({
+jest.mock("@/features/friends/useFriends", () => ({
   useFriends: () => ({
     data: mockFriendsData,
     isLoading: false,

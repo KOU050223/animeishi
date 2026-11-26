@@ -1,8 +1,8 @@
 import { Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { useFriendUpdates } from "@/lib/useFriendUpdates";
-import type { FriendUpdateItem } from "@/lib/useFriendUpdates";
+import { useFriendUpdates } from "@/features/friends/useFriendUpdates";
+import type { FriendUpdateItem } from "@/features/friends/useFriendUpdates";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
 import { formatRelativeTime } from "@/features/feed/activityText";
 

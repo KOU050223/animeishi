@@ -4,7 +4,7 @@ import {
   flushExchangeQueue,
   readExchangeQueue,
   type NewExchangeQueueItem,
-} from "@/lib/exchangeQueue";
+} from "@/features/friends/exchangeQueue";
 
 const USER_A = "user_partner_a";
 const USER_B = "user_partner_b";

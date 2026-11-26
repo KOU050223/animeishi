@@ -12,8 +12,8 @@ import {
   type ExchangeQueueItem,
   type ExchangeSendOutcome,
   type FlushExchangeResult,
-} from "@/lib/exchangeQueue";
-import { invalidateFriendRelatedQueries } from "@/lib/useFriends";
+} from "@/features/friends/exchangeQueue";
+import { invalidateFriendRelatedQueries } from "@/features/friends/useFriends";
 
 // 通信復帰を直接検知する手段（NetInfo）を持たないため、キューが残っている
 // 間に備えて一定間隔でも flush を試す。試行自体は空キューなら即終わる。

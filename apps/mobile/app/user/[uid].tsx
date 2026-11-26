@@ -49,7 +49,7 @@ import {
   useReportUser,
 } from "@/lib/useModeration";
 import type { ReportReason } from "@/lib/useModeration";
-import { useFriends } from "@/lib/useFriends";
+import { useFriends } from "@/features/friends/useFriends";
 import {
   useAcceptFriendRequest,
   useDeleteFriendRequest,

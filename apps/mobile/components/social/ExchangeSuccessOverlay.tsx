@@ -18,7 +18,7 @@ import { haptics } from "@/lib/haptics";
 import type { PublicProfile } from "@/lib/publicProfile";
 import { publicProfileQueries } from "@/lib/queries/publicProfile";
 import { useThemeColors } from "@/lib/theme";
-import { useFriends } from "@/lib/useFriends";
+import { useFriends } from "@/features/friends/useFriends";
 import { CommonPoints } from "./CommonPoints";
 
 export type ExchangeSuccessOverlayProps = {

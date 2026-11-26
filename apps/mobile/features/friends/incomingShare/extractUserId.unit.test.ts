@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractUserIdFromSharedText } from "@/lib/incomingShare/extractUserId";
+import { extractUserIdFromSharedText } from "@/features/friends/incomingShare/extractUserId";
 
 const WEB_BASE = "https://animeishi.uomi.dev";
 const CLERK_ID = "user_2abcDEF1234567890ghijKLMN";

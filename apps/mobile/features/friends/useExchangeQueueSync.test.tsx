@@ -2,8 +2,11 @@ import { renderHook, waitFor } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test-utils/queryClient";
-import { enqueueExchange, readExchangeQueue } from "@/lib/exchangeQueue";
-import { useExchangeQueueSync } from "@/lib/useExchangeQueueSync";
+import {
+  enqueueExchange,
+  readExchangeQueue,
+} from "@/features/friends/exchangeQueue";
+import { useExchangeQueueSync } from "@/features/friends/useExchangeQueueSync";
 import { confirm } from "@/lib/dialog";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";
@@ -36,7 +39,7 @@ jest.mock("expo-router", () => ({
 
 // 認証ヘッダ組み立てとクエリ無効化は呼び出しの結線だけを見る。
 const mockInvalidate = jest.fn();
-jest.mock("@/lib/useFriends", () => ({
+jest.mock("@/features/friends/useFriends", () => ({
   invalidateFriendRelatedQueries: (...args: unknown[]) =>
     mockInvalidate(...args),
 }));

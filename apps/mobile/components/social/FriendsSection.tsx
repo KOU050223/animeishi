@@ -11,8 +11,8 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { selectionAccessibilityProps } from "@/lib/accessibility";
-import { useFriends, useRemoveFriend } from "@/lib/useFriends";
-import type { FriendItem } from "@/lib/useFriends";
+import { useFriends, useRemoveFriend } from "@/features/friends/useFriends";
+import type { FriendItem } from "@/features/friends/useFriends";
 import { useExchangeRecords } from "@/features/exchange-records/useExchangeRecords";
 import {
   useFriendThanks,

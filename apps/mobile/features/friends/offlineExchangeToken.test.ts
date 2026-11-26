@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   readOfflineExchangeToken,
   saveOfflineExchangeToken,
-} from "@/lib/offlineExchangeToken";
+} from "@/features/friends/offlineExchangeToken";
 
 const USER_ID = "user_2abcDEF1234567890ghijKLMN";
 const NOW_SEC = 1_760_000_000;

@@ -10,7 +10,7 @@ import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverl
 import { haptics } from "@/lib/haptics";
 import { useFavorites } from "@/features/favorites/useFavorites";
 import { useCommonPoints } from "@/lib/useCommonPoints";
-import { useFriends } from "@/lib/useFriends";
+import { useFriends } from "@/features/friends/useFriends";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { createTestQueryClient } from "@/test-utils/queryClient";
 
@@ -46,7 +46,7 @@ jest.mock("@/features/favorites/useFavorites", () => ({
   useFavorites: jest.fn(() => ({ data: undefined })),
 }));
 jest.mock("@/lib/useCommonPoints", () => ({ useCommonPoints: jest.fn() }));
-jest.mock("@/lib/useFriends", () => ({ useFriends: jest.fn() }));
+jest.mock("@/features/friends/useFriends", () => ({ useFriends: jest.fn() }));
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const client = createTestQueryClient({

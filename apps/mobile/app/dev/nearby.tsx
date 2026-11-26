@@ -10,8 +10,11 @@ import {
   nearbyExchange,
   proximityLevel,
   TOUCH_THRESHOLD_METERS,
-} from "@/lib/nearbyExchange";
-import type { DirectionVector, ProximityHaptics } from "@/lib/nearbyExchange";
+} from "@/features/friends/nearbyExchange";
+import type {
+  DirectionVector,
+  ProximityHaptics,
+} from "@/features/friends/nearbyExchange";
 import { useProfile } from "@/lib/useProfile";
 
 type PeerView = {

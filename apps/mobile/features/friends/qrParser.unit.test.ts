@@ -4,7 +4,7 @@ import {
   encodeMiniMeishi,
   parseQrPayload,
   parseUserIdFromQr,
-} from "@/lib/qrParser";
+} from "@/features/friends/qrParser";
 
 // Clerk ID は user_ + base58。旧 Firebase UID は 28 文字英数字。
 const CLERK_ID = "user_2abcDEF1234567890ghijKLMN";

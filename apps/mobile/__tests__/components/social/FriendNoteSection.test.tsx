@@ -15,7 +15,7 @@ let mockNoteData:
 const mockMutate = jest.fn();
 const mockAlert = jest.fn();
 
-jest.mock("@/lib/useFriendNote", () => ({
+jest.mock("@/features/friends/useFriendNote", () => ({
   useFriendNote: () => ({ data: mockNoteData }),
   useSaveFriendNote: () => ({
     mutate: (input: unknown, options?: unknown) => mockMutate(input, options),

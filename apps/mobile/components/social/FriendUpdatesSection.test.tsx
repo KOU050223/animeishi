@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import { FriendUpdatesSection } from "@/components/social/FriendUpdatesSection";
 
-// API・認証の振る舞いは lib/useFriendUpdates の結合部なので、
+// API・認証の振る舞いは features/friends/useFriendUpdates の結合部なので、
 // ここではフックの戻り値を差し替えてセクションの UI 分岐を検証する
 // （ActivityFeedSection.test.tsx と同じ手法）。
 let mockUpdates: {
@@ -26,7 +26,7 @@ let mockUpdates: {
   refetch: jest.Mock;
 };
 
-jest.mock("@/lib/useFriendUpdates", () => ({
+jest.mock("@/features/friends/useFriendUpdates", () => ({
   useFriendUpdates: () => mockUpdates,
 }));
 

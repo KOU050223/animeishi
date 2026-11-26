@@ -4,7 +4,7 @@ import type { ViewInstance } from "react-native";
 /**
  * マイ QR の画像保存に関するプラットフォーム差異吸収の共通インターフェース。
  * 実装は拡張子分割（.native.ts / .web.ts）で切り替わる。
- * 呼び出し側は常に `@/lib/qrImage` から import する。
+ * 呼び出し側は常に `@/features/friends/qrImage` から import する。
  */
 
 /**

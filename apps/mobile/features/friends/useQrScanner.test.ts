@@ -1,7 +1,7 @@
 import { renderHook, act } from "@testing-library/react-native";
 import type { BarcodeScanningResult } from "expo-camera";
-import { useQrScanner } from "@/lib/useQrScanner";
-import { encodeMiniMeishi } from "@/lib/qrParser";
+import { useQrScanner } from "@/features/friends/useQrScanner";
+import { encodeMiniMeishi } from "@/features/friends/qrParser";
 
 // expo-camera のネイティブ依存を排し、権限フックだけをモックする。
 jest.mock("expo-camera", () => ({

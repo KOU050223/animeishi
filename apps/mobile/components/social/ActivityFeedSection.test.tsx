@@ -64,7 +64,7 @@ let mockFriends: {
   data?: { friendId: string }[] | undefined;
   isLoading: boolean;
 };
-jest.mock("@/lib/useFriends", () => ({
+jest.mock("@/features/friends/useFriends", () => ({
   useFriends: () => mockFriends,
 }));
 

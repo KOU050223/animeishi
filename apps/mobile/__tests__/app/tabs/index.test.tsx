@@ -116,7 +116,7 @@ jest.mock("@/features/feed/useActivityFeed", () => ({
 
 // フィードの空状態がフレンド数で案内を出し分けるため（issue #533）、
 // フレンドありで固定する。
-jest.mock("@/lib/useFriends", () => ({
+jest.mock("@/features/friends/useFriends", () => ({
   useFriends: () => ({ data: [{ friendId: "f1" }], isLoading: false }),
 }));
 

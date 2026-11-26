@@ -8,7 +8,10 @@ import {
 } from "@/lib/apiError";
 import { apiErrorMessage, apiErrorMessageKey } from "@/lib/apiErrorMessages";
 import { PUBLIC_PROFILE_QUERY_KEY } from "@/lib/publicProfile";
-import { FRIENDS_QUERY_KEY, FRIEND_REQUESTS_QUERY_KEY } from "@/lib/useFriends";
+import {
+  FRIENDS_QUERY_KEY,
+  FRIEND_REQUESTS_QUERY_KEY,
+} from "@/features/friends/useFriends";
 import { COMMON_POINTS_QUERY_KEY } from "@/lib/useCommonPoints";
 import { EVENT_PARTICIPANTS_QUERY_KEY } from "@/features/events/useEvents";
 import { PUBLIC_WORK_LISTS_KEY } from "@/lib/workList/useWorkLists";

@@ -101,7 +101,7 @@ const mockFriend = {
 
 let mockFriendsData: (typeof mockFriend)[] = [mockFriend];
 
-jest.mock("@/lib/useFriends", () => ({
+jest.mock("@/features/friends/useFriends", () => ({
   useFriends: () => ({
     data: mockFriendsData,
     isLoading: mockFriendsLoading,

@@ -12,7 +12,7 @@ import {
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useActivityFeed } from "@/features/feed/useActivityFeed";
-import { useFriends } from "@/lib/useFriends";
+import { useFriends } from "@/features/friends/useFriends";
 import { useTranslation } from "react-i18next";
 import type { ActivityFeedItem } from "@/features/feed/useActivityFeed";
 import {

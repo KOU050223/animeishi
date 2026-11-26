@@ -1,11 +1,11 @@
-import { isValidUserId } from "@/lib/qrParser";
+import { isValidUserId } from "@/features/friends/qrParser";
 
 /**
  * 他アプリから共有されたテキスト / URL、および名刺 QR の画像から
  * 読み取った文字列から、Animeishi 名刺のユーザー ID を抽出する。
  * 抽出できない（Animeishi の名刺ではない）場合は null を返す（issue #316）。
  *
- * QR スキャン（lib/qrParser.ts）は旧 URL との後方互換のため任意ホストの
+ * QR スキャン（features/friends/qrParser.ts）は旧 URL との後方互換のため任意ホストの
  * /user/{uid} を許すが、共有の受け口は「Animeishi の名刺だけ」を受け付ける
  * 仕様のため、こちらは buildProfileUrl が生成する形式に限定する:
  *   - 生 UID（Clerk ID / 旧 Firebase 28 文字 UID）

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/expo";
 import { buildProfileUrl } from "@/lib/profileUrl";
-import { buildQrExchangeUrl } from "@/lib/qrParser";
-import { readOfflineExchangeToken } from "@/lib/offlineExchangeToken";
+import { buildQrExchangeUrl } from "@/features/friends/qrParser";
+import { readOfflineExchangeToken } from "@/features/friends/offlineExchangeToken";
 import { useProfile } from "@/lib/useProfile";
-import { useQrExchangeToken } from "@/lib/useFriends";
+import { useQrExchangeToken } from "@/features/friends/useFriends";
 
 /**
  * 対面交換で相手に渡す自分の交換データ（QR に載せる URL）。

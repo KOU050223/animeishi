@@ -35,7 +35,7 @@ import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
 import { useAppOpenTracking } from "@/lib/useAppOpenTracking";
 import { useGuestCtaReturn } from "@/features/auth/guestCta";
-import { useExchangeQueueSync } from "@/lib/useExchangeQueueSync";
+import { useExchangeQueueSync } from "@/features/friends/useExchangeQueueSync";
 import { guestLandingPath } from "@/features/auth/guestLandingRoute";
 import { WorkDetailProvider } from "@/components/anime-list/WorkDetailProvider";
 import { shouldDeferRouteRender } from "@/lib/staticRendering/shouldDeferRouteRender";

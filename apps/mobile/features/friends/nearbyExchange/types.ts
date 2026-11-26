@@ -13,7 +13,7 @@ export type { DirectionVector, NearbyExchangeModuleEvents };
  * - nearbyExchange.ios.ts ... iOS（modules/nearby-exchange のネイティブ実装）
  * - nearbyExchange.ts     ... Android/Web（非対応を返すスタブ）
  *
- * 呼び出し側は常に `@/lib/nearbyExchange` から import する。
+ * 呼び出し側は常に `@/features/friends/nearbyExchange` から import する。
  */
 export type NearbyExchange = {
   /**
