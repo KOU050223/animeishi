@@ -3,7 +3,7 @@ import { StyleSheet } from "react-native";
 
 // デザインの原本は animeishi-design.pen の「Stamp / 済 (WATCHED)」。
 // PNG の型宣言が無いため import ではなく require で読む。
-const STAMP_SOURCE = require("../../assets/images/stamps/stamp-watched.png");
+const STAMP_SOURCE = require("../../../assets/images/stamps/stamp-watched.png");
 
 export function WatchedStamp({ testID }: { testID?: string }) {
   return (
