@@ -24,21 +24,21 @@ jest.mock("expo-router", () => ({
 }));
 
 // セクション中身は別テストで担保するため、表示識別だけのスタブにする。
-jest.mock("@/components/social/QrSection", () => ({
+jest.mock("@/features/friends/components/QrSection", () => ({
   QrSection: () => {
     const ActualReact = require("react");
     const { Text } = require("react-native");
     return ActualReact.createElement(Text, { testID: "section-qr" });
   },
 }));
-jest.mock("@/components/social/FriendsSection", () => ({
+jest.mock("@/features/friends/components/FriendsSection", () => ({
   FriendsSection: () => {
     const ActualReact = require("react");
     const { Text } = require("react-native");
     return ActualReact.createElement(Text, { testID: "section-friends" });
   },
 }));
-jest.mock("@/components/social/ActivityFeedSection", () => ({
+jest.mock("@/features/feed/components/ActivityFeedSection", () => ({
   ActivityFeedSection: () => {
     const ActualReact = require("react");
     const { Text } = require("react-native");

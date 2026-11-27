@@ -13,9 +13,9 @@ import { useState } from "react";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui";
-import { DeviceTrustCodeForm } from "@/components/auth/DeviceTrustCodeForm";
-import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
-import { PasskeySignInButton } from "@/components/auth/PasskeySignInButton";
+import { DeviceTrustCodeForm } from "@/features/auth/components/DeviceTrustCodeForm";
+import { GoogleAuthButton } from "@/features/auth/components/GoogleAuthButton";
+import { PasskeySignInButton } from "@/features/auth/components/PasskeySignInButton";
 import * as v from "valibot";
 import { signInSchema } from "@/features/auth/validators";
 import {

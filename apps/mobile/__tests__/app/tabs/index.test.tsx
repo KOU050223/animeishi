@@ -55,7 +55,7 @@ jest.mock("expo-router", () => ({
 }));
 
 // ストーリーリング本体の振る舞いは FriendStoryRail.test.tsx 側で検証する。
-jest.mock("@/components/FriendStoryRail", () => ({
+jest.mock("@/features/feed/components/FriendStoryRail", () => ({
   FriendStoryRail: () => {
     const { Text } = require("react-native");
     return <Text testID="friend-story-rail">ストーリーリング</Text>;
@@ -64,14 +64,14 @@ jest.mock("@/components/FriendStoryRail", () => ({
 
 // 完成度カードの挙動は MeishiCompletionCard.test.tsx 側で検証する。
 // 実物を描画すると useProfile 等のクエリが必要になるため、ここでは出ることだけ確認する。
-jest.mock("@/components/MeishiCompletionCard", () => ({
+jest.mock("@/features/meishi/components/MeishiCompletionCard", () => ({
   MeishiCompletionCard: () => {
     const { View } = require("react-native");
     return <View testID="meishi-completion-card" />;
   },
 }));
 
-jest.mock("@/components/CurrentSeasonConnectCard", () => ({
+jest.mock("@/features/annict/components/CurrentSeasonConnectCard", () => ({
   CurrentSeasonConnectCard: () => {
     const { Text } = require("react-native");
     return <Text>Annict連携</Text>;

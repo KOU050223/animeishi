@@ -40,7 +40,7 @@ jest.mock("@/features/annict", () => ({
   useWorkCatalogAccess: () => mockUseWorkCatalogAccess(),
 }));
 
-jest.mock("@/components/AnnictSoftGate", () => ({
+jest.mock("@/features/annict/components/AnnictSoftGate", () => ({
   AnnictSoftGate: ({ testID }: { testID?: string }) => {
     const { View } = require("react-native");
     return <View testID={testID} />;

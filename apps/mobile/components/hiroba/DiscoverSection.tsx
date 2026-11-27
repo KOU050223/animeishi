@@ -1,9 +1,9 @@
 import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SegmentedControl } from "@/components/ui";
-import { DiscoverWorkLists } from "./DiscoverWorkLists";
-import { DiscoverTierLists } from "./DiscoverTierLists";
-import { DiscoverUsers } from "./DiscoverUsers";
+import { DiscoverWorkLists } from "@/features/work-lists/components/DiscoverWorkLists";
+import { DiscoverTierLists } from "@/features/tier-lists/components/DiscoverTierLists";
+import { DiscoverUsers } from "@/features/users/components/DiscoverUsers";
 
 // ひろばタブの「みつける」セクション。
 // 公開作品リスト（issue #422）に加えて、公開 tier 表と公開名刺

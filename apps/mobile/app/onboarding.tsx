@@ -23,10 +23,10 @@ import { trackEvent } from "@/lib/events";
 import {
   FavoriteWorksStep,
   ONBOARDING_FAVORITE_COUNT,
-} from "@/components/onboarding/FavoriteWorksStep";
-import { TemplateStep } from "@/components/onboarding/TemplateStep";
-import { CompletionStep } from "@/components/onboarding/CompletionStep";
-import { AnnictStep } from "@/components/onboarding/AnnictStep";
+} from "@/features/onboarding/components/FavoriteWorksStep";
+import { TemplateStep } from "@/features/onboarding/components/TemplateStep";
+import { CompletionStep } from "@/features/onboarding/components/CompletionStep";
+import { AnnictStep } from "@/features/onboarding/components/AnnictStep";
 
 // 「好きな作品 → テンプレート → 名刺完成 → Annict」の順。
 // 1 画面 1 問・進捗バー付き（issue #412 決定）。

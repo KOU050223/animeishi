@@ -55,7 +55,7 @@ jest.mock(
   () => require("react-native-gesture-handler/lib/module/mocks/module"),
 );
 
-jest.mock("@/components/meishi/EditorCanvas", () => ({
+jest.mock("@/features/meishi/components/EditorCanvas", () => ({
   EditorCanvas: ({ onSelect }: { onSelect: (id: string | null) => void }) => {
     const { Pressable, Text } = require("react-native");
     return (
@@ -71,7 +71,7 @@ jest.mock("@/components/meishi/EditorCanvas", () => ({
 
 // Web 版は editorBody 内オーバーレイとして描画される（issue #528）。
 // 画面テストで配置を確かめるため、visible のときだけ目印を出す。
-jest.mock("@/components/meishi/AddElementSheet", () => ({
+jest.mock("@/features/meishi/components/AddElementSheet", () => ({
   AddElementSheet: ({ visible }: { visible: boolean }) => {
     if (!visible) return null;
     const { View } = require("react-native");
@@ -79,7 +79,7 @@ jest.mock("@/components/meishi/AddElementSheet", () => ({
   },
 }));
 
-jest.mock("@/components/meishi/AnimeImagePicker", () => ({
+jest.mock("@/features/meishi/components/AnimeImagePicker", () => ({
   AnimeImagePicker: () => null,
 }));
 
@@ -88,11 +88,11 @@ jest.mock("@/features/meishi/useMeishiAssetUpload", () => ({
   pickMeishiImage: jest.fn(),
 }));
 
-jest.mock("@/components/meishi/PropertyPanel", () => ({
+jest.mock("@/features/meishi/components/PropertyPanel", () => ({
   PropertyPanel: () => null,
 }));
 
-jest.mock("@/components/meishi/TemplatePicker", () => ({
+jest.mock("@/features/meishi/components/TemplatePicker", () => ({
   TemplatePicker: ({ visible }: { visible: boolean }) => {
     if (!visible) return null;
     const { Text } = require("react-native");
@@ -100,7 +100,7 @@ jest.mock("@/components/meishi/TemplatePicker", () => ({
   },
 }));
 
-jest.mock("@/components/meishi/TextEditSheet", () => ({
+jest.mock("@/features/meishi/components/TextEditSheet", () => ({
   TextEditSheet: () => null,
 }));
 

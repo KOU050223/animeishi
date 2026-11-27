@@ -14,9 +14,9 @@ import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { haptics } from "@/lib/haptics";
 import { useWorkCatalogAccess } from "@/features/annict";
-import { AnnictSoftGate } from "@/components/AnnictSoftGate";
+import { AnnictSoftGate } from "@/features/annict/components/AnnictSoftGate";
 import { BackButton, Input } from "@/components/ui";
-import { SeasonFilter } from "@/components/anime-list/SeasonFilter";
+import { SeasonFilter } from "@/features/works/components/SeasonFilter";
 import {
   adjacentSeasonParams,
   currentSeason,
@@ -24,14 +24,14 @@ import {
   toSeasonParam,
   type SeasonKey,
 } from "@/components/anime-list/animeListUtils";
-import { TierBoard } from "@/components/tier-list/TierBoard";
+import { TierBoard } from "@/features/tier-lists/components/TierBoard";
 import { useOpenWorkDetail } from "@/features/works/workDetailContext";
 import {
   TierBoardSnapshot,
   type SnapshotItem,
-} from "@/components/tier-list/TierBoardSnapshot";
-import { TierListMetaFields } from "@/components/tier-list/TierListMetaFields";
-import { useTierListStyles } from "@/components/tier-list/tierListStyles";
+} from "@/features/tier-lists/components/TierBoardSnapshot";
+import { TierListMetaFields } from "@/features/tier-lists/components/TierListMetaFields";
+import { useTierListStyles } from "@/features/tier-lists/components/tierListStyles";
 import { useThemeColors } from "@/lib/theme";
 import {
   assignItem,

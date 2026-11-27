@@ -4,9 +4,9 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { SegmentedControl } from "@/components/ui";
-import { AnimeSection } from "@/components/library/AnimeSection";
-import { WatchHistorySection } from "@/components/library/WatchHistorySection";
-import { FavoritesSection } from "@/components/library/FavoritesSection";
+import { AnimeSection } from "@/features/works/components/AnimeSection";
+import { WatchHistorySection } from "@/features/watch-history/components/WatchHistorySection";
+import { FavoritesSection } from "@/features/favorites/components/FavoritesSection";
 import { useThemeColors } from "@/lib/theme";
 import { useMarkScreenInteractive } from "@/lib/observe";
 

@@ -3,11 +3,11 @@ import { useTranslation } from "react-i18next";
 import { Text, TouchableOpacity, View } from "react-native";
 import { Redirect, Stack } from "expo-router";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
-import { MeishiCard } from "@/components/MeishiCard";
+import { MeishiCard } from "@/features/meishi/components/MeishiCard";
 import {
   NearbyExchangeStage,
   type StagePhase,
-} from "@/components/social/nearby/NearbyExchangeStage";
+} from "@/features/friends/components/nearby/NearbyExchangeStage";
 import { useProfile } from "@/features/me/useProfile";
 
 const STEPS: { label: string; phase: StagePhase; meters: number | null }[] = [

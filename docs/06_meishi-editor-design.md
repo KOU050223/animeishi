@@ -302,7 +302,7 @@ ALTER TABLE users ADD COLUMN meishi_public INTEGER NOT NULL DEFAULT 0;
   - `BackgroundStyle` 型（新設計の `canvas.background` に採用）
   - `COLOR_PALETTE`（新エディタのカラーピッカーで再利用）
   - `MEISHI_PRESETS` は名前だけ流用し、中身は要素配置込みの `MeishiDocument` テンプレとして作り直す
-- `apps/mobile/components/MeishiCard.tsx` は**レンダリング専用**に作り替え（`MeishiDocument` を受け取って表示する純関数コンポーネント）。編集機能はエディタ画面に分離
+- `apps/mobile/features/meishi/components/MeishiCard.tsx` は**レンダリング専用**に作り替え（`MeishiDocument` を受け取って表示する純関数コンポーネント）。編集機能はエディタ画面に分離
 - `apps/mobile/app/(tabs)/profile.tsx` はカスタマイザーUIを削除し、`MeishiCard` プレビュー + 「名刺をデザインする」ボタンだけの状態に戻す
 
 ---

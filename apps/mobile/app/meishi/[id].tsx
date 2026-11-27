@@ -16,7 +16,7 @@ import {
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
-import { MeishiCard } from "@/components/MeishiCard";
+import { MeishiCard } from "@/features/meishi/components/MeishiCard";
 import { BackButton } from "@/components/ui";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useMeishiLibrary } from "@/features/meishi/useMeishiLibrary";
@@ -25,7 +25,7 @@ import { useMeishiRenderContext } from "@/features/meishi/useMeishiRenderContext
 import { useProfile } from "@/features/me/useProfile";
 import { useThemeColors } from "@/lib/theme";
 import { useSocialLinks } from "@/features/social-links/socialLinks";
-import { SocialLinksList } from "@/components/profile/SocialLinksList";
+import { SocialLinksList } from "@/features/social-links/components/SocialLinksList";
 import type { ThemeColors } from "@/lib/theme";
 
 /**

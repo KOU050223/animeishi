@@ -34,7 +34,7 @@ const mockAnimeSectionCalls: {
   initialSeason?: string;
   navNonce?: string;
 }[] = [];
-jest.mock("@/components/library/AnimeSection", () => ({
+jest.mock("@/features/works/components/AnimeSection", () => ({
   AnimeSection: (props: {
     initialQuery?: string;
     initialSeason?: string;
@@ -46,14 +46,14 @@ jest.mock("@/components/library/AnimeSection", () => ({
     return ActualReact.createElement(Text, { testID: "section-anime" });
   },
 }));
-jest.mock("@/components/library/WatchHistorySection", () => ({
+jest.mock("@/features/watch-history/components/WatchHistorySection", () => ({
   WatchHistorySection: () => {
     const ActualReact = require("react");
     const { Text } = require("react-native");
     return ActualReact.createElement(Text, { testID: "section-history" });
   },
 }));
-jest.mock("@/components/library/FavoritesSection", () => ({
+jest.mock("@/features/favorites/components/FavoritesSection", () => ({
   FavoritesSection: () => {
     const ActualReact = require("react");
     const { Text } = require("react-native");

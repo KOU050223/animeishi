@@ -50,7 +50,7 @@ jest.mock("@/lib/webUrl", () => ({
   webUrl: "https://web.test",
 }));
 
-jest.mock("@/components/AnnictSoftGate", () => {
+jest.mock("@/features/annict/components/AnnictSoftGate", () => {
   const ActualReact = require("react");
   const { View } = require("react-native");
   return {
@@ -81,7 +81,7 @@ let mockSheetProps: {
   heading?: string;
   description?: string;
 } | null = null;
-jest.mock("@/components/tier-list/WorkAddSheet", () => ({
+jest.mock("@/features/tier-lists/components/WorkAddSheet", () => ({
   WorkAddSheet: (props: NonNullable<typeof mockSheetProps>) => {
     mockSheetProps = props;
     return null;

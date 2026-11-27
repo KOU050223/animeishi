@@ -1,0 +1,534 @@
+import { useMemo } from "react";
+import { StyleSheet, useColorScheme } from "react-native";
+import { GRID_GAP } from "@/components/anime-list/animeListUtils";
+
+/**
+ * アニメ一覧画面の配色。カード・チップ・ラベル等の部品色を持つ。
+ * 画面のベース背景は持たない: 暖色系の独自背景はネイティブヘッダー（白/
+ * slate-900）と色が食い違うため、画面背景は他タブと同じテーマ標準色を
+ * 呼び出し側が敷く（issue #469）。
+ *
+ * 直接参照するのではなく `useAnimeListStyles()` / `useAnimeListPalette()` 経由で
+ * 現在スキームに対応する値を取る（判定元は dark: バリアントと同じ
+ * RN の useColorScheme）。
+ */
+export type AnimeListPalette = {
+  /** オレンジ系のアクセント（セクションラベル・ポスター代替面）。 */
+  accent: string;
+  /** 見出し・強調テキスト。 */
+  title: string;
+  /** 説明文・ラベル等の副テキスト。 */
+  subtitle: string;
+  /** 検索バー。 */
+  searchBg: string;
+  searchBorder: string;
+  searchText: string;
+  /** 検索バー内のアイコン・クリアボタン。 */
+  searchIcon: string;
+  clearButtonBg: string;
+  clearIcon: string;
+  /** 白いチップ系ボタン（ソート・シーズン）。 */
+  chipBg: string;
+  chipBorder: string;
+  /** 選択中チップは反転した塗りにする。 */
+  chipActiveBg: string;
+  chipActiveBorder: string;
+  chipText: string;
+  chipTextActive: string;
+  chipDisabledBg: string;
+  chipDisabledBorder: string;
+  chipTextDisabled: string;
+  /** 作品カード。 */
+  cardBg: string;
+  cardBorder: string;
+  /** boxShadow 値全体を持つ（オフセット・ぼかし・色を含む）。 */
+  cardShadow: string;
+  cardTitle: string;
+  cardSubtitle: string;
+  /** ポスター・スケルトンの代替面。 */
+  skeleton: string;
+  /** シーズン・ジャンルの小チップ。 */
+  seasonChipText: string;
+  genreChipBg: string;
+  genreChipText: string;
+  /** お気に入りボタン。 */
+  favoriteBg: string;
+  favoriteBorder: string;
+  favoriteActiveBg: string;
+  favoriteActiveBorder: string;
+  favoriteIcon: string;
+  favoriteIconActive: string;
+  /** 空状態/エラーのアイコンを入れる白い箱。 */
+  iconBoxBg: string;
+  iconBoxBorder: string;
+  /** エラー時は rose 系に変える。 */
+  errorBoxBg: string;
+  errorBoxBorder: string;
+  errorIcon: string;
+  /** 空状態の中性アイコン。 */
+  stateIcon: string;
+  /** 画面の主ボタン（再試行）。反転した塗りにする。 */
+  primaryButtonBg: string;
+  primaryButtonText: string;
+};
+
+const lightPalette: AnimeListPalette = {
+  accent: "#7c2d12",
+  title: "#0f172a",
+  subtitle: "#64748b",
+  searchBg: "#ffffff",
+  searchBorder: "#e2e8f0",
+  searchText: "#0f172a",
+  searchIcon: "#64748b",
+  clearButtonBg: "#f1f5f9",
+  clearIcon: "#475569",
+  chipBg: "#ffffff",
+  chipBorder: "#dbe4ee",
+  chipActiveBg: "#0f172a",
+  chipActiveBorder: "#0f172a",
+  chipText: "#64748b",
+  chipTextActive: "#ffffff",
+  chipDisabledBg: "#f1f5f9",
+  chipDisabledBorder: "#e2e8f0",
+  chipTextDisabled: "#cbd5e1",
+  cardBg: "#ffffff",
+  cardBorder: "#e2e8f0",
+  cardShadow: "0px 8px 18px rgba(15, 23, 42, 0.05)",
+  cardTitle: "#0f172a",
+  cardSubtitle: "#64748b",
+  skeleton: "#e2e8f0",
+  seasonChipText: "#92400e",
+  genreChipBg: "#f1f5f9",
+  genreChipText: "#475569",
+  favoriteBg: "#f8fafc",
+  favoriteBorder: "#e2e8f0",
+  favoriteActiveBg: "#fff1f2",
+  favoriteActiveBorder: "#fecdd3",
+  favoriteIcon: "#64748b",
+  favoriteIconActive: "#e11d48",
+  iconBoxBg: "#ffffff",
+  iconBoxBorder: "#e2e8f0",
+  errorBoxBg: "#fff1f2",
+  errorBoxBorder: "#fecdd3",
+  errorIcon: "#b42318",
+  stateIcon: "#475569",
+  primaryButtonBg: "#0f172a",
+  primaryButtonText: "#ffffff",
+};
+
+const darkPalette: AnimeListPalette = {
+  accent: "#fdba74",
+  title: "#f5f5f4",
+  subtitle: "#a8a29e",
+  searchBg: "#292524",
+  searchBorder: "#57534e",
+  searchText: "#f5f5f4",
+  searchIcon: "#a8a29e",
+  clearButtonBg: "#44403c",
+  clearIcon: "#d6d3d1",
+  chipBg: "#292524",
+  chipBorder: "#57534e",
+  chipActiveBg: "#e7e5e4",
+  chipActiveBorder: "#e7e5e4",
+  chipText: "#a8a29e",
+  chipTextActive: "#1c1917",
+  chipDisabledBg: "#1c1917",
+  chipDisabledBorder: "#44403c",
+  chipTextDisabled: "#57534e",
+  cardBg: "#1c1917",
+  cardBorder: "#44403c",
+  cardShadow: "0px 8px 18px rgba(0, 0, 0, 0.05)",
+  cardTitle: "#f5f5f4",
+  cardSubtitle: "#a8a29e",
+  skeleton: "#44403c",
+  seasonChipText: "#fbbf24",
+  genreChipBg: "#292524",
+  genreChipText: "#d6d3d1",
+  favoriteBg: "#292524",
+  favoriteBorder: "#57534e",
+  favoriteActiveBg: "#4c0519",
+  favoriteActiveBorder: "#9f1239",
+  favoriteIcon: "#a8a29e",
+  favoriteIconActive: "#fb7185",
+  iconBoxBg: "#1c1917",
+  iconBoxBorder: "#44403c",
+  errorBoxBg: "#4c0519",
+  errorBoxBorder: "#9f1239",
+  errorIcon: "#f87171",
+  stateIcon: "#a8a29e",
+  primaryButtonBg: "#e7e5e4",
+  primaryButtonText: "#1c1917",
+};
+
+const animeListPalettes = {
+  light: lightPalette,
+  dark: darkPalette,
+} as const;
+
+/** 現在スキームのアニメ一覧パレット。アイコン等、style 外で色が要る箇所向け。 */
+export function useAnimeListPalette(): AnimeListPalette {
+  const colorScheme = useColorScheme();
+  return animeListPalettes[colorScheme === "dark" ? "dark" : "light"];
+}
+
+/** 現在スキームに対応する StyleSheet。パレット差し替え時だけ再生成する。 */
+export function useAnimeListStyles() {
+  const palette = useAnimeListPalette();
+  // AnimeListContent の FlatList#renderItem（固定するコールバック）の依存に
+  // 入るため参照を固定する。
+  return useMemo(() => createStyles(palette), [palette]);
+}
+
+function createStyles(p: AnimeListPalette) {
+  return StyleSheet.create({
+    listContent: {
+      rowGap: 12,
+    },
+    columnWrapper: {
+      gap: GRID_GAP,
+      justifyContent: "flex-start",
+      marginBottom: GRID_GAP,
+    },
+    header: {
+      gap: 12,
+      marginBottom: 2,
+    },
+    searchBar: {
+      minHeight: 50,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      borderRadius: 8,
+      backgroundColor: p.searchBg,
+      borderWidth: 1,
+      borderColor: p.searchBorder,
+      paddingHorizontal: 13,
+    },
+    searchInput: {
+      flex: 1,
+      minWidth: 0,
+      color: p.searchText,
+      fontSize: 15,
+      fontWeight: "600",
+      paddingVertical: 13,
+    },
+    clearButton: {
+      width: 30,
+      height: 30,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 15,
+      backgroundColor: p.clearButtonBg,
+    },
+    toolbar: {
+      gap: 10,
+    },
+    toolbarTop: {
+      flexDirection: "row",
+      alignItems: "flex-end",
+      justifyContent: "space-between",
+      gap: 12,
+    },
+    toolbarCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    sectionLabel: {
+      color: p.accent,
+      fontSize: 11,
+      fontWeight: "800",
+      letterSpacing: 0,
+    },
+    resultText: {
+      marginTop: 2,
+      color: p.title,
+      fontSize: 17,
+      lineHeight: 22,
+      fontWeight: "900",
+    },
+    // 「人気」ソートの定義・シーズン件数の意味（issue #602）を注記する
+    // 小さな副テキスト。主表示より小さく muted 色で添える。
+    noteText: {
+      marginTop: 2,
+      color: p.subtitle,
+      fontSize: 11,
+      lineHeight: 15,
+    },
+    sortGroup: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      width: "100%",
+    },
+    sortGroupWide: {
+      width: 540,
+    },
+    sortButton: {
+      width: "31.5%",
+      minHeight: 36,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 5,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: p.chipBorder,
+      backgroundColor: p.chipBg,
+      paddingHorizontal: 10,
+    },
+    sortButtonActive: {
+      borderColor: p.title,
+      backgroundColor: p.chipBg,
+    },
+    sortText: {
+      color: p.subtitle,
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    sortTextActive: {
+      color: p.title,
+    },
+    filterBar: {
+      gap: 8,
+    },
+    filterRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    filterScroll: {
+      flexDirection: "row",
+      gap: 6,
+      paddingRight: 6,
+    },
+    filterChip: {
+      minHeight: 32,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: p.chipBorder,
+      backgroundColor: p.chipBg,
+      paddingHorizontal: 12,
+    },
+    filterChipActive: {
+      borderColor: p.chipActiveBorder,
+      backgroundColor: p.chipActiveBg,
+    },
+    filterChipText: {
+      color: p.chipText,
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    filterChipTextActive: {
+      color: p.chipTextActive,
+    },
+    filterChipDisabled: {
+      backgroundColor: p.chipDisabledBg,
+      borderColor: p.chipDisabledBorder,
+    },
+    filterChipTextDisabled: {
+      color: p.chipTextDisabled,
+    },
+    card: {
+      flexDirection: "row",
+      gap: 13,
+      borderRadius: 8,
+      backgroundColor: p.cardBg,
+      borderWidth: 1,
+      borderColor: p.cardBorder,
+      padding: 10,
+      boxShadow: p.cardShadow,
+    },
+    // Web 実装の CardPressable はカード内にコンテンツ用のラッパー View を
+    // 挟むため、card と同じ並びをここにも定義する（card と一緒に直す）。
+    cardInner: {
+      flex: 1,
+      flexDirection: "row",
+      gap: 13,
+    },
+    poster: {
+      width: 68,
+      height: 92,
+      borderRadius: 6,
+      backgroundColor: p.skeleton,
+    },
+    posterPlaceholder: {
+      width: 68,
+      height: 92,
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      borderRadius: 6,
+      borderWidth: 1,
+    },
+    posterPlaceholderAccent: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 4,
+    },
+    posterInitial: {
+      fontSize: 25,
+      lineHeight: 30,
+      fontWeight: "900",
+    },
+    posterFallbackLabel: {
+      marginTop: 2,
+      fontSize: 8,
+      fontWeight: "900",
+    },
+    cardBody: {
+      flex: 1,
+      minWidth: 0,
+      justifyContent: "center",
+    },
+    cardTitleRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 8,
+    },
+    cardTitle: {
+      flex: 1,
+      minWidth: 0,
+      color: p.cardTitle,
+      fontSize: 16,
+      lineHeight: 21,
+      fontWeight: "900",
+      letterSpacing: 0,
+    },
+    // cardTitleRow 内のアクションボタン群。Web ではカード全体を覆う
+    // オーバーレイボタンの下にコンテンツが pointer-events:none で置かれるため、
+    // この View に pointerEvents="auto" を指定してボタンのイベントを復活させる。
+    cardActions: {
+      flexDirection: "row",
+      gap: 8,
+    },
+    genreChip: {
+      maxWidth: 92,
+      minHeight: 25,
+      justifyContent: "center",
+      borderRadius: 7,
+      backgroundColor: p.genreChipBg,
+      paddingHorizontal: 8,
+    },
+    genreText: {
+      color: p.genreChipText,
+      fontSize: 11,
+      fontWeight: "800",
+    },
+    moreGenres: {
+      color: p.subtitle,
+      fontSize: 11,
+      fontWeight: "900",
+    },
+    favoriteButton: {
+      width: 36,
+      height: 36,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 18,
+      backgroundColor: p.favoriteBg,
+      borderWidth: 1,
+      borderColor: p.favoriteBorder,
+    },
+    favoriteButtonActive: {
+      backgroundColor: p.favoriteActiveBg,
+      borderColor: p.favoriteActiveBorder,
+    },
+    // 作品一覧のローディングスケルトン（AnimeListSkeleton）。実カードと同じ
+    // 行方向レイアウト（ポスター + テキスト行）で敷く。骨の色は
+    // Skeleton 側のテーマトークンが決めるため、ここには寸法だけ定義する。
+    skeletonContainer: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      rowGap: 12,
+      columnGap: GRID_GAP,
+    },
+    skeletonPoster: {
+      width: 68,
+      height: 92,
+      borderRadius: 6,
+    },
+    skeletonBody: {
+      flex: 1,
+      minWidth: 0,
+      justifyContent: "center",
+      gap: 8,
+    },
+    skeletonLine: {
+      width: "100%",
+      height: 12,
+      borderRadius: 6,
+    },
+    skeletonLineShort: {
+      width: "55%",
+    },
+    emptyState: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 30,
+      paddingVertical: 54,
+    },
+    stateIcon: {
+      width: 56,
+      height: 56,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 8,
+      backgroundColor: p.iconBoxBg,
+      borderWidth: 1,
+      borderColor: p.iconBoxBorder,
+    },
+    errorIcon: {
+      backgroundColor: p.errorBoxBg,
+      borderColor: p.errorBoxBorder,
+    },
+    stateTitle: {
+      marginTop: 16,
+      color: p.title,
+      textAlign: "center",
+      fontSize: 19,
+      lineHeight: 25,
+      fontWeight: "900",
+    },
+    stateCopy: {
+      marginTop: 7,
+      color: p.subtitle,
+      textAlign: "center",
+      fontSize: 13,
+      lineHeight: 20,
+      fontWeight: "600",
+    },
+    primaryButton: {
+      marginTop: 20,
+      minHeight: 46,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderRadius: 8,
+      backgroundColor: p.primaryButtonBg,
+      paddingHorizontal: 20,
+    },
+    primaryButtonText: {
+      color: p.primaryButtonText,
+      fontSize: 14,
+      fontWeight: "900",
+    },
+    emptyTitle: {
+      marginTop: 14,
+      color: p.title,
+      fontSize: 18,
+      fontWeight: "900",
+    },
+    emptyCopy: {
+      marginTop: 7,
+      color: p.subtitle,
+      textAlign: "center",
+      fontSize: 13,
+      lineHeight: 20,
+      fontWeight: "600",
+    },
+  });
+}

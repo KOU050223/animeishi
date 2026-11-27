@@ -56,12 +56,12 @@ jest.mock("@/lib/dialog", () => ({ alert: jest.fn(), confirm: jest.fn() }));
 
 jest.mock("@/lib/events", () => ({ trackEvent: jest.fn() }));
 
-jest.mock("@/components/AnnictSoftGate", () => ({
+jest.mock("@/features/annict/components/AnnictSoftGate", () => ({
   AnnictSoftGate: () => null,
 }));
 
 let mockOnSeasonChange: ((year: number, key: SeasonKey) => void) | undefined;
-jest.mock("@/components/anime-list/SeasonFilter", () => ({
+jest.mock("@/features/works/components/SeasonFilter", () => ({
   SeasonFilter: (props: {
     onChange: (year: number, key: SeasonKey) => void;
   }) => {
@@ -80,14 +80,14 @@ let mockBoardProps: {
   onAssign: (itemId: number, tierKey: string | null) => void;
   onAddItem?: (item: TierItem) => void;
 } | null = null;
-jest.mock("@/components/tier-list/TierBoard", () => ({
+jest.mock("@/features/tier-lists/components/TierBoard", () => ({
   TierBoard: (props: NonNullable<typeof mockBoardProps>) => {
     mockBoardProps = props;
     return props.header;
   },
 }));
 
-jest.mock("@/components/tier-list/TierBoardSnapshot", () => ({
+jest.mock("@/features/tier-lists/components/TierBoardSnapshot", () => ({
   TierBoardSnapshot: () => null,
 }));
 

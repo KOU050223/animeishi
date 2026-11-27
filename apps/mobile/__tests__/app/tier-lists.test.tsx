@@ -68,7 +68,7 @@ let mockPickerProps: {
   visible: boolean;
   onSelect: (work: { id: number; title: string }) => void;
 } | null = null;
-jest.mock("@/components/tier-list/CharacterTierWorkPicker", () => ({
+jest.mock("@/features/tier-lists/components/CharacterTierWorkPicker", () => ({
   CharacterTierWorkPicker: (props: NonNullable<typeof mockPickerProps>) => {
     mockPickerProps = props;
     return null;

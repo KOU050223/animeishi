@@ -1,7 +1,7 @@
 import { Redirect, useRouter } from "expo-router";
 import { View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
-import { PasskeyRegisterPrompt } from "@/components/auth/PasskeyRegisterPrompt";
+import { PasskeyRegisterPrompt } from "@/features/auth/components/PasskeyRegisterPrompt";
 import { featureFlags } from "@/lib/featureFlags";
 
 /**

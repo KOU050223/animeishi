@@ -1,5 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { LegalDocument, type LegalSection } from "@/components/LegalDocument";
+import {
+  LegalDocument,
+  type LegalSection,
+} from "@/features/legal/components/LegalDocument";
 import { CONTACT_EMAIL } from "@/features/legal/operator";
 import { publicMetadata } from "@/lib/web/publicMetadata";
 import type { TranslationKey } from "@/lib/i18n/keys";

@@ -34,7 +34,7 @@ import {
 } from "@/features/import/useDanimeImport";
 import { danimeMatchErrorMessage } from "@/features/import/matchErrorMessage";
 import { episodeJobSupported } from "@/features/import/episodeJobSupported";
-import { DanimeEpisodeJobStatus } from "@/components/danime/EpisodeJobStatus";
+import { DanimeEpisodeJobStatus } from "@/features/import/components/EpisodeJobStatus";
 import type {
   BulkRegisterEntry,
   BulkRegisterResult,

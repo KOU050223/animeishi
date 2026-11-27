@@ -205,7 +205,7 @@ Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Clo
 
 提出候補である EAS `preview` と `production` はどちらも `pk_live_` Clerk publishable key を使う（`apps/mobile/eas.json`）。Google ログインは明示 override がない場合 `pk_test_` のときだけ有効で、両 EAS profile に `EXPO_PUBLIC_FEATURE_GOOGLE_SIGN_IN` の true override はない（`apps/mobile/lib/featureFlags/googleSignIn.ts`）。したがって提出候補では表示されない。
 
-ネイティブのパスキーは `apps/mobile/lib/featureFlags/passkey.native.ts` が常に `false` を返し、Wallet も EAS env で有効化されていない。認証画面の Google ボタンおよびパスキー表示はそれぞれこのフラグに従う。確認根拠: `apps/mobile/lib/featureFlags/index.ts`、`apps/mobile/app/(auth)/sign-in.tsx`、`apps/mobile/app/(auth)/sign-up.tsx`、`apps/mobile/components/profile/PasskeySection.tsx`。このため、production / preview にサードパーティログインが表示される経路は見つからなかった。なお dアニメ取り込みは #751 でネイティブでも既定有効だが、dアカウントのログインはアプリの認証ではなく取り込み画面の WebView 内で docomo 側が完結する処理のため、4.8（サードパーティログイン手段）には該当しない。
+ネイティブのパスキーは `apps/mobile/lib/featureFlags/passkey.native.ts` が常に `false` を返し、Wallet も EAS env で有効化されていない。認証画面の Google ボタンおよびパスキー表示はそれぞれこのフラグに従う。確認根拠: `apps/mobile/lib/featureFlags/index.ts`、`apps/mobile/app/(auth)/sign-in.tsx`、`apps/mobile/app/(auth)/sign-up.tsx`、`apps/mobile/features/me/components/PasskeySection.tsx`。このため、production / preview にサードパーティログインが表示される経路は見つからなかった。なお dアニメ取り込みは #751 でネイティブでも既定有効だが、dアカウントのログインはアプリの認証ではなく取り込み画面の WebView 内で docomo 側が完結する処理のため、4.8（サードパーティログイン手段）には該当しない。
 
 ## App Privacy 回答案（App Store Connect）
 

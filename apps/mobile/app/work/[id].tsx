@@ -3,16 +3,16 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
-import { AnnictSoftGate } from "@/components/AnnictSoftGate";
+import { AnnictSoftGate } from "@/features/annict/components/AnnictSoftGate";
 import {
   WorkDetailHeader,
   WorkDetailInfo,
-} from "@/components/anime-list/WorkDetailInfo";
-import { WorkDetailSkeleton } from "@/components/anime-list/WorkDetailSkeleton";
+} from "@/features/works/components/WorkDetailInfo";
+import { WorkDetailSkeleton } from "@/features/works/components/WorkDetailSkeleton";
 import {
   seasonListHref,
   workMediaLabel,
-} from "@/components/anime-list/workDetailFormat";
+} from "@/features/works/components/workDetailFormat";
 import { useWorkCatalogAccess } from "@/features/annict";
 import { useWorkDetail } from "@/features/works/useWorkDetail";
 

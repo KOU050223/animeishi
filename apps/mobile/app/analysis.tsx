@@ -37,7 +37,7 @@ import { BackButton } from "@/components/ui";
 import {
   AnimeWorkDetailSheet,
   type WorkDetailSheetTarget,
-} from "@/components/anime-list";
+} from "@/features/works/components";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { formatWorkSeason } from "@/components/anime-list/animeListUtils";
 import { alert } from "@/lib/dialog";

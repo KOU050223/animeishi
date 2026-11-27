@@ -30,7 +30,7 @@ jest.mock("@/lib/featureFlags", () => ({
 // 話数記録の進捗カードは useQuery に依存するため、描画有無だけを
 // 検証できるようスタブ化する。
 const mockEpisodeJobStatus = jest.fn((_props?: unknown) => null);
-jest.mock("@/components/danime/EpisodeJobStatus", () => ({
+jest.mock("@/features/import/components/EpisodeJobStatus", () => ({
   DanimeEpisodeJobStatus: (props: unknown) => mockEpisodeJobStatus(props),
 }));
 

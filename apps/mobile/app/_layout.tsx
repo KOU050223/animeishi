@@ -20,7 +20,7 @@ import { useColorScheme } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
-import { AchievementCelebrationHost } from "@/components/achievements/AchievementCelebrationHost";
+import { AchievementCelebrationHost } from "@/features/achievements/components/AchievementCelebrationHost";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import {
   queryClient,
@@ -37,7 +37,7 @@ import { useAppOpenTracking } from "@/lib/useAppOpenTracking";
 import { useGuestCtaReturn } from "@/features/auth/guestCta";
 import { useExchangeQueueSync } from "@/features/friends/useExchangeQueueSync";
 import { guestLandingPath } from "@/features/auth/guestLandingRoute";
-import { WorkDetailProvider } from "@/components/anime-list/WorkDetailProvider";
+import { WorkDetailProvider } from "@/features/works/components/WorkDetailProvider";
 import { shouldDeferRouteRender } from "@/lib/staticRendering/shouldDeferRouteRender";
 
 // グローバルエラーハンドラを先に有効化するため、レンダリング前に初期化する。

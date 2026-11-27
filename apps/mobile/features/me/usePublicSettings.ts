@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiClient, apiFetch } from "@/lib/api";
 import { PROFILE_QUERY_KEY, useProfile } from "@/features/me/useProfile";
-import type { PublicSettingVisibility } from "@/components/profile/PublicSettingsSection";
+import type { PublicSettingVisibility } from "@/features/me/components/PublicSettingsSection";
 
 // プロフィール画面の「公開設定」セクション（issue #604）の現在値と
 // 切り替えの保存。一覧に行を足すときは key ごとの保存先をここに分岐させる。

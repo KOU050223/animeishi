@@ -146,7 +146,7 @@ jest.mock("@/features/friend-thanks/useFriendThanks", () => ({
 
 // 吹き出しタップで開く作品詳細シート。シート本体の挙動は別テストに任せ、
 // ここでは「開いたか・対象作品が正しいか」だけを見る。
-jest.mock("@/components/anime-list", () => ({
+jest.mock("@/features/works/components", () => ({
   AnimeWorkDetailSheet: ({ work }: { work: { title: string } | null }) => {
     const { Text } = require("react-native");
     return work ? <Text testID="work-detail-sheet">{work.title}</Text> : null;

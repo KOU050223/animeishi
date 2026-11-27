@@ -19,24 +19,24 @@ import { alert, confirm } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";
 import { publicProfileQueries } from "@/lib/queries/publicProfile";
 import type { PublicProfile } from "@/features/user/publicProfile";
-import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
-import { FriendNoteSection } from "@/components/social/FriendNoteSection";
-import { FriendThanksSection } from "@/components/social/FriendThanksSection";
-import { FriendThanksSheet } from "@/components/social/FriendThanksSheet";
+import { ExchangeSuccessOverlay } from "@/features/friends/components/ExchangeSuccessOverlay";
+import { FriendNoteSection } from "@/features/friends/components/FriendNoteSection";
+import { FriendThanksSection } from "@/features/friend-thanks/components/FriendThanksSection";
+import { FriendThanksSheet } from "@/features/friend-thanks/components/FriendThanksSheet";
 import {
   useSendFriendThanks,
   type ThanksPresetKey,
 } from "@/features/friend-thanks/useFriendThanks";
-import { FriendUpdatesSection } from "@/components/social/FriendUpdatesSection";
-import { ExchangeRecordSection } from "@/components/social/ExchangeRecordSection";
-import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";
-import { CommonPoints } from "@/components/social/CommonPoints";
-import { GuestSignUpCta } from "@/components/social/GuestSignUpCta";
-import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
+import { FriendUpdatesSection } from "@/features/friends/components/FriendUpdatesSection";
+import { ExchangeRecordSection } from "@/features/exchange-records/components/ExchangeRecordSection";
+import { PostExchangeRecordSheet } from "@/features/exchange-records/components/PostExchangeRecordSheet";
+import { CommonPoints } from "@/features/users/components/CommonPoints";
+import { GuestSignUpCta } from "@/features/auth/components/GuestSignUpCta";
+import { MeishiSnapshotImage } from "@/features/meishi/components/MeishiSnapshotImage";
 import { saveReceivedMeishi } from "@/features/received-meishi";
-import { NowWatchingBubble } from "@/components/NowWatchingBubble";
-import { AnimeWorkDetailSheet } from "@/components/anime-list";
-import type { WorkDetailSheetTarget } from "@/components/anime-list";
+import { NowWatchingBubble } from "@/features/user/components/NowWatchingBubble";
+import { AnimeWorkDetailSheet } from "@/features/works/components";
+import type { WorkDetailSheetTarget } from "@/features/works/components";
 import {
   useFavoriteIds,
   useToggleFavorite,
@@ -58,7 +58,7 @@ import {
 } from "@/features/friend-requests/useFriendRequests";
 import type { FriendRequestItem } from "@/features/friend-requests/useFriendRequests";
 import { useThemeColors } from "@/lib/theme";
-import { SocialLinksList } from "@/components/profile/SocialLinksList";
+import { SocialLinksList } from "@/features/social-links/components/SocialLinksList";
 
 export default function PublicProfilePage() {
   const { t } = useTranslation();

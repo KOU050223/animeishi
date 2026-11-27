@@ -31,28 +31,28 @@ jest.mock("expo-router", () => ({
   },
 }));
 
-jest.mock("@/components/MeishiCard", () => ({
+jest.mock("@/features/meishi/components/MeishiCard", () => ({
   MeishiCard: () => {
     const { Text } = require("react-native");
     return <Text>名刺プレビュー本体</Text>;
   },
 }));
 
-jest.mock("@/components/AnnictConnectionCard", () => ({
+jest.mock("@/features/annict/components/AnnictConnectionCard", () => ({
   AnnictConnectionCard: () => {
     const { Text } = require("react-native");
     return <Text>Annict連携</Text>;
   },
 }));
 
-jest.mock("@/components/profile/AnnictConnectionStatusRow", () => ({
+jest.mock("@/features/me/components/AnnictConnectionStatusRow", () => ({
   AnnictConnectionStatusRow: () => {
     const { Text } = require("react-native");
     return <Text>Annict連携ステータス</Text>;
   },
 }));
 
-jest.mock("@/components/AppVersionFooter", () => ({
+jest.mock("@/features/me/components/AppVersionFooter", () => ({
   AppVersionFooter: () => {
     const { Text } = require("react-native");
     return <Text>バージョン情報</Text>;
@@ -61,7 +61,7 @@ jest.mock("@/components/AppVersionFooter", () => ({
 
 // 吹き出しタップで開く作品詳細シート（issue #420）。シート本体の挙動は
 // 別テストに任せ、ここでは「開いたか・対象作品が正しいか」だけを見る。
-jest.mock("@/components/anime-list", () => ({
+jest.mock("@/features/works/components", () => ({
   AnimeWorkDetailSheet: ({ work }: { work: { title: string } | null }) => {
     const { Text } = require("react-native");
     return work ? <Text testID="work-detail-sheet">{work.title}</Text> : null;
