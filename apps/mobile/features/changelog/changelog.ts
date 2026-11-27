@@ -1,4 +1,4 @@
-// /changelog 画面（app/changelog.tsx）に表示する静的データ。
+// /changelog 画面（features/changelog/screens/ChangelogScreen.tsx）に表示する静的データ。
 // 機能一覧・更新情報・今後の予定をここで管理し、追記は各配列への追記で済ませる。
 // 文言は日本語固定（support.tsx / LegalDocument と同じく i18n 対象外）。
 import { featureFlags } from "@/lib/featureFlags";
