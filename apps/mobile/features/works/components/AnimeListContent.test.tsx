@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { AnimeListContent } from "./AnimeListContent";
-import { currentSeason } from "./animeListUtils";
+import { currentSeason } from "@/components/anime-list/animeListUtils";
 import { ApiRequestError } from "@/lib/apiError";
 import { featureFlags } from "@/lib/featureFlags";
 

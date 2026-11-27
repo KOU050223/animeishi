@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { WorkDetailSheetTarget } from "@/components/anime-list/AnimeWorkDetailSheet";
+import type { WorkDetailSheetTarget } from "@/features/works/components/AnimeWorkDetailSheet";
 
 export type WorkDetailTarget = Pick<
   WorkDetailSheetTarget,

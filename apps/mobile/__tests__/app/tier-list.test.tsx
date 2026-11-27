@@ -61,7 +61,7 @@ jest.mock("@/components/AnnictSoftGate", () => ({
 }));
 
 let mockOnSeasonChange: ((year: number, key: SeasonKey) => void) | undefined;
-jest.mock("@/components/anime-list/SeasonFilter", () => ({
+jest.mock("@/features/works/components/SeasonFilter", () => ({
   SeasonFilter: (props: {
     onChange: (year: number, key: SeasonKey) => void;
   }) => {

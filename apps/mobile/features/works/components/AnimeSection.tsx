@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { AnimeListContent } from "@/components/anime-list";
+import { AnimeListContent } from "@/features/works/components";
 import {
   useFavoriteIds,
   useToggleFavorite,

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { StyleSheet, useColorScheme } from "react-native";
-import { GRID_GAP } from "./animeListUtils";
+import { GRID_GAP } from "@/components/anime-list/animeListUtils";
 
 /**
  * アニメ一覧画面の配色。カード・チップ・ラベル等の部品色を持つ。

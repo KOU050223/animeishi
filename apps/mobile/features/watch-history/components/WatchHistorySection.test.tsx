@@ -112,7 +112,7 @@ jest.mock("@/features/work-lists/components", () => {
 // タイトル・サムネ押下で開く作品詳細シート（issue #471）。シート本体の
 // 挙動は AnimeWorkDetailSheet 側のテストに任せ、ここでは「開いたか・
 // 対象作品が正しいか」とキャラ Tier 表への遷移配線だけを見る。
-jest.mock("@/components/anime-list/AnimeWorkDetailSheet", () => {
+jest.mock("@/features/works/components/AnimeWorkDetailSheet", () => {
   const ActualReact = jest.requireActual<typeof import("react")>("react");
   const { Pressable, Text } =
     jest.requireActual<typeof import("react-native")>("react-native");

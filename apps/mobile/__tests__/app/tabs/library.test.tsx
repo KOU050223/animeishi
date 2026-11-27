@@ -34,7 +34,7 @@ const mockAnimeSectionCalls: {
   initialSeason?: string;
   navNonce?: string;
 }[] = [];
-jest.mock("@/components/library/AnimeSection", () => ({
+jest.mock("@/features/works/components/AnimeSection", () => ({
   AnimeSection: (props: {
     initialQuery?: string;
     initialSeason?: string;

@@ -44,8 +44,8 @@ import { episodeJobStatusText } from "@/features/import/episodeJobStatus";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
-import { AnimeWorkDetailSheet } from "@/components/anime-list";
-import type { WorkDetailSheetTarget } from "@/components/anime-list";
+import { AnimeWorkDetailSheet } from "@/features/works/components";
+import type { WorkDetailSheetTarget } from "@/features/works/components";
 import {
   useFavoriteIds,
   useToggleFavorite,

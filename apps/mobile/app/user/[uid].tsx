@@ -35,8 +35,8 @@ import { GuestSignUpCta } from "@/features/auth/components/GuestSignUpCta";
 import { MeishiSnapshotImage } from "@/features/meishi/components/MeishiSnapshotImage";
 import { saveReceivedMeishi } from "@/features/received-meishi";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
-import { AnimeWorkDetailSheet } from "@/components/anime-list";
-import type { WorkDetailSheetTarget } from "@/components/anime-list";
+import { AnimeWorkDetailSheet } from "@/features/works/components";
+import type { WorkDetailSheetTarget } from "@/features/works/components";
 import {
   useFavoriteIds,
   useToggleFavorite,

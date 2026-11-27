@@ -5,7 +5,7 @@ import { selectionAccessibilityProps } from "@/lib/accessibility";
 import {
   useAnimeListPalette,
   useAnimeListStyles,
-} from "@/components/anime-list/animeListStyles";
+} from "@/features/works/components/animeListStyles";
 
 export function FavoriteButton({
   isFavorite,

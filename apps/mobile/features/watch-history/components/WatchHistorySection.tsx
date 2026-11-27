@@ -38,8 +38,8 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { MenuPicker } from "@/components/ui/menu-picker";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { FavoriteButton } from "@/features/favorites/components/FavoriteButton";
-import { AnimeWorkDetailSheet } from "@/components/anime-list/AnimeWorkDetailSheet";
-import type { WorkDetailSheetTarget } from "@/components/anime-list/AnimeWorkDetailSheet";
+import { AnimeWorkDetailSheet } from "@/features/works/components/AnimeWorkDetailSheet";
+import type { WorkDetailSheetTarget } from "@/features/works/components/AnimeWorkDetailSheet";
 import {
   AddToWorkListButton,
   AddToWorkListSheet,

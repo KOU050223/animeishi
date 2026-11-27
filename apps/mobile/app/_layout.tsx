@@ -37,7 +37,7 @@ import { useAppOpenTracking } from "@/lib/useAppOpenTracking";
 import { useGuestCtaReturn } from "@/features/auth/guestCta";
 import { useExchangeQueueSync } from "@/features/friends/useExchangeQueueSync";
 import { guestLandingPath } from "@/features/auth/guestLandingRoute";
-import { WorkDetailProvider } from "@/components/anime-list/WorkDetailProvider";
+import { WorkDetailProvider } from "@/features/works/components/WorkDetailProvider";
 import { shouldDeferRouteRender } from "@/lib/staticRendering/shouldDeferRouteRender";
 
 // グローバルエラーハンドラを先に有効化するため、レンダリング前に初期化する。

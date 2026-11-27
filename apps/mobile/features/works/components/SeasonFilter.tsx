@@ -13,7 +13,7 @@ import {
   selectableSeasonKeys,
   type SeasonFilterKey,
   type SeasonKey,
-} from "./animeListUtils";
+} from "@/components/anime-list/animeListUtils";
 
 // 「通年」チップのラベル。期チップの先頭に置く（その年の 4 クール全部。issue #346）。
 const SEASON_CHIP_KEYS = [SEASON_FILTER_ALL, ...SEASON_KEYS] as const;

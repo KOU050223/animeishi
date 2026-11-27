@@ -1,6 +1,6 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import { SeasonFilter } from "./SeasonFilter";
-import type { SeasonKey } from "./animeListUtils";
+import type { SeasonKey } from "@/components/anime-list/animeListUtils";
 
 // 2026-10-15（秋）に固定する。選択上限は 2027 春（今期+2 シーズン）。
 const NOW = new Date(2026, 9, 15);

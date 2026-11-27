@@ -55,7 +55,7 @@ import {
   parseSeasonFilterParam,
   toSeasonParam,
   type SeasonFilterKey,
-} from "./animeListUtils";
+} from "@/components/anime-list/animeListUtils";
 import {
   ANIME_LIST_DEFAULT_SORT_KEY,
   ANIME_LIST_DEFAULT_SORT_ORDER,

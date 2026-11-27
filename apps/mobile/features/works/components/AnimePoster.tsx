@@ -1,8 +1,11 @@
 import { useTranslation } from "react-i18next";
 import { Text, View, useColorScheme } from "react-native";
 import { useAnimeListStyles } from "./animeListStyles";
-import { getPosterInitial, getPosterPalette } from "./animeListUtils";
-import { WorkImage } from "./WorkImage";
+import {
+  getPosterInitial,
+  getPosterPalette,
+} from "@/components/anime-list/animeListUtils";
+import { WorkImage } from "@/components/anime-list/WorkImage";
 
 export function AnimePoster({
   uri,

@@ -3,7 +3,7 @@
 // ダイアログ通知する」ことだけを確認する。
 import React from "react";
 import { render } from "@testing-library/react-native";
-import { AnimeSection } from "@/components/library/AnimeSection";
+import { AnimeSection } from "@/features/works/components/AnimeSection";
 import { ApiRequestError } from "@/lib/apiError";
 
 const mockAlert = jest.fn();
@@ -22,7 +22,7 @@ jest.mock("@/features/favorites/useFavorites", () => ({
 
 // key リマウントの検証用にマウント回数を数える（issue #535）。
 let mountCount = 0;
-jest.mock("@/components/anime-list", () => ({
+jest.mock("@/features/works/components", () => ({
   AnimeListContent: () => {
     const ActualReact = require("react");
     ActualReact.useEffect(() => {

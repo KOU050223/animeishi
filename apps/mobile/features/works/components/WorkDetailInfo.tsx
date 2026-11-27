@@ -13,7 +13,7 @@ import {
   SEASON_FILTER_ALL,
   toSeasonParam,
   workBroadcastSeason,
-} from "./animeListUtils";
+} from "@/components/anime-list/animeListUtils";
 
 // 作品詳細シート（AnimeWorkDetailSheet）と作品ページ（app/work/[id]）で
 // 共有する、作品情報の表示部分。

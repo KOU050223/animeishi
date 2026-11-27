@@ -16,7 +16,7 @@ import { haptics } from "@/lib/haptics";
 import { useWorkCatalogAccess } from "@/features/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { BackButton, Input } from "@/components/ui";
-import { SeasonFilter } from "@/components/anime-list/SeasonFilter";
+import { SeasonFilter } from "@/features/works/components/SeasonFilter";
 import {
   adjacentSeasonParams,
   currentSeason,
