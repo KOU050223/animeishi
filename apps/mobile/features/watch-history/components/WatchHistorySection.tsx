@@ -33,7 +33,7 @@ import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
 import { useAnnictConnection } from "@/features/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
-import { WatchHistoryShareSection } from "@/components/watch-history/WatchHistoryShareSection";
+import { WatchHistoryShareSection } from "@/features/watch-history/components/WatchHistoryShareSection";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { MenuPicker } from "@/components/ui/menu-picker";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";

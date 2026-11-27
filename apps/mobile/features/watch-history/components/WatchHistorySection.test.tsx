@@ -11,7 +11,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react-native";
-import { WatchHistorySection } from "@/components/library/WatchHistorySection";
+import { WatchHistorySection } from "@/features/watch-history/components/WatchHistorySection";
 import { ApiRequestError } from "@/lib/apiError";
 
 const mockPush = jest.fn();
