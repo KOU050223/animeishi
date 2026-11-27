@@ -5,7 +5,7 @@
 import React from "react";
 import { View } from "react-native";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { DiscoverUsers } from "@/components/hiroba/DiscoverUsers";
+import { DiscoverUsers } from "@/features/users/components/DiscoverUsers";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { alert } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";

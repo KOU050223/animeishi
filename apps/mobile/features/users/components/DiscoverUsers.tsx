@@ -26,7 +26,7 @@ import {
 } from "@/features/users/usePublicUsers";
 import { useReportUserFlow } from "@/features/users/useReportUserFlow";
 import type { ReportReason } from "@/features/users/useModeration";
-import { DiscoverReportSheet } from "./DiscoverReportSheet";
+import { DiscoverReportSheet } from "@/components/hiroba/DiscoverReportSheet";
 
 // ひろば「みつける」の名刺フィード（issue #418）。
 // プロフィール公開設定（users.is_public）を立てたユーザーの名刺を
