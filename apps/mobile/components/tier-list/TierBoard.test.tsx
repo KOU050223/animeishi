@@ -29,35 +29,73 @@ const setScheme = (colorScheme: "light" | "dark") =>
 // 行内カードにだけ渡される矩形レジストリは mockCardRegistry に退避して、
 // 実機では measureInWindow が行う矩形登録をテスト側から直接行えるようにする。
 let mockDropPoint = { x: 0, y: 0 };
-let mockCardRegistry: import("./dropZones").DropZoneRegistry | undefined;
+// memo したモック（レンダリング中）からモジュール変数へ再代入すると react の lint に
+// 掛かるため、再代入ではなく Map の更新で退避する。
+const mockCardRegistryHolder = new Map<
+  "latest",
+  import("./dropZones").DropZoneRegistry
+>();
+const mockCardRegistry = () => mockCardRegistryHolder.get("latest");
+// 本物と同じく memo で包み、カードごとのレンダリング回数を数える。
+// 盤面が再レンダリングされても、渡す props が変わらないカードは描き直されない
+// ことを確かめるため。
+const mockCardRenderCounts = new Map<number, number>();
 jest.mock("./DraggableWorkCard", () => {
   const { Pressable, Text: ActualText } =
     jest.requireActual<typeof import("react-native")>("react-native");
+  const { memo } = jest.requireActual<typeof import("react")>("react");
   return {
-    DraggableWorkCard: ({
-      item,
-      onDragStart,
-      onDragEnd,
-      onDragCancel,
-      registry,
-    }: {
-      item: TierItem;
-      onDragStart: () => void;
-      onDragEnd: (x: number, y: number) => void;
-      onDragCancel: () => void;
-      registry?: import("./dropZones").DropZoneRegistry;
-    }) => {
-      if (registry) mockCardRegistry = registry;
-      return (
-        <Pressable
-          testID={`tier-card-${item.id}`}
-          onPress={onDragStart}
-          onLongPress={() => onDragEnd(mockDropPoint.x, mockDropPoint.y)}
-          onTouchCancel={onDragCancel}
-        >
-          <ActualText>{item.title}</ActualText>
-        </Pressable>
-      );
+    DraggableWorkCard: memo(
+      ({
+        item,
+        onDragStart,
+        onDragEnd,
+        onDragCancel,
+        registry,
+      }: {
+        item: TierItem;
+        onDragStart: (itemId: number) => void;
+        onDragEnd: (itemId: number, x: number, y: number) => void;
+        onDragCancel: (itemId: number) => void;
+        registry?: import("./dropZones").DropZoneRegistry;
+      }) => {
+        mockCardRenderCounts.set(
+          item.id,
+          (mockCardRenderCounts.get(item.id) ?? 0) + 1,
+        );
+        if (registry) mockCardRegistryHolder.set("latest", registry);
+        return (
+          <Pressable
+            testID={`tier-card-${item.id}`}
+            onPress={() => onDragStart(item.id)}
+            onLongPress={() =>
+              onDragEnd(item.id, mockDropPoint.x, mockDropPoint.y)
+            }
+            onTouchCancel={() => onDragCancel(item.id)}
+          >
+            <ActualText>{item.title}</ActualText>
+          </Pressable>
+        );
+      },
+    ),
+  };
+});
+
+// 公式の reanimated モックは useSharedValue がレンダリングごとに別オブジェクトを
+// 返す（本物は同じ参照を保つ）。そのままだと盤面のドラッグ系コールバックが
+// 毎回作り直され、カードの再レンダリング抑止を確かめられないため、参照を保つ
+// 版に差し替える。
+jest.mock("react-native-reanimated", () => {
+  const actual = jest.requireActual<{
+    useSharedValue: (init: unknown) => unknown;
+  }>("react-native-reanimated/mock");
+  const { useRef } = jest.requireActual<typeof import("react")>("react");
+  return {
+    ...actual,
+    useSharedValue: (init: unknown) => {
+      const ref = useRef<unknown>(null);
+      ref.current ??= actual.useSharedValue(init);
+      return ref.current;
     },
   };
 });
@@ -162,7 +200,7 @@ describe("TierBoard のスクロール領域", () => {
   });
 
   it("上部ブロックの高さが変わるとドロップ先を再計測する", async () => {
-    mockCardRegistry = undefined;
+    mockCardRegistryHolder.clear();
     const { getByTestId } = await render(
       boardElement({
         header: <Text testID="tier-page-header">説明</Text>,
@@ -170,7 +208,7 @@ describe("TierBoard のスクロール領域", () => {
         assignment: ASSIGNMENT,
       }),
     );
-    const registry = mockCardRegistry!;
+    const registry = mockCardRegistry()!;
     let headerHeight = 100;
     registry.registerMeasurer("0", () =>
       registry.register("0", {
@@ -365,7 +403,7 @@ describe("行内の並べ替え（issue #218）", () => {
   const BOARD_ITEMS: TierItem[] = [...ITEMS, { id: 4, title: "作品4" }];
 
   function setupDropGeometry() {
-    const registry = mockCardRegistry;
+    const registry = mockCardRegistry();
     if (!registry) throw new Error("registry がカードから渡されていません");
     registry.register("0", { x: 0, y: 0, width: 300, height: 130 });
     registry.register("1", { x: 0, y: 130, width: 300, height: 130 });
@@ -490,7 +528,7 @@ describe("行内の並べ替え（issue #218）", () => {
     const card = getByTestId("tier-card-1");
     await fireEvent.press(card);
     setupDropGeometry();
-    mockCardRegistry!.registerCard(4, {
+    mockCardRegistry()!.registerCard(4, {
       x: 0,
       y: 134,
       width: 60,
@@ -581,5 +619,20 @@ describe("ドラッグ中カードの重なり順", () => {
 
     expect(zIndexOf(getByTestId("tier-row-0")) ?? 0).toBe(0);
     expect(zIndexOf(getByTestId("tier-board")) ?? 0).toBe(0);
+  });
+});
+
+describe("TierBoard のドラッグ中の再レンダリング", () => {
+  it("ドラッグ開始で盤面が描き直されても掴んでいないカードは再レンダリングしない", async () => {
+    mockCardRenderCounts.clear();
+    const { getByTestId } = await render(
+      boardElement({ items: ITEMS, assignment: ASSIGNMENT }),
+    );
+    const before = new Map(mockCardRenderCounts);
+
+    // ドラッグ開始（draggingId が立ち、行の重なり順が変わって盤面が再レンダリングされる）
+    await fireEvent.press(getByTestId("tier-card-1"));
+
+    expect(mockCardRenderCounts).toEqual(before);
   });
 });
