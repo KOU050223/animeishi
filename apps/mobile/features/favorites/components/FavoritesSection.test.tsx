@@ -7,7 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react-native";
-import { FavoritesSection } from "@/components/library/FavoritesSection";
+import { FavoritesSection } from "@/features/favorites/components/FavoritesSection";
 import { ApiRequestError } from "@/lib/apiError";
 
 const mockPush = jest.fn();

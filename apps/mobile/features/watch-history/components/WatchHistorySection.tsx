@@ -37,7 +37,7 @@ import { WatchHistoryShareSection } from "@/features/watch-history/components/Wa
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { MenuPicker } from "@/components/ui/menu-picker";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
-import { FavoriteButton } from "@/components/anime-list/FavoriteButton";
+import { FavoriteButton } from "@/features/favorites/components/FavoriteButton";
 import { AnimeWorkDetailSheet } from "@/components/anime-list/AnimeWorkDetailSheet";
 import type { WorkDetailSheetTarget } from "@/components/anime-list/AnimeWorkDetailSheet";
 import {

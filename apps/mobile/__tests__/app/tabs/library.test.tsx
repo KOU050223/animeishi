@@ -53,7 +53,7 @@ jest.mock("@/features/watch-history/components/WatchHistorySection", () => ({
     return ActualReact.createElement(Text, { testID: "section-history" });
   },
 }));
-jest.mock("@/components/library/FavoritesSection", () => ({
+jest.mock("@/features/favorites/components/FavoritesSection", () => ({
   FavoritesSection: () => {
     const ActualReact = require("react");
     const { Text } = require("react-native");

@@ -2,7 +2,10 @@ import { useTranslation } from "react-i18next";
 import { TouchableOpacity } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { selectionAccessibilityProps } from "@/lib/accessibility";
-import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
+import {
+  useAnimeListPalette,
+  useAnimeListStyles,
+} from "@/components/anime-list/animeListStyles";
 
 export function FavoriteButton({
   isFavorite,

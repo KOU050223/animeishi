@@ -36,7 +36,7 @@ import {
   AddToWorkListButton,
   AddToWorkListSheet,
 } from "@/features/work-lists/components";
-import { FavoriteButton } from "./FavoriteButton";
+import { FavoriteButton } from "@/features/favorites/components/FavoriteButton";
 import { WatchedStamp } from "./WatchedStamp";
 import { SeasonFilter } from "./SeasonFilter";
 import { SortButton } from "./SortButton";
