@@ -287,61 +287,73 @@ export const DraggableWorkCard = memo(function DraggableWorkCard({
 
   return (
     <GestureDetector gesture={gesture}>
+      {/* ボタンのロールや読み上げ名はジェスチャを付ける外側ではなく内側の View に
+          持たせる。RNGH の Web 実装は role="button" の View では pointer capture を
+          しないため、指（マウス）がカードの外に出た時点で pointerup を受け取れず、
+          ドラッグが終わらないまま取り残されて盤面全体が操作不能になる。 */}
       <Animated.View
         ref={cardRef}
         onLayout={registry ? measureCard : undefined}
         style={[styles.card, animatedStyle]}
-        accessibilityLabel={
-          onPress
-            ? t("{{title}} の詳細を開く", { title: item.title })
-            : t("{{title}}（長押しでドラッグ）", { title: item.title })
-        }
-        accessible={onPress ? true : undefined}
-        accessibilityRole={onPress ? "button" : undefined}
-        focusable={onPress ? true : undefined}
-        onKeyDown={
-          onPress
-            ? (event) => {
-                if (
-                  event.nativeEvent.key === "Enter" ||
-                  event.nativeEvent.key === " "
-                ) {
-                  event.preventDefault();
-                  onPress(item);
-                }
-              }
-            : undefined
-        }
-        accessibilityActions={accessibilityActions}
-        onAccessibilityAction={handleAccessibilityAction}
         testID={`tier-card-${item.id}`}
       >
-        <WorkImage
-          uri={item.imageUrl}
-          style={styles.cardImage}
-          // 画像が無い・読み込みに失敗したカード。同じ灰色のままだと
-          // 読み込み中と区別が付かないため、「画像なし」と明記する（issue #606）。
-          placeholder={
-            <View style={styles.cardImageFallback}>
-              <Ionicons
-                name="image-outline"
-                size={20}
-                color={colors.textMuted}
-              />
-              <Text style={styles.cardImageFallbackLabel}>{t("画像なし")}</Text>
-            </View>
+        <View
+          style={{ flex: 1 }}
+          accessibilityLabel={
+            onPress
+              ? t("{{title}} の詳細を開く", { title: item.title })
+              : t("{{title}}（長押しでドラッグ）", { title: item.title })
           }
-          loadingPlaceholder={
-            <View style={styles.cardImageFallback}>
-              <ActivityIndicator size="small" color={colors.textMuted} />
-            </View>
+          accessible={onPress ? true : undefined}
+          accessibilityRole={onPress ? "button" : undefined}
+          focusable={onPress ? true : undefined}
+          onKeyDown={
+            onPress
+              ? (event) => {
+                  if (
+                    event.nativeEvent.key === "Enter" ||
+                    event.nativeEvent.key === " "
+                  ) {
+                    event.preventDefault();
+                    onPress(item);
+                  }
+                }
+              : undefined
           }
-          accessibilityLabel={t("{{title}}のサムネイル", { title: item.title })}
-        />
-        <View style={styles.cardLabel}>
-          <Text style={styles.cardLabelText} numberOfLines={2}>
-            {item.title}
-          </Text>
+          accessibilityActions={accessibilityActions}
+          onAccessibilityAction={handleAccessibilityAction}
+        >
+          <WorkImage
+            uri={item.imageUrl}
+            style={styles.cardImage}
+            // 画像が無い・読み込みに失敗したカード。同じ灰色のままだと
+            // 読み込み中と区別が付かないため、「画像なし」と明記する（issue #606）。
+            placeholder={
+              <View style={styles.cardImageFallback}>
+                <Ionicons
+                  name="image-outline"
+                  size={20}
+                  color={colors.textMuted}
+                />
+                <Text style={styles.cardImageFallbackLabel}>
+                  {t("画像なし")}
+                </Text>
+              </View>
+            }
+            loadingPlaceholder={
+              <View style={styles.cardImageFallback}>
+                <ActivityIndicator size="small" color={colors.textMuted} />
+              </View>
+            }
+            accessibilityLabel={t("{{title}}のサムネイル", {
+              title: item.title,
+            })}
+          />
+          <View style={styles.cardLabel}>
+            <Text style={styles.cardLabelText} numberOfLines={2}>
+              {item.title}
+            </Text>
+          </View>
         </View>
       </Animated.View>
     </GestureDetector>
