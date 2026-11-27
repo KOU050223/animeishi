@@ -34,7 +34,7 @@ import { CommonPoints } from "@/features/users/components/CommonPoints";
 import { GuestSignUpCta } from "@/features/auth/components/GuestSignUpCta";
 import { MeishiSnapshotImage } from "@/features/meishi/components/MeishiSnapshotImage";
 import { saveReceivedMeishi } from "@/features/received-meishi";
-import { NowWatchingBubble } from "@/components/NowWatchingBubble";
+import { NowWatchingBubble } from "@/features/user/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/features/works/components";
 import type { WorkDetailSheetTarget } from "@/features/works/components";
 import {

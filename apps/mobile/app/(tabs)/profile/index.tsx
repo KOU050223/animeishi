@@ -43,7 +43,7 @@ import { useDanimeEpisodeJob } from "@/features/import/useDanimeImport";
 import { episodeJobStatusText } from "@/features/import/episodeJobStatus";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
-import { NowWatchingBubble } from "@/components/NowWatchingBubble";
+import { NowWatchingBubble } from "@/features/user/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/features/works/components";
 import type { WorkDetailSheetTarget } from "@/features/works/components";
 import {

@@ -3,7 +3,7 @@ import { act, render, screen, waitFor } from "@testing-library/react-native";
 import {
   NOW_WATCHING_TTL_MS,
   NowWatchingBubble,
-} from "@/components/NowWatchingBubble";
+} from "@/features/user/components/NowWatchingBubble";
 import type { NowWatching } from "@/features/user/publicProfile";
 
 jest.mock("@/features/works/useWorkEpisodes", () => ({
