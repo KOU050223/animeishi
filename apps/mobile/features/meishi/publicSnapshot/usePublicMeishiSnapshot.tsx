@@ -19,7 +19,7 @@ export function usePublicMeishiSnapshot(
   const readyKeyRef = useRef<string | null>(null);
   const resolved = resolveMeishiDocument(document);
   const snapshotKey = JSON.stringify({ resolved, context });
-  // 呼び出し側（app/meishi/index.tsx）の effect 依存に入るため参照を固定する。
+  // 呼び出し側（features/meishi/screens/MeishiDeckScreen.tsx）の effect 依存に入るため参照を固定する。
   // snapshotKey は JSON 文字列なので context の実体が変わっても同値なら安定する。
   const publish = useCallback(
     () =>

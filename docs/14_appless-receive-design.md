@@ -33,7 +33,7 @@ Issue: https://github.com/KOU050223/animeishi/issues/664
 2. Web 側の Worker（`apps/mobile/worker/index.ts`）が `/user/:uid` を
    振り分ける。クローラ UA には API の OGP 付き静的 HTML
    （`buildOgpHtml`）、ブラウザには SPA を返す
-3. SPA の公開プロフィール（`apps/mobile/app/user/[uid].tsx`）は
+3. SPA の公開プロフィール（`apps/mobile/features/users/screens/PublicProfileScreen.tsx`）は
    `GET /user/:uid` の JSON を表示する。内容はアバター・ユーザー名・
    bio・名言・ジャンル・SNS リンク・「いま見ている」吹き出し
 4. 未サインインなら `GuestSignUpCta`（issue #562）が出て、
@@ -190,7 +190,7 @@ Android・その他では引き続き Web の受け口が主役になる（大�
 Web で今すぐ始められるものから。括弧内は主な変更先。
 
 - [ ] `/user/:uid` に名刺スナップショットを表示する
-  （`apps/mobile/app/user/[uid].tsx`。`meishiSnapshotUrl` があれば
+  （`apps/mobile/features/users/screens/PublicProfileScreen.tsx`。`meishiSnapshotUrl` があれば
   ヘッダより先に名刺画像を出す。無い場合は現状のプロフィール表示）
 - [ ] 名刺画像の保存導線を足す（Web はダウンロードリンク、
   ネイティブは共有シート。画像は公開配信済みの `meishiSnapshotUrl` を使う）

@@ -1,5 +1,5 @@
 // 特集記事の公開日（published_at）の画面表示用フォーマット。
-// 記事詳細（app/article/[slug].tsx）と記事一覧（app/article/index.tsx）で
+// 記事詳細（features/articles/screens/ArticleScreen.tsx）と記事一覧（features/articles/screens/ArticleListScreen.tsx）で
 // 同じ表記を使う。
 
 /**

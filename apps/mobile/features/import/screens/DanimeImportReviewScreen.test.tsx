@@ -10,9 +10,10 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react-native";
-import DanimeImportReviewScreen, {
+import {
+  DanimeImportReviewScreen,
   useElapsedSeconds,
-} from "@/app/danime-import-review";
+} from "@/features/import/screens/DanimeImportReviewScreen";
 import { ApiRequestError } from "@/lib/apiError";
 import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { useDanimeImportStore } from "@/store/danimeImportStore";

@@ -207,7 +207,7 @@ mobile・API が同じ実装を共有する。2 経路で共用する:
 
 ## レビュー UI（ハイブリッド）
 
-`app/danime-import-review.tsx`:
+`features/import/screens/DanimeImportReviewScreen.tsx`:
 
 - `exact` → 既定チェック ON
 - `candidates` → 候補タップで選択
