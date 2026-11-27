@@ -18,7 +18,7 @@ import { FriendStoryRail } from "@/components/FriendStoryRail";
 import { CurrentSeasonWatchingRail } from "@/features/watch-history/components/CurrentSeasonWatchingRail";
 import { MeishiCompletionCard } from "@/features/meishi/components/MeishiCompletionCard";
 import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
-import { ArticleRail } from "@/components/ArticleRail";
+import { ArticleRail } from "@/features/articles/components/ArticleRail";
 import { ElectionRail } from "@/components/ElectionRail";
 import { EventRail } from "@/components/EventRail";
 import { ACTIVITY_FEED_QUERY_KEY } from "@/features/feed/useActivityFeed";

@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
-import { ArticleRail } from "@/components/ArticleRail";
+import { ArticleRail } from "@/features/articles/components/ArticleRail";
 import type { ArticleListItem } from "@/features/articles/useArticles";
 
 // API・認証の振る舞いは features/articles/useArticles の結合部なので、ここではフックの
