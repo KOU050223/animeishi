@@ -62,7 +62,7 @@ MVPで置ける要素は以下:
 
 ### エディタUI
 
-- **専用ルート `/meishi/edit`**（`apps/mobile/app/meishi/edit.tsx`）
+- **専用ルート `/meishi/edit`**（`apps/mobile/features/meishi/screens/MeishiEditScreen.tsx`）
 - **コンテキスト表示**:
   - 未選択時: 下部に「＋要素を追加」のみ、キャンバス面積最大化
   - 選択時: 下部に選択要素のプロパティ + 削除・複製・重なり順ボタン
@@ -303,7 +303,7 @@ ALTER TABLE users ADD COLUMN meishi_public INTEGER NOT NULL DEFAULT 0;
   - `COLOR_PALETTE`（新エディタのカラーピッカーで再利用）
   - `MEISHI_PRESETS` は名前だけ流用し、中身は要素配置込みの `MeishiDocument` テンプレとして作り直す
 - `apps/mobile/features/meishi/components/MeishiCard.tsx` は**レンダリング専用**に作り替え（`MeishiDocument` を受け取って表示する純関数コンポーネント）。編集機能はエディタ画面に分離
-- `apps/mobile/app/(tabs)/profile.tsx` はカスタマイザーUIを削除し、`MeishiCard` プレビュー + 「名刺をデザインする」ボタンだけの状態に戻す
+- `apps/mobile/features/me/screens/ProfileScreen.tsx` はカスタマイザーUIを削除し、`MeishiCard` プレビュー + 「名刺をデザインする」ボタンだけの状態に戻す
 
 ---
 
