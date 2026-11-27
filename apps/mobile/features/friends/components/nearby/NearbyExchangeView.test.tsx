@@ -104,7 +104,7 @@ jest.mock("@/features/meishi/components/MeishiCard", () => ({
 
 // 成立後の画面の流れは ExchangeResultLayer（ScanView と共有）側で担保する。
 const mockResultLayerProps = jest.fn();
-jest.mock("@/components/social/ExchangeResultLayer", () => ({
+jest.mock("@/features/friends/components/ExchangeResultLayer", () => ({
   ExchangeResultLayer: (props: { result: { kind: string } }) => {
     mockResultLayerProps(props);
     const { Text } = require("react-native");

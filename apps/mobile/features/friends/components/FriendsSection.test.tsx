@@ -8,7 +8,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react-native";
-import { FriendsSection } from "@/components/social/FriendsSection";
+import { FriendsSection } from "@/features/friends/components/FriendsSection";
 import { ApiRequestError } from "@/lib/apiError";
 
 const mockRemoveMutateAsync = jest.fn();

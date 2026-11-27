@@ -14,7 +14,7 @@ Issue: https://github.com/KOU050223/animeishi/issues/664
 
 ### QR に入る URL
 
-- マイ QR（`apps/mobile/components/social/QrSection.tsx`）の値は
+- マイ QR（`apps/mobile/features/friends/components/QrSection.tsx`）の値は
   `https://animeishi.uomi.dev/user/<uid>`。対面交換用の表示では
   `?qt=<exp>.<base64url(sig)>` を付ける（issue #417）
 - `qt` は `GET /me/friends/qr-token` で発行する本人紐づきの短期トークン

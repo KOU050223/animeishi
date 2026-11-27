@@ -19,15 +19,15 @@ import { alert, confirm } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";
 import { publicProfileQueries } from "@/lib/queries/publicProfile";
 import type { PublicProfile } from "@/features/user/publicProfile";
-import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
-import { FriendNoteSection } from "@/components/social/FriendNoteSection";
+import { ExchangeSuccessOverlay } from "@/features/friends/components/ExchangeSuccessOverlay";
+import { FriendNoteSection } from "@/features/friends/components/FriendNoteSection";
 import { FriendThanksSection } from "@/features/friend-thanks/components/FriendThanksSection";
 import { FriendThanksSheet } from "@/features/friend-thanks/components/FriendThanksSheet";
 import {
   useSendFriendThanks,
   type ThanksPresetKey,
 } from "@/features/friend-thanks/useFriendThanks";
-import { FriendUpdatesSection } from "@/components/social/FriendUpdatesSection";
+import { FriendUpdatesSection } from "@/features/friends/components/FriendUpdatesSection";
 import { ExchangeRecordSection } from "@/features/exchange-records/components/ExchangeRecordSection";
 import { PostExchangeRecordSheet } from "@/features/exchange-records/components/PostExchangeRecordSheet";
 import { CommonPoints } from "@/features/users/components/CommonPoints";

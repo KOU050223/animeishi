@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
-import { FriendUpdatesSection } from "@/components/social/FriendUpdatesSection";
+import { FriendUpdatesSection } from "@/features/friends/components/FriendUpdatesSection";
 
 // API・認証の振る舞いは features/friends/useFriendUpdates の結合部なので、
 // ここではフックの戻り値を差し替えてセクションの UI 分岐を検証する

@@ -10,7 +10,7 @@ import {
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test-utils/queryClient";
 import * as Clipboard from "expo-clipboard";
-import { QrSection } from "@/components/social/QrSection";
+import { QrSection } from "@/features/friends/components/QrSection";
 import { alert } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";
 import { parseQrPayload } from "@/features/friends/qrParser";
@@ -143,7 +143,7 @@ jest.mock("@/features/friends/nearbyExchange", () => ({
     isSupported: () => mockNearbySupported,
   },
 }));
-jest.mock("@/components/social/nearby/NearbyExchangeView", () => ({
+jest.mock("@/features/friends/components/nearby/NearbyExchangeView", () => ({
   NearbyExchangeView: ({ onShowQr }: { onShowQr: () => void }) => {
     const { Text } = require("react-native");
     const React = require("react");

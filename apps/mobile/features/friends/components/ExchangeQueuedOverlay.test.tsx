@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { ExchangeQueuedOverlay } from "@/components/social/ExchangeQueuedOverlay";
+import { ExchangeQueuedOverlay } from "@/features/friends/components/ExchangeQueuedOverlay";
 import { haptics } from "@/lib/haptics";
 
 jest.mock("@/lib/haptics", () => ({

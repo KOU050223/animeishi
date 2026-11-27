@@ -7,7 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react-native";
-import { FriendNoteSection } from "@/components/social/FriendNoteSection";
+import { FriendNoteSection } from "@/features/friends/components/FriendNoteSection";
 
 let mockNoteData:
   | { body: string | null; updatedAt: string | null }

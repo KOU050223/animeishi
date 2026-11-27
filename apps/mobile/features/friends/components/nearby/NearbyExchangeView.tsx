@@ -7,7 +7,7 @@ import { MeishiCard } from "@/features/meishi/components/MeishiCard";
 import {
   ExchangeResultLayer,
   type ExchangeResult,
-} from "@/components/social/ExchangeResultLayer";
+} from "@/features/friends/components/ExchangeResultLayer";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert } from "@/lib/dialog";
 import { enqueueExchange } from "@/features/friends/exchangeQueue";

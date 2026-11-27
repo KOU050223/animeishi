@@ -7,7 +7,7 @@ import { MeishiCard } from "@/features/meishi/components/MeishiCard";
 import {
   NearbyExchangeStage,
   type StagePhase,
-} from "@/components/social/nearby/NearbyExchangeStage";
+} from "@/features/friends/components/nearby/NearbyExchangeStage";
 import { useProfile } from "@/features/me/useProfile";
 
 const STEPS: { label: string; phase: StagePhase; meters: number | null }[] = [

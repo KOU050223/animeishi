@@ -6,7 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react-native";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
+import { ExchangeSuccessOverlay } from "@/features/friends/components/ExchangeSuccessOverlay";
 import { haptics } from "@/lib/haptics";
 import { useFavorites } from "@/features/favorites/useFavorites";
 import { useCommonPoints } from "@/features/users/useCommonPoints";

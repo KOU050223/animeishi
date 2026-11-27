@@ -22,14 +22,14 @@ import { useQrScanner } from "@/features/friends/useQrScanner";
 import { useAddFriend } from "@/features/friends/useFriends";
 import { useExchangeQrValue } from "@/features/friends/useExchangeQrValue";
 import { nearbyExchange } from "@/features/friends/nearbyExchange";
-import { NearbyExchangeView } from "@/components/social/nearby/NearbyExchangeView";
+import { NearbyExchangeView } from "@/features/friends/components/nearby/NearbyExchangeView";
 import { ApiRequestError } from "@/lib/apiError";
 import { enqueueExchange } from "@/features/friends/exchangeQueue";
 import {
   ExchangeResultLayer,
   type ExchangeResult,
-} from "@/components/social/ExchangeResultLayer";
-import { ScanFallback } from "@/components/social/ScanFallback";
+} from "@/features/friends/components/ExchangeResultLayer";
+import { ScanFallback } from "@/features/friends/components/ScanFallback";
 import { MeishiCard } from "@/features/meishi/components/MeishiCard";
 import { MeishiSnapshotImage } from "@/features/meishi/components/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";

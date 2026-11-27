@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ExchangeQueuedOverlay } from "@/components/social/ExchangeQueuedOverlay";
-import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
+import { ExchangeQueuedOverlay } from "@/features/friends/components/ExchangeQueuedOverlay";
+import { ExchangeSuccessOverlay } from "@/features/friends/components/ExchangeSuccessOverlay";
 import { FriendThanksSheet } from "@/features/friend-thanks/components/FriendThanksSheet";
 import { PostExchangeRecordSheet } from "@/features/exchange-records/components/PostExchangeRecordSheet";
 import { alert } from "@/lib/dialog";

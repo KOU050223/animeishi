@@ -19,7 +19,7 @@ import type { PublicProfile } from "@/features/user/publicProfile";
 import { publicProfileQueries } from "@/lib/queries/publicProfile";
 import { useThemeColors } from "@/lib/theme";
 import { useFriends } from "@/features/friends/useFriends";
-import { CommonPoints } from "./CommonPoints";
+import { CommonPoints } from "@/features/users/components/CommonPoints";
 
 export type ExchangeSuccessOverlayProps = {
   /** 交換相手のユーザー ID。 */
