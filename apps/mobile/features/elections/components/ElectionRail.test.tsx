@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
-import { ElectionRail } from "@/components/ElectionRail";
+import { ElectionRail } from "@/features/elections/components/ElectionRail";
 import type { ElectionListItem } from "@/features/elections/useElections";
 
 // API・認証の振る舞いは features/elections/useElections の結合部なので、ここではフックの
