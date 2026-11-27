@@ -13,7 +13,7 @@
 | アプリ名 | アニ名刺（英語圏: Animeishi） |
 | プライバシーポリシー URL | https://animeishi.uomi.dev/privacy |
 | 利用規約 URL | https://animeishi.uomi.dev/terms（App Store は標準 EULA、Play Console の各所やフッター参照用） |
-| サポート URL | https://animeishi.uomi.dev/support（`apps/mobile/app/support.tsx`。未ログイン閲覧可。連絡先メールは `support@uomi.dev`（`apps/mobile/features/legal/operator.ts`）） |
+| サポート URL | https://animeishi.uomi.dev/support（`apps/mobile/features/legal/screens/SupportScreen.tsx`。未ログイン閲覧可。連絡先メールは `support@uomi.dev`（`apps/mobile/features/legal/operator.ts`）） |
 | カテゴリ | App Store: エンターテイメント（主）/ ソーシャルネットワーキング（副）。Play: エンターテイメント |
 
 > dアニメストアからの視聴履歴取り込みは v1.0 からネイティブでも有効（#751。#158 の無効化を戻す）。
@@ -28,7 +28,7 @@ App Store の年齢レーティング質問票は `store.config.json` の `advis
 | --- | --- | --- |
 | ユーザー生成コンテンツ（UGC） | **あり（Yes）** | ユーザー名・bio・名言・プロフィール画像・名刺が他ユーザーに公開される。通報・ブロックは実装済み（導線は下の Review Notes 参照）。 |
 | メッセージ・チャット | なし | アプリ内にユーザー間メッセージ機能はない。 |
-| 制限なしの Web アクセス | なし | アプリ内に任意 URL を自由に閲覧するブラウザ機能はない。dアニメ取り込みの WebView は遷移先を dアニメストアと dアカウント認証（`*.smt.docomo.ne.jp`）の docomo ドメインに限定し、それ以外のドメインは外部ブラウザで開く（`apps/mobile/app/danime-import.native.tsx`・`apps/mobile/features/import/webviewAllowlist.ts`、#751）ため `unrestrictedWebAccess: false` とした。 |
+| 制限なしの Web アクセス | なし | アプリ内に任意 URL を自由に閲覧するブラウザ機能はない。dアニメ取り込みの WebView は遷移先を dアニメストアと dアカウント認証（`*.smt.docomo.ne.jp`）の docomo ドメインに限定し、それ以外のドメインは外部ブラウザで開く（`apps/mobile/features/import/screens/DanimeImportNativeScreen.tsx`・`apps/mobile/features/import/webviewAllowlist.ts`、#751）ため `unrestrictedWebAccess: false` とした。 |
 | 暴力（カートゥーン/ファンタジー）・成熟/示唆的・性的コンテンツ・ホラー | INFREQUENT_OR_MILD | Annict 作品カタログに全ジャンルの作品が含まれ、キービジュアル（サムネイル）を表示するため。実コンテンツは作品名・ポスター画像のみ。 |
 | その他（アルコール/薬物・ギャンブル・医療情報・下品なユーモア・リアルな暴力等） | NONE | 該当機能なし。 |
 | 広告 | なし | 広告表示なし。 |
@@ -205,7 +205,7 @@ Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Clo
 
 提出候補である EAS `preview` と `production` はどちらも `pk_live_` Clerk publishable key を使う（`apps/mobile/eas.json`）。Google ログインは明示 override がない場合 `pk_test_` のときだけ有効で、両 EAS profile に `EXPO_PUBLIC_FEATURE_GOOGLE_SIGN_IN` の true override はない（`apps/mobile/lib/featureFlags/googleSignIn.ts`）。したがって提出候補では表示されない。
 
-ネイティブのパスキーは `apps/mobile/lib/featureFlags/passkey.native.ts` が常に `false` を返し、Wallet も EAS env で有効化されていない。認証画面の Google ボタンおよびパスキー表示はそれぞれこのフラグに従う。確認根拠: `apps/mobile/lib/featureFlags/index.ts`、`apps/mobile/app/(auth)/sign-in.tsx`、`apps/mobile/app/(auth)/sign-up.tsx`、`apps/mobile/features/me/components/PasskeySection.tsx`。このため、production / preview にサードパーティログインが表示される経路は見つからなかった。なお dアニメ取り込みは #751 でネイティブでも既定有効だが、dアカウントのログインはアプリの認証ではなく取り込み画面の WebView 内で docomo 側が完結する処理のため、4.8（サードパーティログイン手段）には該当しない。
+ネイティブのパスキーは `apps/mobile/lib/featureFlags/passkey.native.ts` が常に `false` を返し、Wallet も EAS env で有効化されていない。認証画面の Google ボタンおよびパスキー表示はそれぞれこのフラグに従う。確認根拠: `apps/mobile/lib/featureFlags/index.ts`、`apps/mobile/features/auth/screens/SignInScreen.tsx`、`apps/mobile/features/auth/screens/SignUpScreen.tsx`、`apps/mobile/features/me/components/PasskeySection.tsx`。このため、production / preview にサードパーティログインが表示される経路は見つからなかった。なお dアニメ取り込みは #751 でネイティブでも既定有効だが、dアカウントのログインはアプリの認証ではなく取り込み画面の WebView 内で docomo 側が完結する処理のため、4.8（サードパーティログイン手段）には該当しない。
 
 ## App Privacy 回答案（App Store Connect）
 
@@ -247,7 +247,7 @@ Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Clo
 - dアニメ取り込みの作品タイトル送信は #751 で iOS でも有効になったため、User Content → Other User Content（App Functionality）の申告対象に含めた。Apple Wallet 追加は iOS ではフラグ無効のため引き続き申告対象外。
 - AI 視聴傾向分析・おすすめ（#752）が Workers AI に送る項目（作品タイトル・視聴ステータス・作品評価・選択ジャンルと、そこからの集計値）は、上表の User Content → Other User Content（評価・視聴ステータス・ジャンル）に含まれ、新しい申告項目は要らない。送信先は Cloudflare（ホスティングと同じサービスプロバイダ）で、Cloudflare は Workers AI の入出力をモデル学習に使わず、推論後は原則として保持しない（[Workers AI Data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/)）。生成結果は利用者ごとに最新 1 件を D1 に保存する（`apps/api/src/features/analysis/`。24h キャッシュは再利用の判定で、削除期限ではない）。
 
-### プライバシーポリシーとの照合結果（`apps/mobile/app/privacy.tsx`）
+### プライバシーポリシーとの照合結果（`apps/mobile/features/legal/screens/PrivacyScreen.tsx`）
 
 上表の内容はポリシー第2条・第4条に記載があり一致する。#590 で以下のずれを解消済み:
 

@@ -613,7 +613,7 @@ effect 二重実行で `prompt_view` が倍計上されうるため）。連携�
 | `qr_exchange_start` | `app/(tabs)/qr.tsx` のフォーカス時（名刺交換画面への進入） |
 | `qr_scan_start` | スキャンが開始された時（「スキャン」タブへの切替、またはスキャン状態のままタブへ再訪。スキャン中の再タップは送らない） |
 | `meishi_share` | マイ QR が表示された時（名刺の共有面。タブ再訪でも発火） |
-| `meishi_save` | `app/meishi/edit.tsx` の保存ボタン |
+| `meishi_save` | `features/meishi/screens/MeishiEditScreen.tsx` の保存ボタン |
 | `tier_share_open` | Tier 表 / キャラクター Tier 表の「共有」ボタン |
 | `tier_share` | 方式の選択時（native は options.native.ts の URL/画像選択、Web は共有モーダル内の X/コピー/画像ボタン。Web のモーダル表示自体では送らない） |
 | `tier_image_generate` | Web 共有モーダルの「画像を生成」 |
@@ -663,7 +663,7 @@ effect 二重実行で `prompt_view` が倍計上されうるため）。連携�
    - 同一イベント名で段階を分ける計測（ファネル等）は
      `{ rateLimitKey: "<name>:<step>" }` でステップ別枠にする
 3. 必要なら `TRACK_EVENT_KEYS` に属性キーを追加する
-4. 新しい種類のデータを送るなら `app/privacy.tsx` と `docs/store-listing.md` の申告を見直す
+4. 新しい種類のデータを送るなら `features/legal/screens/PrivacyScreen.tsx` と `docs/store-listing.md` の申告を見直す
 
 ## 機能フラグ（PostHog、issue #758）
 
