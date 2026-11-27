@@ -95,7 +95,7 @@ issue の「決定（2026-11-24）」コメントに従って実装した。
   `TierListScope`（`{kind:"season",season}` / `{kind:"character",annictWorkId}` /
   `{kind:"custom",id}`）で分け、シーズン切替や別作品でキャッシュが
   混ざらないようにする
-- 編集画面は `app/tier-list.tsx` 1 画面に統合し、kind はルート
+- 編集画面は `features/tier-lists/screens/TierListScreen.tsx` 1 画面に統合し、kind はルート
   パラメータで受ける（`?kind=character&workId=..` /
   `?kind=custom&id=..`、既定は season）。kind ごとの違いは
   「候補の出し方」だけなので、盤面・保存・共有の流れは共通のまま
