@@ -2,7 +2,7 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test-utils/queryClient";
-import { ExchangeRecordSection } from "@/components/social/ExchangeRecordSection";
+import { ExchangeRecordSection } from "@/features/exchange-records/components/ExchangeRecordSection";
 import {
   useExchangeRecordsForFriend,
   useCreateExchangeRecord,
@@ -46,7 +46,7 @@ jest.mock("@/lib/authenticatedImage", () => ({
 
 // シート自体（Modal・位置解決・イベント候補）の挙動は別テストの責務なので、
 // onSubmit を叩くだけのスタブに差し替える。
-jest.mock("@/components/social/ExchangeRecordSheet", () => {
+jest.mock("@/features/exchange-records/components/ExchangeRecordSheet", () => {
   const React = jest.requireActual<typeof import("react")>("react");
   const { Pressable } =
     jest.requireActual<typeof import("react-native")>("react-native");

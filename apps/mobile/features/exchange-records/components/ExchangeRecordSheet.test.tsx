@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react-native";
-import { ExchangeRecordSheet } from "@/components/social/ExchangeRecordSheet";
+import { ExchangeRecordSheet } from "@/features/exchange-records/components/ExchangeRecordSheet";
 import { featureFlags } from "@/lib/featureFlags";
 import { useEventList } from "@/features/events/useEvents";
 

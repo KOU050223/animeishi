@@ -28,8 +28,8 @@ import {
   type ThanksPresetKey,
 } from "@/features/friend-thanks/useFriendThanks";
 import { FriendUpdatesSection } from "@/components/social/FriendUpdatesSection";
-import { ExchangeRecordSection } from "@/components/social/ExchangeRecordSection";
-import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";
+import { ExchangeRecordSection } from "@/features/exchange-records/components/ExchangeRecordSection";
+import { PostExchangeRecordSheet } from "@/features/exchange-records/components/PostExchangeRecordSheet";
 import { CommonPoints } from "@/features/users/components/CommonPoints";
 import { GuestSignUpCta } from "@/features/auth/components/GuestSignUpCta";
 import { MeishiSnapshotImage } from "@/features/meishi/components/MeishiSnapshotImage";
