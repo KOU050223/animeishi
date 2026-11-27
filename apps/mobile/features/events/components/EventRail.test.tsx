@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
-import { EventRail } from "@/components/EventRail";
+import { EventRail } from "@/features/events/components/EventRail";
 import type { EventListItem } from "@/features/events/useEvents";
 
 // API・認証の振る舞いは features/events/useEvents の結合部なので、ここではフックの

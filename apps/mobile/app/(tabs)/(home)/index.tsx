@@ -20,7 +20,7 @@ import { MeishiCompletionCard } from "@/features/meishi/components/MeishiComplet
 import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
 import { ArticleRail } from "@/features/articles/components/ArticleRail";
 import { ElectionRail } from "@/features/elections/components/ElectionRail";
-import { EventRail } from "@/components/EventRail";
+import { EventRail } from "@/features/events/components/EventRail";
 import { ACTIVITY_FEED_QUERY_KEY } from "@/features/feed/useActivityFeed";
 import { ARTICLES_QUERY_KEY } from "@/features/articles/useArticles";
 import { ELECTIONS_QUERY_KEY } from "@/features/elections/useElections";
