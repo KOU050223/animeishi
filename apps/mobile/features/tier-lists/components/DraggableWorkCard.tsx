@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   ActivityIndicator,
   Text,
@@ -37,24 +37,30 @@ export type TierMoveDestination = {
   label: string;
 };
 
+// コールバックがアイテムの id（や item）を引数に取るのは、親が全カードで同じ
+// 関数を渡せるようにするため。カードごとに `() => f(item.id)` を作って渡すと
+// 盤面の再レンダリング（ドラッグ中のハイライト切替）のたびに全カードの
+// ジェスチャが作り直され、カード数百枚では 1 回数百 ms メインスレッドが止まる。
 export type DraggableWorkCardProps = {
   item: TierItem;
+  /** 今いる tier のキー（null は未分類トレイ）。移動先一覧から除くのに使う。 */
+  currentTierKey: string | null;
   /** ドラッグ開始時。呼び出し側はこのアイテムを「移動中」として扱う。 */
-  onDragStart: () => void;
+  onDragStart: (itemId: number) => void;
   /** ドラッグ中の指の位置（ウィンドウ座標）。ドロップ先のハイライトに使う。 */
-  onDragMove: (x: number, y: number) => void;
+  onDragMove: (itemId: number, x: number, y: number) => void;
   /** 指を離したときの位置（ウィンドウ座標）。ここでドロップ先を確定する。 */
-  onDragEnd: (x: number, y: number) => void;
+  onDragEnd: (itemId: number, x: number, y: number) => void;
   /**
    * onEnd を通らずにジェスチャが終わったとき（別ジェスチャに奪われた等の
    * キャンセル）。ドロップは確定せず、親側のドラッグ中フラグだけ戻す。
    */
-  onDragCancel: () => void;
-  /** 支援技術経由で提示する移動先一覧（現在位置は呼び出し側で除く）。 */
+  onDragCancel: (itemId: number) => void;
+  /** 支援技術経由で提示する移動先一覧（現在位置はカード側で除く）。 */
   moveDestinations: TierMoveDestination[];
   /** アクセシビリティアクションで移動先が選ばれたとき。 */
-  onMove: (tierKey: string | null) => void;
-  onPress?: (() => void) | undefined;
+  onMove: (itemId: number, tierKey: string | null) => void;
+  onPress?: ((item: TierItem) => void) | undefined;
   /**
    * ドラッグ中に盤面が自動スクロールした累積量（px）。行が画面上を流れても
    * カードが指に追従するよう translateY に加算する。全カードで共有する値の
@@ -84,13 +90,14 @@ export type DraggableWorkCardProps = {
  * 位置判定（どの行に落ちたか）はこのコンポーネントの責務ではない。
  * カードは「指の絶対座標」だけを報告し、行の矩形を知っている親が決める。
  */
-export function DraggableWorkCard({
+export const DraggableWorkCard = memo(function DraggableWorkCard({
   item,
+  currentTierKey,
   onDragStart,
   onDragMove,
   onDragEnd,
   onDragCancel,
-  moveDestinations,
+  moveDestinations: allMoveDestinations,
   onMove,
   onPress,
   scrollCompensation,
@@ -119,17 +126,17 @@ export function DraggableWorkCard({
         .onStart(() => {
           compensationFolded.set(false);
           isDragging.set(true);
-          scheduleOnRN(onDragStart);
+          scheduleOnRN(onDragStart, item.id);
         })
         .onUpdate((e) => {
           translateX.set(e.translationX);
           translateY.set(e.translationY);
-          scheduleOnRN(onDragMove, e.absoluteX, e.absoluteY);
+          scheduleOnRN(onDragMove, item.id, e.absoluteX, e.absoluteY);
         })
         .onEnd((e) => {
           // 配置の確定は JS 側。カードは元位置へバネで戻し、
           // 実際の再配置は親が state を更新して再レンダリングする。
-          scheduleOnRN(onDragEnd, e.absoluteX, e.absoluteY);
+          scheduleOnRN(onDragEnd, item.id, e.absoluteX, e.absoluteY);
           // 自動スクロールの補正を translateY に畳み込んでから戻る。
           // 補正は isDragging が false になるとスタイルから外れるため、
           // 畳まないと戻り始めに補正分だけ跳んで見える。
@@ -153,7 +160,7 @@ export function DraggableWorkCard({
           // 親側のドラッグ中フラグ（スクロール停止・zIndex 制御）も戻す。
           if (isDragging.value) {
             isDragging.set(false);
-            scheduleOnRN(onDragCancel);
+            scheduleOnRN(onDragCancel, item.id);
           }
           // onEnd を通らなかったキャンセル経路でも同じく補正を畳み込む。
           if (
@@ -186,9 +193,9 @@ export function DraggableWorkCard({
   const tap = useMemo(
     () =>
       Gesture.Tap().onEnd((_event, success) => {
-        if (success && onPress) scheduleOnRN(onPress);
+        if (success && onPress) scheduleOnRN(onPress, item);
       }),
-    [onPress],
+    [onPress, item],
   );
   const gesture = useMemo(
     () => (onPress ? Gesture.Race(pan, tap) : pan),
@@ -212,6 +219,11 @@ export function DraggableWorkCard({
     zIndex: isDragging.value ? 100 : 0,
   }));
 
+  // 今いる場所は移動先に出さない（選んでも何も起きないため）
+  const moveDestinations = allMoveDestinations.filter(
+    (d) => d.tierKey !== currentTierKey,
+  );
+
   // ドラッグ&ドロップはスイッチ操作や VoiceOver では使えないため、
   // 移動先を選ぶだけのカスタムアクションを各カードに登録する。
   const accessibilityActions = [
@@ -231,12 +243,12 @@ export function DraggableWorkCard({
 
   const handleAccessibilityAction = (event: AccessibilityActionEvent) => {
     if (event.nativeEvent.actionName === "activate") {
-      onPress?.();
+      onPress?.(item);
       return;
     }
     const index = Number(event.nativeEvent.actionName.slice("move-".length));
     const dest = moveDestinations[index];
-    if (dest) onMove(dest.tierKey);
+    if (dest) onMove(item.id, dest.tierKey);
   };
 
   // 行内の挿入位置判定用に自分の矩形をレジストリへ登録する。
@@ -275,63 +287,75 @@ export function DraggableWorkCard({
 
   return (
     <GestureDetector gesture={gesture}>
+      {/* ボタンのロールや読み上げ名はジェスチャを付ける外側ではなく内側の View に
+          持たせる。RNGH の Web 実装は role="button" の View では pointer capture を
+          しないため、指（マウス）がカードの外に出た時点で pointerup を受け取れず、
+          ドラッグが終わらないまま取り残されて盤面全体が操作不能になる。 */}
       <Animated.View
         ref={cardRef}
         onLayout={registry ? measureCard : undefined}
         style={[styles.card, animatedStyle]}
-        accessibilityLabel={
-          onPress
-            ? t("{{title}} の詳細を開く", { title: item.title })
-            : t("{{title}}（長押しでドラッグ）", { title: item.title })
-        }
-        accessible={onPress ? true : undefined}
-        accessibilityRole={onPress ? "button" : undefined}
-        focusable={onPress ? true : undefined}
-        onKeyDown={
-          onPress
-            ? (event) => {
-                if (
-                  event.nativeEvent.key === "Enter" ||
-                  event.nativeEvent.key === " "
-                ) {
-                  event.preventDefault();
-                  onPress();
-                }
-              }
-            : undefined
-        }
-        accessibilityActions={accessibilityActions}
-        onAccessibilityAction={handleAccessibilityAction}
         testID={`tier-card-${item.id}`}
       >
-        <WorkImage
-          uri={item.imageUrl}
-          style={styles.cardImage}
-          // 画像が無い・読み込みに失敗したカード。同じ灰色のままだと
-          // 読み込み中と区別が付かないため、「画像なし」と明記する（issue #606）。
-          placeholder={
-            <View style={styles.cardImageFallback}>
-              <Ionicons
-                name="image-outline"
-                size={20}
-                color={colors.textMuted}
-              />
-              <Text style={styles.cardImageFallbackLabel}>{t("画像なし")}</Text>
-            </View>
+        <View
+          style={{ flex: 1 }}
+          accessibilityLabel={
+            onPress
+              ? t("{{title}} の詳細を開く", { title: item.title })
+              : t("{{title}}（長押しでドラッグ）", { title: item.title })
           }
-          loadingPlaceholder={
-            <View style={styles.cardImageFallback}>
-              <ActivityIndicator size="small" color={colors.textMuted} />
-            </View>
+          accessible={onPress ? true : undefined}
+          accessibilityRole={onPress ? "button" : undefined}
+          focusable={onPress ? true : undefined}
+          onKeyDown={
+            onPress
+              ? (event) => {
+                  if (
+                    event.nativeEvent.key === "Enter" ||
+                    event.nativeEvent.key === " "
+                  ) {
+                    event.preventDefault();
+                    onPress(item);
+                  }
+                }
+              : undefined
           }
-          accessibilityLabel={t("{{title}}のサムネイル", { title: item.title })}
-        />
-        <View style={styles.cardLabel}>
-          <Text style={styles.cardLabelText} numberOfLines={2}>
-            {item.title}
-          </Text>
+          accessibilityActions={accessibilityActions}
+          onAccessibilityAction={handleAccessibilityAction}
+        >
+          <WorkImage
+            uri={item.imageUrl}
+            style={styles.cardImage}
+            // 画像が無い・読み込みに失敗したカード。同じ灰色のままだと
+            // 読み込み中と区別が付かないため、「画像なし」と明記する（issue #606）。
+            placeholder={
+              <View style={styles.cardImageFallback}>
+                <Ionicons
+                  name="image-outline"
+                  size={20}
+                  color={colors.textMuted}
+                />
+                <Text style={styles.cardImageFallbackLabel}>
+                  {t("画像なし")}
+                </Text>
+              </View>
+            }
+            loadingPlaceholder={
+              <View style={styles.cardImageFallback}>
+                <ActivityIndicator size="small" color={colors.textMuted} />
+              </View>
+            }
+            accessibilityLabel={t("{{title}}のサムネイル", {
+              title: item.title,
+            })}
+          />
+          <View style={styles.cardLabel}>
+            <Text style={styles.cardLabelText} numberOfLines={2}>
+              {item.title}
+            </Text>
+          </View>
         </View>
       </Animated.View>
     </GestureDetector>
   );
-}
+});
