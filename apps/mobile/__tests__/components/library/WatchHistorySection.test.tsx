@@ -78,7 +78,7 @@ jest.mock("@/features/favorites/useFavorites", () => ({
 
 // 「リストに追加」シートは API 取得を伴うためスタブにする。対象作品を開いた
 // ことだけ検証する（シート自体の振る舞いは components/work-list のテスト側）。
-jest.mock("@/components/work-list", () => {
+jest.mock("@/features/work-lists/components", () => {
   const ActualReact = jest.requireActual<typeof import("react")>("react");
   const { Pressable, Text } =
     jest.requireActual<typeof import("react-native")>("react-native");

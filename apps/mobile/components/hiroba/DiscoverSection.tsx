@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SegmentedControl } from "@/components/ui";
-import { DiscoverWorkLists } from "./DiscoverWorkLists";
+import { DiscoverWorkLists } from "@/features/work-lists/components/DiscoverWorkLists";
 import { DiscoverTierLists } from "@/features/tier-lists/components/DiscoverTierLists";
 import { DiscoverUsers } from "./DiscoverUsers";
 

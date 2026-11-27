@@ -14,7 +14,7 @@ import { useAuth } from "@clerk/expo";
 import { BackButton } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
-import { WorkListReportSheet } from "@/components/work-list/WorkListReportSheet";
+import { WorkListReportSheet } from "@/features/work-lists/components/WorkListReportSheet";
 import { alert } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";
 import { useThemeColors } from "@/lib/theme";

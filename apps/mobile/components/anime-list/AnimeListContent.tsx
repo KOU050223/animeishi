@@ -35,7 +35,7 @@ import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
 import {
   AddToWorkListButton,
   AddToWorkListSheet,
-} from "@/components/work-list";
+} from "@/features/work-lists/components";
 import { FavoriteButton } from "./FavoriteButton";
 import { WatchedStamp } from "./WatchedStamp";
 import { SeasonFilter } from "./SeasonFilter";

@@ -43,7 +43,7 @@ import type { WorkDetailSheetTarget } from "@/components/anime-list/AnimeWorkDet
 import {
   AddToWorkListButton,
   AddToWorkListSheet,
-} from "@/components/work-list";
+} from "@/features/work-lists/components";
 import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
 import {
   GRID_GAP,
