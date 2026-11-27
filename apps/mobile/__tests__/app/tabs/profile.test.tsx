@@ -45,14 +45,14 @@ jest.mock("@/features/annict/components/AnnictConnectionCard", () => ({
   },
 }));
 
-jest.mock("@/components/profile/AnnictConnectionStatusRow", () => ({
+jest.mock("@/features/me/components/AnnictConnectionStatusRow", () => ({
   AnnictConnectionStatusRow: () => {
     const { Text } = require("react-native");
     return <Text>Annict連携ステータス</Text>;
   },
 }));
 
-jest.mock("@/components/AppVersionFooter", () => ({
+jest.mock("@/features/me/components/AppVersionFooter", () => ({
   AppVersionFooter: () => {
     const { Text } = require("react-native");
     return <Text>バージョン情報</Text>;

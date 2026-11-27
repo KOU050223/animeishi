@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react-native";
-import { AppVersionFooter } from "@/components/AppVersionFooter";
+import { AppVersionFooter } from "@/features/me/components/AppVersionFooter";
 import type { AppInfo } from "@/lib/appInfo";
 
 const mockGetAppInfo = jest.fn<AppInfo, []>();

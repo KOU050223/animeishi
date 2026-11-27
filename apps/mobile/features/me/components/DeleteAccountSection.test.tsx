@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { DeleteAccountSection } from "@/components/profile/DeleteAccountSection";
+import { DeleteAccountSection } from "@/features/me/components/DeleteAccountSection";
 
 const mockPush = jest.fn();
 

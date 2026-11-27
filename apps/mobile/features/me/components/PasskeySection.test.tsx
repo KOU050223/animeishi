@@ -5,7 +5,7 @@ import {
   fireEvent,
   waitFor,
 } from "@testing-library/react-native";
-import { PasskeySection } from "@/components/profile/PasskeySection";
+import { PasskeySection } from "@/features/me/components/PasskeySection";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 // issue #181: プロフィール画面のパスキー登録セクション（Web のみ表示）。
