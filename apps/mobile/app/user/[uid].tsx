@@ -21,8 +21,8 @@ import { publicProfileQueries } from "@/lib/queries/publicProfile";
 import type { PublicProfile } from "@/features/user/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { FriendNoteSection } from "@/components/social/FriendNoteSection";
-import { FriendThanksSection } from "@/components/social/FriendThanksSection";
-import { FriendThanksSheet } from "@/components/social/FriendThanksSheet";
+import { FriendThanksSection } from "@/features/friend-thanks/components/FriendThanksSection";
+import { FriendThanksSheet } from "@/features/friend-thanks/components/FriendThanksSheet";
 import {
   useSendFriendThanks,
   type ThanksPresetKey,

@@ -8,7 +8,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react-native";
-import { FriendThanksSection } from "@/components/social/FriendThanksSection";
+import { FriendThanksSection } from "@/features/friend-thanks/components/FriendThanksSection";
 
 const mockSendMutate = jest.fn();
 const mockDeleteMutateAsync = jest.fn();
