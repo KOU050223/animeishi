@@ -7,7 +7,10 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useTranslation } from "react-i18next";
-import { MeishiCard, type MeishiCardProps } from "@/components/MeishiCard";
+import {
+  MeishiCard,
+  type MeishiCardProps,
+} from "@/features/meishi/components/MeishiCard";
 import { resolveMeishiDocument } from "@/features/meishi/templates";
 
 export function ProfileMeishiPreview(props: MeishiCardProps) {

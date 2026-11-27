@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { ProfileMeishiPreview } from "./ProfileMeishiPreview.web";
 import { ProfileMeishiHint } from "./ProfileMeishiHint.web";
 
-jest.mock("@/components/MeishiCard", () => ({
+jest.mock("@/features/meishi/components/MeishiCard", () => ({
   MeishiCard: () => {
     const { Text } = require("react-native");
     return <Text>名刺</Text>;

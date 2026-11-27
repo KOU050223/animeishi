@@ -95,7 +95,7 @@ jest.mock("@/features/meishi/useMeishiLibrary", () => ({
   useMeishiLibrary: () => ({ defaultCard: null }),
 }));
 
-jest.mock("@/components/MeishiCard", () => ({
+jest.mock("@/features/meishi/components/MeishiCard", () => ({
   MeishiCard: () => {
     const { View } = require("react-native");
     return require("react").createElement(View, { testID: "my-meishi" });

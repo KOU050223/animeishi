@@ -32,7 +32,7 @@ import { ExchangeRecordSection } from "@/components/social/ExchangeRecordSection
 import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";
 import { CommonPoints } from "@/components/social/CommonPoints";
 import { GuestSignUpCta } from "@/features/auth/components/GuestSignUpCta";
-import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
+import { MeishiSnapshotImage } from "@/features/meishi/components/MeishiSnapshotImage";
 import { saveReceivedMeishi } from "@/features/received-meishi";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";

@@ -3,7 +3,7 @@ import { StyleSheet, View, type ViewInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
-import { MeishiPrintSnapshot } from "@/components/meishi/MeishiPrintSnapshot";
+import { MeishiPrintSnapshot } from "@/features/meishi/components/MeishiPrintSnapshot";
 import { alert } from "@/lib/dialog";
 import { resolveMeishiDocument } from "../templates";
 import { runMeishiPrintExport } from "./capture";

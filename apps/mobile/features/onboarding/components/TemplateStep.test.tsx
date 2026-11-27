@@ -3,7 +3,7 @@ import { act, render, screen } from "@testing-library/react-native";
 import i18n from "@/lib/i18n";
 import { TemplateStep } from "./TemplateStep";
 
-jest.mock("@/components/meishi/MeishiRenderer", () => ({
+jest.mock("@/features/meishi/components/MeishiRenderer", () => ({
   MeishiRenderer: () => null,
 }));
 

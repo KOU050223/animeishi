@@ -1,6 +1,6 @@
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { PropertyPanel } from "@/components/meishi/PropertyPanel";
+import { PropertyPanel } from "@/features/meishi/components/PropertyPanel";
 import i18n from "@/lib/i18n";
 import type {
   ImageElement,

@@ -30,8 +30,8 @@ import {
   type ExchangeResult,
 } from "@/components/social/ExchangeResultLayer";
 import { ScanFallback } from "@/components/social/ScanFallback";
-import { MeishiCard } from "@/components/MeishiCard";
-import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
+import { MeishiCard } from "@/features/meishi/components/MeishiCard";
+import { MeishiSnapshotImage } from "@/features/meishi/components/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { publicProfileQueries } from "@/lib/queries/publicProfile";
 import { shareTierListUrl } from "@/features/tier-lists/share";

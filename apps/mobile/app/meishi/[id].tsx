@@ -16,7 +16,7 @@ import {
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
-import { MeishiCard } from "@/components/MeishiCard";
+import { MeishiCard } from "@/features/meishi/components/MeishiCard";
 import { BackButton } from "@/components/ui";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useMeishiLibrary } from "@/features/meishi/useMeishiLibrary";

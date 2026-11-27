@@ -22,8 +22,8 @@ import { useFriendRequests } from "@/features/friend-requests/useFriendRequests"
 import type { FriendRequestItem } from "@/features/friend-requests/useFriendRequests";
 import { alert, confirm } from "@/lib/dialog";
 import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
-import { MeishiCard } from "@/components/MeishiCard";
-import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
+import { MeishiCard } from "@/features/meishi/components/MeishiCard";
+import { MeishiSnapshotImage } from "@/features/meishi/components/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";
 
 // 交換日の表示（「2026年11月1日」形式）。解釈できない値は空文字。

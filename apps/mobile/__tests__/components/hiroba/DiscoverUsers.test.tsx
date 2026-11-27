@@ -11,7 +11,7 @@ import { alert } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";
 
 const mockMeishiCard = jest.fn((_props: unknown): React.ReactNode => null);
-jest.mock("@/components/MeishiCard", () => ({
+jest.mock("@/features/meishi/components/MeishiCard", () => ({
   MeishiCard: (props: unknown) => mockMeishiCard(props),
 }));
 jest.mock("@/lib/profileUrl", () => ({

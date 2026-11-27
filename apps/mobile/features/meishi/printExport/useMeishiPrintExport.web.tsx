@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { StyleSheet, View, type ViewInstance } from "react-native";
 import { useTranslation } from "react-i18next";
-import { MeishiPrintSnapshot } from "@/components/meishi/MeishiPrintSnapshot";
+import { MeishiPrintSnapshot } from "@/features/meishi/components/MeishiPrintSnapshot";
 import { alert } from "@/lib/dialog";
 import {
   captureTierListImageFile,

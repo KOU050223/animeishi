@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { AnimeImagePicker } from "@/components/meishi/AnimeImagePicker";
+import { AnimeImagePicker } from "@/features/meishi/components/AnimeImagePicker";
 import { ApiRequestError } from "@/lib/apiError";
 
 // 作品検索は API（Annict プロキシ）へ行くため、フックをモックして

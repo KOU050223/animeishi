@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { StyleSheet, View, type ViewInstance } from "react-native";
 import { useTranslation } from "react-i18next";
-import { MeishiShareSnapshot } from "@/components/meishi/MeishiShareSnapshot";
+import { MeishiShareSnapshot } from "@/features/meishi/components/MeishiShareSnapshot";
 import { useThemeColors } from "@/lib/theme";
 import { resolveMeishiDocument } from "../templates";
 import { runMeishiImageShare } from "./capture";

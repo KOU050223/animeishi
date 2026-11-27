@@ -195,7 +195,7 @@ jest.mock("@/lib/profileUrl", () => ({
 // 名刺カードの描画内容ではなく「どの document / プロフィールが渡ったか」を
 // 検証するため props を記録するスタブに差し替える。
 const mockMeishiCardProps = jest.fn();
-jest.mock("@/components/MeishiCard", () => ({
+jest.mock("@/features/meishi/components/MeishiCard", () => ({
   MeishiCard: (props: unknown) => {
     mockMeishiCardProps(props);
     const { Text } = require("react-native");

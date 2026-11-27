@@ -2,7 +2,7 @@ import { FlatList, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button } from "@/components/ui";
-import { MeishiRenderer } from "@/components/meishi/MeishiRenderer";
+import { MeishiRenderer } from "@/features/meishi/components/MeishiRenderer";
 import { selectionAccessibilityProps } from "@/lib/accessibility";
 import { MEISHI_TEMPLATES } from "@/features/meishi/templates";
 import { useThemeColors } from "@/lib/theme";

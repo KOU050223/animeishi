@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
-import { MeishiCompletionCard } from "@/components/MeishiCompletionCard";
+import { MeishiCompletionCard } from "@/features/meishi/components/MeishiCompletionCard";
 import type { MeishiCompletion } from "@/features/meishi/useMeishiCompletion";
 
 // 判定ロジックは features/meishi/completion の単体テスト側で検証する。

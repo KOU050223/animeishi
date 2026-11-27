@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet } from "react-native";
 import { render, screen } from "@testing-library/react-native";
-import { ElementRenderer } from "@/components/meishi/elements/ElementRenderer";
+import { ElementRenderer } from "@/features/meishi/components/elements/ElementRenderer";
 import type {
   AchievementBadgeElement,
   AnimeCollageElement,

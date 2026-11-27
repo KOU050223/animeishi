@@ -64,7 +64,7 @@ jest.mock("@/components/FriendStoryRail", () => ({
 
 // 完成度カードの挙動は MeishiCompletionCard.test.tsx 側で検証する。
 // 実物を描画すると useProfile 等のクエリが必要になるため、ここでは出ることだけ確認する。
-jest.mock("@/components/MeishiCompletionCard", () => ({
+jest.mock("@/features/meishi/components/MeishiCompletionCard", () => ({
   MeishiCompletionCard: () => {
     const { View } = require("react-native");
     return <View testID="meishi-completion-card" />;

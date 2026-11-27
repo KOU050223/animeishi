@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import { StyleSheet, View, type ViewInstance } from "react-native";
-import { MeishiShareSnapshot } from "@/components/meishi/MeishiShareSnapshot";
+import { MeishiShareSnapshot } from "@/features/meishi/components/MeishiShareSnapshot";
 import { apiFetch } from "@/lib/api";
 import { apiUrl } from "@/lib/apiUrl";
 import { resolveMeishiDocument } from "../templates";

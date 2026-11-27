@@ -5,7 +5,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { MeishiRenderer } from "./meishi/MeishiRenderer";
+import { MeishiRenderer } from "@/features/meishi/components/MeishiRenderer";
 import { resolveMeishiDocument } from "@/features/meishi/templates";
 import type {
   MeishiDocument,

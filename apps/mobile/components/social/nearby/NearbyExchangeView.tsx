@@ -3,7 +3,7 @@ import { Text, View } from "react-native";
 import { useIsFocused } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MeishiCard } from "@/components/MeishiCard";
+import { MeishiCard } from "@/features/meishi/components/MeishiCard";
 import {
   ExchangeResultLayer,
   type ExchangeResult,

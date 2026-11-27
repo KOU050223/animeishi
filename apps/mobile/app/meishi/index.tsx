@@ -11,7 +11,7 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
-import { MeishiCard } from "@/components/MeishiCard";
+import { MeishiCard } from "@/features/meishi/components/MeishiCard";
 import { BackButton } from "@/components/ui";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { confirm } from "@/lib/dialog";

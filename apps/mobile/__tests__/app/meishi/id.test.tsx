@@ -34,7 +34,7 @@ jest.mock("expo-router", () => ({
   },
 }));
 
-jest.mock("@/components/MeishiCard", () => ({
+jest.mock("@/features/meishi/components/MeishiCard", () => ({
   MeishiCard: () => {
     const { Text } = require("react-native");
     return <Text>名刺本体</Text>;
