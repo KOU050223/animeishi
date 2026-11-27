@@ -184,7 +184,7 @@ jest.mock("@/lib/dialog", () => ({
   ) => mockConfirm(title, message, onConfirm, options),
   alert: (...args: unknown[]) => mockAlert(...args),
 }));
-jest.mock("@/components/AnnictSoftGate", () => ({
+jest.mock("@/features/annict/components/AnnictSoftGate", () => ({
   AnnictSoftGate: () => null,
 }));
 jest.mock("@/components/anime-list/WorkThumbnail", () => ({

@@ -38,7 +38,7 @@ jest.mock("@/features/meishi/components/MeishiCard", () => ({
   },
 }));
 
-jest.mock("@/components/AnnictConnectionCard", () => ({
+jest.mock("@/features/annict/components/AnnictConnectionCard", () => ({
   AnnictConnectionCard: () => {
     const { Text } = require("react-native");
     return <Text>Annict連携</Text>;

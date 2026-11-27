@@ -50,7 +50,7 @@ jest.mock("@/lib/webUrl", () => ({
   webUrl: "https://web.test",
 }));
 
-jest.mock("@/components/AnnictSoftGate", () => {
+jest.mock("@/features/annict/components/AnnictSoftGate", () => {
   const ActualReact = require("react");
   const { View } = require("react-native");
   return {

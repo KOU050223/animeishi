@@ -23,7 +23,7 @@ import { GroupedList } from "@/components/ui/grouped-list";
 import type { GroupedListRow } from "@/components/ui/grouped-list";
 import { ProfileMeishiPreview } from "@/components/profile/ProfileMeishiPreview";
 import { ProfileMeishiHint } from "@/components/profile/ProfileMeishiHint";
-import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
+import { AnnictConnectionCard } from "@/features/annict/components/AnnictConnectionCard";
 import { AnnictConnectionStatusRow } from "@/components/profile/AnnictConnectionStatusRow";
 import { DeleteAccountSection } from "@/components/profile/DeleteAccountSection";
 import { MalAttribution } from "@/components/profile/MalAttribution";

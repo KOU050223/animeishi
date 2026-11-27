@@ -56,7 +56,7 @@ jest.mock("@/lib/dialog", () => ({ alert: jest.fn(), confirm: jest.fn() }));
 
 jest.mock("@/lib/events", () => ({ trackEvent: jest.fn() }));
 
-jest.mock("@/components/AnnictSoftGate", () => ({
+jest.mock("@/features/annict/components/AnnictSoftGate", () => ({
   AnnictSoftGate: () => null,
 }));
 

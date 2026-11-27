@@ -71,7 +71,7 @@ jest.mock("@/features/meishi/components/MeishiCompletionCard", () => ({
   },
 }));
 
-jest.mock("@/components/CurrentSeasonConnectCard", () => ({
+jest.mock("@/features/annict/components/CurrentSeasonConnectCard", () => ({
   CurrentSeasonConnectCard: () => {
     const { Text } = require("react-native");
     return <Text>Annict連携</Text>;

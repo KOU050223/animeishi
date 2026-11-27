@@ -56,7 +56,7 @@ import {
   useAnnictConnection,
   useAnnictTokenErrorPrompt,
 } from "@/features/annict";
-import { AnnictSoftGate } from "@/components/AnnictSoftGate";
+import { AnnictSoftGate } from "@/features/annict/components/AnnictSoftGate";
 import { trackEvent } from "@/lib/events";
 import { featureFlags } from "@/lib/featureFlags";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";

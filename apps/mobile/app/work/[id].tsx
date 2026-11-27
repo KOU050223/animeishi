@@ -3,7 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
-import { AnnictSoftGate } from "@/components/AnnictSoftGate";
+import { AnnictSoftGate } from "@/features/annict/components/AnnictSoftGate";
 import {
   WorkDetailHeader,
   WorkDetailInfo,

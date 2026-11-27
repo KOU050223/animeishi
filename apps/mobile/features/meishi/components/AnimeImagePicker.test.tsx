@@ -22,7 +22,7 @@ jest.mock("@/features/annict/useAnnictConnection", () => ({
   buildAnnictAuthHeader: async () => ({}),
 }));
 
-jest.mock("@/components/AnnictSoftGate", () => ({
+jest.mock("@/features/annict/components/AnnictSoftGate", () => ({
   AnnictSoftGate: (props: { testID?: string }) => {
     const { View } = require("react-native");
     return <View testID={props.testID} />;

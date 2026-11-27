@@ -20,7 +20,7 @@ import type {
   SortKey,
   SortOrder,
 } from "@/features/works/useAnimeList";
-import { AnnictSoftGate } from "@/components/AnnictSoftGate";
+import { AnnictSoftGate } from "@/features/annict/components/AnnictSoftGate";
 import {
   isAnnictRateLimitedError,
   isAnnictTokenError,

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { FlatList, Text, TouchableOpacity, View } from "react-native";
-import { CurrentSeasonConnectCard } from "@/components/CurrentSeasonConnectCard";
+import { CurrentSeasonConnectCard } from "@/features/annict/components/CurrentSeasonConnectCard";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { currentSeason } from "@/components/anime-list/animeListUtils";
 import type { SeasonKey } from "@/components/anime-list/animeListUtils";

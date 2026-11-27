@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react-native";
 import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
-import { AnnictSoftGate } from "@/components/AnnictSoftGate";
+import { AnnictSoftGate } from "@/features/annict/components/AnnictSoftGate";
 import type { AnnictConnectResult } from "@/features/annict";
 
 // useAnnictConnect は expo-web-browser / SecureStore 等のネイティブ依存を持つため、

@@ -1,7 +1,7 @@
 import { ScrollView } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
-import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
+import { AnnictConnectionCard } from "@/features/annict/components/AnnictConnectionCard";
 import { useAnnictConnection } from "@/features/annict";
 import { OnboardingScaffold } from "./OnboardingScaffold";
 

@@ -16,7 +16,7 @@ import { isAnnictTokenError, useAnnictConnection } from "@/features/annict";
 import type { CollageStateFilter } from "@/features/meishi/types";
 import { useAnimeList } from "@/features/works/useAnimeList";
 import { WATCH_STATUS_LABELS } from "@/features/watch-history/useWatchHistory";
-import { AnnictSoftGate } from "@/components/AnnictSoftGate";
+import { AnnictSoftGate } from "@/features/annict/components/AnnictSoftGate";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { formatYearSeason } from "@/components/anime-list/animeListUtils";
 import { Input } from "@/components/ui";
