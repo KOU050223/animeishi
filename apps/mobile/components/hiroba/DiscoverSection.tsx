@@ -2,7 +2,7 @@ import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SegmentedControl } from "@/components/ui";
 import { DiscoverWorkLists } from "./DiscoverWorkLists";
-import { DiscoverTierLists } from "./DiscoverTierLists";
+import { DiscoverTierLists } from "@/features/tier-lists/components/DiscoverTierLists";
 import { DiscoverUsers } from "./DiscoverUsers";
 
 // ひろばタブの「みつける」セクション。

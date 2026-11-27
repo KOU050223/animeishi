@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import type { ViewInstance } from "react-native";
-import type { SnapshotItem } from "@/components/tier-list/TierBoardSnapshot";
+import type { SnapshotItem } from "@/features/tier-lists/components/TierBoardSnapshot";
 
 // スナップショットの描画と画像読み込み（onReady）を待つ上限。
 // 超えたら読み込み途中のまま撮る（共有自体は失敗させない）。

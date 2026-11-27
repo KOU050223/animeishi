@@ -27,7 +27,7 @@ import {
 import { useReportTierListFlow } from "@/features/tier-lists/useReportTierListFlow";
 import { TIER_KIND_LABELS } from "@/features/tier-lists/useMergedTierLists";
 import type { ReportReason } from "@/features/users/useModeration";
-import { DiscoverReportSheet } from "./DiscoverReportSheet";
+import { DiscoverReportSheet } from "@/components/hiroba/DiscoverReportSheet";
 
 // ひろば「みつける」の tier 表フィード（issue #418）。
 // シーズン・キャラ・自由作成の 3 種類を 1 つのフィードに混ぜ、

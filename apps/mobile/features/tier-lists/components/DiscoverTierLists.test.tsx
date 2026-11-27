@@ -4,7 +4,7 @@
 // 通報シートを確かめる（作品リストフィードと同じ振る舞い）。
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { DiscoverTierLists } from "@/components/hiroba/DiscoverTierLists";
+import { DiscoverTierLists } from "@/features/tier-lists/components/DiscoverTierLists";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { alert } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";

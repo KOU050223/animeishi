@@ -81,7 +81,7 @@ let mockSheetProps: {
   heading?: string;
   description?: string;
 } | null = null;
-jest.mock("@/components/tier-list/WorkAddSheet", () => ({
+jest.mock("@/features/tier-lists/components/WorkAddSheet", () => ({
   WorkAddSheet: (props: NonNullable<typeof mockSheetProps>) => {
     mockSheetProps = props;
     return null;

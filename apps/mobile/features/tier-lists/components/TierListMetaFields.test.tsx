@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react-native";
-import { TierListMetaFields } from "@/components/tier-list/TierListMetaFields";
+import { TierListMetaFields } from "@/features/tier-lists/components/TierListMetaFields";
 
 it("リンク共有中でひろば非公開なら、リンク保持者だけが見られると一文で示す", async () => {
   await render(

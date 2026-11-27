@@ -69,14 +69,14 @@ let mockBoardProps: {
   onAssign: (itemId: number, tierKey: string | null) => void;
   onAddItem?: (item: TierItem) => void;
 } | null = null;
-jest.mock("@/components/tier-list/TierBoard", () => ({
+jest.mock("@/features/tier-lists/components/TierBoard", () => ({
   TierBoard: (props: NonNullable<typeof mockBoardProps>) => {
     mockBoardProps = props;
     return props.header;
   },
 }));
 
-jest.mock("@/components/tier-list/TierBoardSnapshot", () => ({
+jest.mock("@/features/tier-lists/components/TierBoardSnapshot", () => ({
   TierBoardSnapshot: () => null,
 }));
 

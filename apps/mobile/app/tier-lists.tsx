@@ -20,7 +20,7 @@ import {
   TIER_KIND_LABELS,
   type MergedTierListItem,
 } from "@/features/tier-lists/useMergedTierLists";
-import { CharacterTierWorkPicker } from "@/components/tier-list/CharacterTierWorkPicker";
+import { CharacterTierWorkPicker } from "@/features/tier-lists/components/CharacterTierWorkPicker";
 import type { TierItem } from "@/features/tier-lists/types";
 
 const KIND_BADGE_STYLES: Record<MergedTierListItem["kind"], string> = {

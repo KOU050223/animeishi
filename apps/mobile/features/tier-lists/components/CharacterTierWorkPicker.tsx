@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { initialWindowMetrics } from "react-native-safe-area-context";
-import { WorkAddSheet } from "@/components/tier-list/WorkAddSheet";
+import { WorkAddSheet } from "@/features/tier-lists/components/WorkAddSheet";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { useWorkCatalogAccess } from "@/features/annict";
 import { useThemeColors } from "@/lib/theme";
