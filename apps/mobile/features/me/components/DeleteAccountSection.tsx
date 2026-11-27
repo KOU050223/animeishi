@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
  * アカウント削除セクション（App Store / Google Play 審査要件）。
  * 段階フロー（退会理由 → 消えるデータの確認 → 最終確認）の入口で、
  * タップで /delete-account へ遷移するだけを担う。削除実行と
- * 端末内データの後片付けは app/delete-account.tsx 側に閉じ込める。
+ * 端末内データの後片付けは features/me/screens/DeleteAccountScreen.tsx 側に閉じ込める。
  */
 export function DeleteAccountSection() {
   const router = useRouter();
