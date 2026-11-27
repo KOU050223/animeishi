@@ -1,0 +1,116 @@
+import { Platform, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
+import { useRouter } from "expo-router";
+import { useHeaderHeight } from "expo-router/react-navigation";
+import { SegmentedControl } from "@/components/ui";
+import { AnimeSection } from "@/features/works/components/AnimeSection";
+import { WatchHistorySection } from "@/features/watch-history/components/WatchHistorySection";
+import { FavoritesSection } from "@/features/favorites/components/FavoritesSection";
+import { useThemeColors } from "@/lib/theme";
+import { useMarkScreenInteractive } from "@/lib/observe";
+
+const SECTIONS = ["anime", "history", "favorites"] as const;
+type Section = (typeof SECTIONS)[number];
+
+function isSection(value: unknown): value is Section {
+  return SECTIONS.includes(value as Section);
+}
+
+// ライブラリタブ。アニメ一覧・検索 / 視聴履歴 / 推し（お気に入り）を
+// 上部のセグメント切り替えで行き来する（issue #170）。
+// 旧タブのパス（/watch-history 等）は app/ 直下のリダイレクトから
+// /library?section=... でここへ着地する。
+export type LibraryScreenParams = {
+  section?: string;
+  q?: string;
+  season?: string;
+  nav?: string;
+};
+
+export function LibraryScreen({ params }: { params: LibraryScreenParams }) {
+  useMarkScreenInteractive();
+  const { t } = useTranslation();
+  // iOS のネイティブヘッダーは large title 指定で透過になりコンテンツが
+  // 下に潜り込むため、固定配置のセグメント切り替えはヘッダー高さ分だけ
+  // 下げる（large title が畳まれると値も変わる）。Android/Web はヘッダーが
+  // 不透明でコンテンツがバー下から始まるため、同じ余白を取ると
+  // ヘッダー下に空白ができてしまう（issue #469）。
+  const headerHeight = useHeaderHeight();
+  const contentTopPadding = Platform.OS === "ios" ? headerHeight : 0;
+  const colors = useThemeColors();
+  const router = useRouter();
+  // セグメント操作も URL の section に反映し、URL を表示状態の唯一の
+  // 参照元にする。ローカル状態で持つと、同じ section への再遷移
+  // （ホームの QR ボタン等）を新しいナビゲーションと区別できない。
+  const section = isSection(params.section) ? params.section : "anime";
+  const setSection = (next: Section) => router.setParams({ section: next });
+
+  // おすすめ画面（issue #335）等からの検索遷移で初期クエリを受け取る。
+  // q も URL を参照元にし、変わったときは AnimeListContent が key で
+  // リマウントして検索語を入れ直す。検索欄の編集は q を書き戻さない
+  // （section 同様「最後に深リンクで指定された検索語」として残る）。
+  const initialQuery =
+    typeof params.q === "string" && params.q ? params.q : undefined;
+
+  // 詳細シートのシーズンチップ（issue #535）からの遷移で初期シーズンを
+  // 受け取る。q と同じく URL を参照元にし、key のリマウントで反映する。
+  const initialSeason =
+    typeof params.season === "string" && params.season
+      ? params.season
+      : undefined;
+  // 同じ初期値への再遷移でもリマウントさせるため、遷移側が毎回変える
+  // マーカー（一覧を手で操作したあと同じシーズンのチップを押しても
+  // 初期状態へ戻せるよう、URL の値自体を変える）。
+  const navNonce = typeof params.nav === "string" ? params.nav : undefined;
+
+  return (
+    // 上端はネイティブの large title、下端はタブバーが safe area を吸収する。
+    <SafeAreaView
+      style={{
+        flex: 1,
+        backgroundColor: colors.background,
+        paddingTop: contentTopPadding,
+      }}
+      edges={[]}
+      testID="library-screen"
+    >
+      <SegmentedControl
+        items={[
+          {
+            label: t("アニメ"),
+            active: section === "anime",
+            onPress: () => setSection("anime"),
+            testID: "library-section-anime",
+          },
+          {
+            label: t("視聴履歴"),
+            active: section === "history",
+            onPress: () => setSection("history"),
+            testID: "library-section-history",
+          },
+          {
+            label: t("推し"),
+            accessibilityLabel: t("推し"),
+            active: section === "favorites",
+            onPress: () => setSection("favorites"),
+            testID: "library-section-favorites",
+          },
+        ]}
+      />
+      <View className="flex-1">
+        {section === "anime" ? (
+          <AnimeSection
+            initialQuery={initialQuery}
+            initialSeason={initialSeason}
+            navNonce={navNonce}
+          />
+        ) : section === "history" ? (
+          <WatchHistorySection />
+        ) : (
+          <FavoritesSection />
+        )}
+      </View>
+    </SafeAreaView>
+  );
+}
