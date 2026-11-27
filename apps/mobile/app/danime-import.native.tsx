@@ -30,7 +30,7 @@ import {
 } from "@animeishi/danime-core";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 import { BackButton } from "@/components/ui";
-import { DanimeEpisodeJobStatus } from "@/components/danime/EpisodeJobStatus";
+import { DanimeEpisodeJobStatus } from "@/features/import/components/EpisodeJobStatus";
 import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
 import { isDanimeWebViewUrlAllowed } from "@/features/import/webviewAllowlist";
 import { useThemeColors } from "@/lib/theme";
