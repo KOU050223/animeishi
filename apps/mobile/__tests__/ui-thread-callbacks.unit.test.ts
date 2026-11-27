@@ -23,7 +23,7 @@ import path from "node:path";
 // （`const g = Gesture.Tap(); g.onEnd(...)` のように文を分けた登録は
 // 拾わない）。このコードベースのジェスチャはすべてチェーン組み立てなので
 // その規約に頼る。
-const SCAN_DIRS = ["app", "components", "lib"];
+const SCAN_DIRS = ["app", "components", "features", "lib"];
 const EXCLUDED_DIRS = new Set([
   "__mocks__",
   "__tests__",

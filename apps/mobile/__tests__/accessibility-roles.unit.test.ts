@@ -4,13 +4,13 @@ import path from "node:path";
 
 // 押せる要素がすべて accessibilityRole を持つことを固定する（issue #722）。
 // oxlint には JSX の属性必須化を表せるルール（no-restricted-syntax 等）が無いため、
-// app/ と components/ の .tsx を走査して検査する。
+// app/ と components/、features/ の .tsx を走査して検査する。
 //
 // CardPressable は内部で既定値 "button" を持ち呼び出し側で上書きできる
 // （components/ui/card-pressable 参照）ため、呼び出し側の明示は不要。
 // その実装内部の TouchableOpacity はこの走査の対象になるので、
 // 既定値が消された場合もここで検出される。
-const SCAN_DIRS = ["app", "components"];
+const SCAN_DIRS = ["app", "components", "features"];
 const PRESSABLE_ELEMENTS = new Set([
   "Pressable",
   "TouchableOpacity",
@@ -193,7 +193,7 @@ describe("押せる要素の accessibilityRole（issue #722）", () => {
     collectTsxFiles(path.join(rootDir, dir)),
   );
 
-  test("app/ と components/ の全押下要素がロールを持つ", () => {
+  test("app/ と components/、features/ の全押下要素がロールを持つ", () => {
     const missing = files.flatMap((file) =>
       findElementsWithoutRole(file).map(
         ({ element, line }) =>
