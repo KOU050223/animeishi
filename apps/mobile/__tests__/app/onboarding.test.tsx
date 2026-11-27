@@ -55,7 +55,7 @@ const mockFakeWorks = [fakeWork(101), fakeWork(102), fakeWork(103)];
 
 // ステップ部品は props のコールバックを testID 経由で叩けるだけの
 // モックに置き換える。各ステップの UI 自体はこのテストの対象外。
-jest.mock("@/components/onboarding/FavoriteWorksStep", () => ({
+jest.mock("@/features/onboarding/components/FavoriteWorksStep", () => ({
   ONBOARDING_FAVORITE_COUNT: 3,
   FavoriteWorksStep: (props: {
     selected: { annictWorkId: number }[];
@@ -84,7 +84,7 @@ jest.mock("@/components/onboarding/FavoriteWorksStep", () => ({
   },
 }));
 
-jest.mock("@/components/onboarding/TemplateStep", () => ({
+jest.mock("@/features/onboarding/components/TemplateStep", () => ({
   TemplateStep: (props: {
     selectedTemplateId: string | null;
     onSelect: (id: string) => void;
@@ -109,7 +109,7 @@ jest.mock("@/components/onboarding/TemplateStep", () => ({
   },
 }));
 
-jest.mock("@/components/onboarding/CompletionStep", () => ({
+jest.mock("@/features/onboarding/components/CompletionStep", () => ({
   CompletionStep: (props: { onNext: () => void; onSkip: () => void }) => {
     const { Pressable, View } = require("react-native");
     return (
@@ -121,7 +121,7 @@ jest.mock("@/components/onboarding/CompletionStep", () => ({
   },
 }));
 
-jest.mock("@/components/onboarding/AnnictStep", () => ({
+jest.mock("@/features/onboarding/components/AnnictStep", () => ({
   AnnictStep: (props: { onNext: () => void; onSkip: () => void }) => {
     const { Pressable, View } = require("react-native");
     return (
