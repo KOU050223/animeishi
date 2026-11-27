@@ -23,7 +23,7 @@ const setScheme = (colorScheme: "light" | "dark") =>
   mockUseColorScheme.mockReturnValue(colorScheme);
 
 // DraggableWorkCard のジェスチャ（RNGH / Reanimated）はテストで再現できないため、
-// ドラッグ開始を press、ドラッグ終了を longPress、キャンセルを touchCancel に
+// ドラッグ開始を press、指の移動を touchMove、ドラッグ終了を longPress、キャンセルを touchCancel に
 // 写像したスタブに差し替える。
 // longPress で報告する指位置はテストごとに変えられるよう mockDropPoint 経由にし、
 // 行内カードにだけ渡される矩形レジストリは mockCardRegistry に退避して、
@@ -49,12 +49,14 @@ jest.mock("./DraggableWorkCard", () => {
       ({
         item,
         onDragStart,
+        onDragMove,
         onDragEnd,
         onDragCancel,
         registry,
       }: {
         item: TierItem;
         onDragStart: (itemId: number) => void;
+        onDragMove: (itemId: number, x: number, y: number) => void;
         onDragEnd: (itemId: number, x: number, y: number) => void;
         onDragCancel: (itemId: number) => void;
         registry?: import("./dropZones").DropZoneRegistry;
@@ -72,6 +74,9 @@ jest.mock("./DraggableWorkCard", () => {
               onDragEnd(item.id, mockDropPoint.x, mockDropPoint.y)
             }
             onTouchCancel={() => onDragCancel(item.id)}
+            onTouchMove={() =>
+              onDragMove(item.id, mockDropPoint.x, mockDropPoint.y)
+            }
           >
             <ActualText>{item.title}</ActualText>
           </Pressable>
@@ -633,6 +638,28 @@ describe("TierBoard のドラッグ中の再レンダリング", () => {
     // ドラッグ開始（draggingId が立ち、行の重なり順が変わって盤面が再レンダリングされる）
     await fireEvent.press(getByTestId("tier-card-1"));
 
+    expect(mockCardRenderCounts).toEqual(before);
+  });
+
+  it("ドラッグ中にハイライトする行が変わっても掴んでいないカードは再レンダリングしない", async () => {
+    mockCardRenderCounts.clear();
+    const { getByTestId } = await render(
+      boardElement({ items: ITEMS, assignment: ASSIGNMENT }),
+    );
+    const card = getByTestId("tier-card-1");
+    await fireEvent.press(card);
+    const registry = mockCardRegistry();
+    if (!registry) throw new Error("registry がカードから渡されていません");
+    registry.register(null, { x: 0, y: 260, width: 300, height: 130 });
+    const before = new Map(mockCardRenderCounts);
+
+    // 未分類トレイの上へ指を動かす（ハイライトが切り替わり盤面が再レンダリングされる）
+    mockDropPoint = { x: 50, y: 300 };
+    await fireEvent(card, "touchMove");
+
+    expect(backgroundColorOf(getByTestId("tier-tray"))).toBe(
+      colors.light.tierDropAreaActive,
+    );
     expect(mockCardRenderCounts).toEqual(before);
   });
 });
