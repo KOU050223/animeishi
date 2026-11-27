@@ -5,7 +5,7 @@ import {
   fireEvent,
   waitFor,
 } from "@testing-library/react-native";
-import { PasskeyRegisterPrompt } from "@/components/auth/PasskeyRegisterPrompt";
+import { PasskeyRegisterPrompt } from "@/features/auth/components/PasskeyRegisterPrompt";
 import { passkeyPromptPending } from "@/features/auth/passkeyPromptPending";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 

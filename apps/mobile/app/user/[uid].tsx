@@ -31,7 +31,7 @@ import { FriendUpdatesSection } from "@/components/social/FriendUpdatesSection";
 import { ExchangeRecordSection } from "@/components/social/ExchangeRecordSection";
 import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";
 import { CommonPoints } from "@/components/social/CommonPoints";
-import { GuestSignUpCta } from "@/components/social/GuestSignUpCta";
+import { GuestSignUpCta } from "@/features/auth/components/GuestSignUpCta";
 import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
 import { saveReceivedMeishi } from "@/features/received-meishi";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";

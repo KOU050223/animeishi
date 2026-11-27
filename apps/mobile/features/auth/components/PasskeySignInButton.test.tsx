@@ -5,7 +5,7 @@ import {
   fireEvent,
   waitFor,
 } from "@testing-library/react-native";
-import { PasskeySignInButton } from "@/components/auth/PasskeySignInButton";
+import { PasskeySignInButton } from "@/features/auth/components/PasskeySignInButton";
 import { resetAuth, getAuthMock, loggedInUser } from "@/test-utils/auth";
 
 // issue #181: Web のパスキーサインイン。コンポーネント自体はフラグを持たず

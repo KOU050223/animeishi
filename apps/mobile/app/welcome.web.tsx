@@ -1,7 +1,7 @@
 import { useAuth } from "@clerk/expo";
 import { Redirect, Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
-import LandingPage from "@/components/landing/LandingPage";
+import LandingPage from "@/features/auth/components/LandingPage";
 import { publicMetadata } from "@/lib/web/publicMetadata";
 
 export function generateMetadata() {

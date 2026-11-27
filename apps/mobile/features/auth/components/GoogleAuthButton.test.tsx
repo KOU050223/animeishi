@@ -5,7 +5,7 @@ import {
   fireEvent,
   waitFor,
 } from "@testing-library/react-native";
-import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import { GoogleAuthButton } from "@/features/auth/components/GoogleAuthButton";
 import { onboardingPending } from "@/features/onboarding";
 import { resetAuth, getAuthMock } from "@/test-utils/auth";
 import type { GoogleAuthResult } from "@/features/auth/googleAuth";

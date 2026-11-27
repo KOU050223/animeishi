@@ -17,7 +17,7 @@ import {
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui";
-import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import { GoogleAuthButton } from "@/features/auth/components/GoogleAuthButton";
 import * as v from "valibot";
 import { signUpSchema } from "@/features/auth/validators";
 import {
@@ -30,7 +30,7 @@ import { useSignOut } from "@/features/auth/useSignOut";
 import { featureFlags } from "@/lib/featureFlags";
 import { passkeyPromptPending } from "@/features/auth/passkeyPromptPending";
 import { onboardingPending } from "@/features/onboarding";
-import { PasskeyRegisterPrompt } from "@/components/auth/PasskeyRegisterPrompt";
+import { PasskeyRegisterPrompt } from "@/features/auth/components/PasskeyRegisterPrompt";
 import { useThemeColors } from "@/lib/theme";
 import { trackEvent } from "@/lib/events";
 import type { TranslationKey } from "@/lib/i18n/keys";
