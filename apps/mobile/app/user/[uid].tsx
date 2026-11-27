@@ -58,7 +58,7 @@ import {
 } from "@/features/friend-requests/useFriendRequests";
 import type { FriendRequestItem } from "@/features/friend-requests/useFriendRequests";
 import { useThemeColors } from "@/lib/theme";
-import { SocialLinksList } from "@/components/profile/SocialLinksList";
+import { SocialLinksList } from "@/features/social-links/components/SocialLinksList";
 
 export default function PublicProfilePage() {
   const { t } = useTranslation();

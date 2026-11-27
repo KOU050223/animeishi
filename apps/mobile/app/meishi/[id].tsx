@@ -25,7 +25,7 @@ import { useMeishiRenderContext } from "@/features/meishi/useMeishiRenderContext
 import { useProfile } from "@/features/me/useProfile";
 import { useThemeColors } from "@/lib/theme";
 import { useSocialLinks } from "@/features/social-links/socialLinks";
-import { SocialLinksList } from "@/components/profile/SocialLinksList";
+import { SocialLinksList } from "@/features/social-links/components/SocialLinksList";
 import type { ThemeColors } from "@/lib/theme";
 
 /**
