@@ -19,7 +19,7 @@ import {
 } from "@/features/feed/friendStorySeen";
 import type { StorySeenMap } from "@/features/feed/friendStorySeen";
 import { useThemeColors } from "@/lib/theme";
-import { FriendStoryViewer } from "@/components/FriendStoryViewer";
+import { FriendStoryViewer } from "@/features/feed/components/FriendStoryViewer";
 
 // 直近 24 時間に視聴記録をつけたフレンドの丸アイコンを横並びに出す
 // （issue #266）。タップで全画面ビューアを開く。既読かどうかは枠の色で

@@ -55,7 +55,7 @@ jest.mock("expo-router", () => ({
 }));
 
 // ストーリーリング本体の振る舞いは FriendStoryRail.test.tsx 側で検証する。
-jest.mock("@/components/FriendStoryRail", () => ({
+jest.mock("@/features/feed/components/FriendStoryRail", () => ({
   FriendStoryRail: () => {
     const { Text } = require("react-native");
     return <Text testID="friend-story-rail">ストーリーリング</Text>;

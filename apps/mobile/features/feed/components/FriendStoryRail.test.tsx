@@ -6,7 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { FriendStoryRail } from "@/components/FriendStoryRail";
+import { FriendStoryRail } from "@/features/feed/components/FriendStoryRail";
 import type { FriendWatchStory } from "@/features/feed/useFriendWatchStories";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 

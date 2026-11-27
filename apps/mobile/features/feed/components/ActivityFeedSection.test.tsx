@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
-import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
+import { ActivityFeedSection } from "@/features/feed/components/ActivityFeedSection";
 
 // RNTL 14 では UNSAFE_getByType が無いため queryAll でホスト要素を探す
 // （ui/Button.test.tsx と同じ手法）。

@@ -38,7 +38,7 @@ jest.mock("@/components/social/FriendsSection", () => ({
     return ActualReact.createElement(Text, { testID: "section-friends" });
   },
 }));
-jest.mock("@/components/social/ActivityFeedSection", () => ({
+jest.mock("@/features/feed/components/ActivityFeedSection", () => ({
   ActivityFeedSection: () => {
     const ActualReact = require("react");
     const { Text } = require("react-native");

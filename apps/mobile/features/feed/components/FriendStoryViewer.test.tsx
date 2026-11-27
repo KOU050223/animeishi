@@ -1,6 +1,6 @@
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { FriendStoryViewer } from "@/components/FriendStoryViewer";
+import { FriendStoryViewer } from "@/features/feed/components/FriendStoryViewer";
 import type { FriendWatchStory } from "@/features/feed/useFriendWatchStories";
 import { WorkDetailContext } from "@/features/works/workDetailContext";
 

@@ -14,10 +14,10 @@ import {
 import { Icon } from "@/components/ui";
 import type { IconName } from "@/components/ui";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
-import { FriendStoryRail } from "@/components/FriendStoryRail";
+import { FriendStoryRail } from "@/features/feed/components/FriendStoryRail";
 import { CurrentSeasonWatchingRail } from "@/features/watch-history/components/CurrentSeasonWatchingRail";
 import { MeishiCompletionCard } from "@/features/meishi/components/MeishiCompletionCard";
-import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
+import { ActivityFeedSection } from "@/features/feed/components/ActivityFeedSection";
 import { ArticleRail } from "@/features/articles/components/ArticleRail";
 import { ElectionRail } from "@/features/elections/components/ElectionRail";
 import { EventRail } from "@/features/events/components/EventRail";

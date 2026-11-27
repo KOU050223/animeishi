@@ -5,7 +5,7 @@ import { useHeaderHeight } from "expo-router/react-navigation";
 import { SegmentedControl } from "@/components/ui";
 import { QrSection } from "@/components/social/QrSection";
 import { FriendsSection } from "@/components/social/FriendsSection";
-import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
+import { ActivityFeedSection } from "@/features/feed/components/ActivityFeedSection";
 import { useReceivedFriendRequestCount } from "@/features/friend-requests/useFriendRequests";
 import { useTranslation } from "react-i18next";
 
