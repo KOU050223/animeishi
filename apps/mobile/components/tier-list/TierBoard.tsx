@@ -272,31 +272,35 @@ export function TierBoard({
   );
 
   // 支援技術からの移動用に、全 tier 行と未分類トレイを移動先として並べる。
-  const moveDestinations: TierMoveDestination[] = [
-    ...tiers.map((tier) => ({
-      tierKey: tier.key as string | null,
-      label: t("{{tier}} に移動", { tier: tier.label }),
-    })),
-    {
-      tierKey: null,
-      label: t("{{tier}} に戻す", { tier: t(UNASSIGNED_LABEL) }),
-    },
-  ];
+  // memo したカードへ渡すため参照を固定する（変わると全カードが描き直される）。
+  const moveDestinations = useMemo<TierMoveDestination[]>(
+    () => [
+      ...tiers.map((tier) => ({
+        tierKey: tier.key as string | null,
+        label: t("{{tier}} に移動", { tier: tier.label }),
+      })),
+      {
+        tierKey: null,
+        label: t("{{tier}} に戻す", { tier: t(UNASSIGNED_LABEL) }),
+      },
+    ],
+    [tiers, t],
+  );
 
+  // カードへ渡す props はカード間で共有する参照だけにする（カード単位の
+  // クロージャを作らない）。理由は DraggableWorkCardProps の上のコメント参照。
   const renderCard = (item: TierItem, currentTierKey: string | null) => (
     <DraggableWorkCard
       key={item.id}
       item={item}
-      onPress={onItemPress ? () => onItemPress(item) : undefined}
-      onDragStart={() => handleDragStart(item.id)}
-      onDragMove={(x, y) => handleDragMove(item.id, x, y)}
-      onDragEnd={(x, y) => handleDragEnd(item.id, x, y)}
-      onDragCancel={() => handleDragCancel(item.id)}
-      // 今いる場所は移動先に出さない（選んでも何も起きないため）
-      moveDestinations={moveDestinations.filter(
-        (d) => d.tierKey !== currentTierKey,
-      )}
-      onMove={(tierKey) => onAssign(item.id, tierKey)}
+      currentTierKey={currentTierKey}
+      onPress={onItemPress}
+      onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+      moveDestinations={moveDestinations}
+      onMove={onAssign}
       scrollCompensation={dragScrollCompensation}
       scrollCompensationOwner={dragOwnerId}
       // 行内の挿入位置判定に使う矩形を登録するのは tier 行のカードだけ。
