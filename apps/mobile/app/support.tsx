@@ -1,11 +1,5 @@
-import { useTranslation } from "react-i18next";
-import {
-  LegalDocument,
-  type LegalSection,
-} from "@/features/legal/components/LegalDocument";
-import { CONTACT_EMAIL } from "@/features/legal/operator";
+import { SupportScreen } from "@/features/legal/screens/SupportScreen";
 import { publicMetadata } from "@/lib/web/publicMetadata";
-import type { TranslationKey } from "@/lib/i18n/keys";
 
 export function generateMetadata() {
   return publicMetadata(
@@ -15,72 +9,6 @@ export function generateMetadata() {
   );
 }
 
-// ストア掲載のサポート URL（https://animeishi.uomi.dev/support）として公開するページ。
-// 回答は apps/mobile の実画面・実機能と照合して書くこと。未実装の案内は書かない。
-const SECTIONS: LegalSection[] = [
-  {
-    heading: "Q. 視聴履歴や作品検索が使えません",
-    paragraphs: [
-      "視聴履歴の表示・更新と作品検索には Annict との連携が必要です。サインイン後、プロフィールタブの「Annict 連携」カードから Annict アカウントと連携してください。",
-    ],
-  },
-  {
-    heading: "Q. 名刺を交換できません",
-    paragraphs: [
-      "QR タブの「マイQR」に表示されるコードを相手の「スキャン」で読み取ると名刺を交換できます。QR コードの表示にはサインインが必要です。",
-    ],
-  },
-  {
-    heading: "Q. dアニメストアの視聴履歴を取り込めません",
-    paragraphs: [
-      "視聴履歴の取り込みは Web 版（https://animeishi.uomi.dev）でのみ利用できます。Web 版にサインイン後、視聴履歴画面の「dアニメからインポート」から取り込み画面を開き、案内に従ってブックマークレットをブラウザのブックマークバーに登録してください。dアニメストアの視聴履歴ページでログインした状態でそのブックマークを実行すると、抽出結果が自動で転送されます。転送に失敗した場合は結果がクリップボードにコピーされるので、取り込み画面の貼り付け欄に貼って進んでください。取り込んだ作品は Annict の視聴ステータスに反映されます。",
-    ],
-  },
-  {
-    heading: "Q. アカウントやデータを削除したいです",
-    paragraphs: [
-      "サインイン後、プロフィール画面の「アカウントを削除」から削除できます。名刺・視聴履歴・推し・フレンド・Tier表など、すべてのデータが削除され、この操作は取り消せません。",
-    ],
-  },
-  {
-    heading: "不具合報告・ご意見",
-    paragraphs: [
-      "アプリの不具合やほしい機能・ご意見は、アプリ内のフォームから送信できます。サインイン後、ホーム画面右上の吹き出しアイコンからも開けます。",
-    ],
-    action: {
-      label: "不具合報告・ご意見を送る",
-      href: "/feedback",
-      testID: "support-open-feedback",
-    },
-  },
-  {
-    heading: "お問い合わせ",
-    paragraphs: [
-      "上記で解決しない場合は、以下の連絡先までお問い合わせください。",
-      `連絡先: ${CONTACT_EMAIL}`,
-    ],
-  },
-];
-
-export default function SupportScreen() {
-  const { t } = useTranslation();
-  const sections: LegalSection[] = SECTIONS.map((section) => ({
-    ...section,
-    heading: t(section.heading as TranslationKey),
-    paragraphs: section.paragraphs?.map((paragraph) =>
-      paragraph.includes(CONTACT_EMAIL)
-        ? t("連絡先: {{email}}", { email: CONTACT_EMAIL })
-        : t(paragraph as TranslationKey),
-    ),
-    action: section.action
-      ? { ...section.action, label: t(section.action.label as TranslationKey) }
-      : undefined,
-  }));
-  return (
-    <LegalDocument
-      title={t("サポート")}
-      effectiveDate={t("最終更新: 2026年11月11日")}
-      sections={sections}
-    />
-  );
+export default function SupportRoute() {
+  return <SupportScreen />;
 }
