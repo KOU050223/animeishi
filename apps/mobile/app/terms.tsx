@@ -1,4 +1,7 @@
-import { LegalDocument, type LegalSection } from "@/components/LegalDocument";
+import {
+  LegalDocument,
+  type LegalSection,
+} from "@/features/legal/components/LegalDocument";
 import { OPERATOR_NAME } from "@/features/legal/operator";
 import { publicMetadata } from "@/lib/web/publicMetadata";
 
