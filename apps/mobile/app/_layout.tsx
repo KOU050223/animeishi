@@ -20,7 +20,7 @@ import { useColorScheme } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
-import { AchievementCelebrationHost } from "@/components/achievements/AchievementCelebrationHost";
+import { AchievementCelebrationHost } from "@/features/achievements/components/AchievementCelebrationHost";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import {
   queryClient,
